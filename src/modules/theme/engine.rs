@@ -1,18 +1,21 @@
 use minijinja::{AutoEscape, Environment, Value};
-use std::sync::Arc;
+use std::path::Path;
 
-use super::repository;
+use super::context::TemplateContext;
 use crate::shared::error::AppResult;
-use crate::state::AppState;
 
-/// Build a fresh MiniJinja Environment for the current request.
+/// Build a MiniJinja Environment for the current request.
 ///
-/// Strategy 1A: Dynamic template loader — reads templates from disk on every request.
-/// Strategy 2B: Context Functions — exposes DB query functions to templates.
-/// Strategy 3B: theme_assets_url helper — generates named static paths.
-pub async fn build_template_engine(state: Arc<AppState>) -> AppResult<Environment<'static>> {
-    let active_theme = repository::get_active_theme(&state.pool).await?;
-    let template_dir = state.theme_dir.join(&active_theme).join("templates");
+/// `theme_dir` is the base themes directory (e.g., `state.theme_dir`).
+/// The active theme slug comes from `ctx.active_theme`.
+/// All other data has been pre-fetched into `ctx`.
+/// No async DB queries happen inside synchronous MiniJinja closures,
+/// eliminating the `block_in_place` deadlock risk.
+pub fn build_template_engine(
+    ctx: &TemplateContext,
+    theme_dir: &Path,
+) -> AppResult<Environment<'static>> {
+    let template_dir = theme_dir.join(&ctx.active_theme).join("templates");
 
     let mut env = Environment::new();
     env.set_auto_escape_callback(|name| {
@@ -38,43 +41,17 @@ pub async fn build_template_engine(state: Arc<AppState>) -> AppResult<Environmen
     });
 
     // ── Globals ──────────────────────────────────────────────────────
-    let site_title =
-        crate::modules::setting::repository::get_string(&state.pool, "site_title", "InkForge")
-            .await
-            .unwrap_or_else(|_| "InkForge".to_string());
-    env.add_global("site_title", Value::from(site_title));
+    env.add_global("site_title", Value::from(&ctx.site_title));
+    env.add_global("site_description", Value::from(&ctx.site_description));
+    env.add_global("site_url", Value::from(&ctx.site_url));
+    env.add_global("admin_url", Value::from(&ctx.admin_url));
 
-    let site_description =
-        crate::modules::setting::repository::get_string(&state.pool, "site_description", "")
-            .await
-            .unwrap_or_default();
-    env.add_global("site_description", Value::from(site_description));
-
-    let site_url =
-        crate::modules::setting::repository::get_string(&state.pool, "site_url", "")
-            .await
-            .unwrap_or_default();
-    env.add_global("site_url", Value::from(site_url));
-
-    let admin_url = crate::modules::setting::repository::get_string(
-        &state.pool,
-        "admin_url",
-        "/admin",
-    )
-    .await
-    .unwrap_or_else(|_| "/admin".to_string());
-    env.add_global("admin_url", Value::from(admin_url));
-
-    // Theme config (HashMap<String, serde_json::Value>)
-    let theme_config = repository::get_config(&state.pool, &active_theme)
-        .await
-        .unwrap_or(None);
-    if let Some(cfg) = theme_config {
-        env.add_global("theme_config", Value::from_serialize(&cfg));
+    if let Some(ref cfg) = ctx.theme_config {
+        env.add_global("theme_config", Value::from_serialize(cfg));
     }
 
     // ── 3B: theme_assets_url helper ──────────────────────────────────
-    let slug = active_theme.clone();
+    let slug = ctx.active_theme.clone();
     env.add_function(
         "theme_assets_url",
         move |path: String| -> Result<Value, minijinja::Error> {
@@ -108,64 +85,25 @@ pub async fn build_template_engine(state: Arc<AppState>) -> AppResult<Environmen
         },
     );
 
-    // ── 2B: Context Functions ────────────────────────────────────────
-    // get_recent_posts(limit=10)
-    let pool_posts = state.pool.clone();
+    // ── 2B: Context Functions (pre-fetched data, no block_in_place) ──
+    let posts = ctx.recent_posts.clone();
     env.add_function(
         "get_recent_posts",
-        move |limit: Option<i64>| -> Result<Value, minijinja::Error> {
-            let limit = limit.unwrap_or(10);
-            let pool = pool_posts.clone();
-            let result = tokio::task::block_in_place(move || {
-                tokio::runtime::Handle::current().block_on(async move {
-                    crate::modules::post::repository::list_recent_public_posts(&pool, limit).await
-                })
-            });
-            match result {
-                Ok(posts) => Ok(Value::from_serialize(&posts)),
-                Err(e) => Err(minijinja::Error::new(
-                    minijinja::ErrorKind::InvalidOperation,
-                    format!("DB error: {}", e),
-                )),
-            }
+        move |_limit: Option<i64>| -> Result<Value, minijinja::Error> {
+            Ok(Value::from_serialize(&posts))
         },
     );
 
-    // get_tags()
-    let pool_tags = state.pool.clone();
+    let tags = ctx.tags.clone();
     env.add_function("get_tags", move || -> Result<Value, minijinja::Error> {
-        let pool = pool_tags.clone();
-        let result = tokio::task::block_in_place(move || {
-            tokio::runtime::Handle::current()
-                .block_on(async move { crate::modules::tag::repository::list_tags(&pool).await })
-        });
-        match result {
-            Ok(tags) => Ok(Value::from_serialize(&tags)),
-            Err(e) => Err(minijinja::Error::new(
-                minijinja::ErrorKind::InvalidOperation,
-                format!("DB error: {}", e),
-            )),
-        }
+        Ok(Value::from_serialize(&tags))
     });
 
-    // get_categories()
-    let pool_cats = state.pool.clone();
+    let cats = ctx.categories.clone();
     env.add_function(
         "get_categories",
         move || -> Result<Value, minijinja::Error> {
-            let pool = pool_cats.clone();
-            let result = tokio::task::block_in_place(move || {
-                tokio::runtime::Handle::current().block_on(async move {
-                    crate::modules::category::repository::list_categories(&pool).await
-                })
-            });
-            match result {
-                Ok(cats) => Ok(Value::from_serialize(&cats)),
-                Err(e) => Err(minijinja::Error::new(
-                    minijinja::ErrorKind::InvalidOperation,
-                    format!("DB error: {}", e),
-                )),
-            }
+            Ok(Value::from_serialize(&cats))
         },
     );
 
