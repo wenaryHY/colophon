@@ -54,6 +54,7 @@ sha2 = "=0.10.9"
 hex = "=0.4.3"
 url = "=2.5.8"
 ammonia = "=4.1.2"
+async-trait = "=0.1.88"
 
 tokio-cron-scheduler = "=0.9.4"
 aws-config = { version = "=1.8.15", optional = true }

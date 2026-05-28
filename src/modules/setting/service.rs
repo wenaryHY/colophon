@@ -68,6 +68,7 @@ pub async fn update_setting(
         }
     }
 
+    state.template_cache.invalidate().await;
     Ok(serde_json::json!({ "updated": true }))
 }
 

@@ -51,6 +51,7 @@ pub async fn activate_theme(
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
     let service = ThemeService::new(state.theme_dir.clone());
     service.activate_theme(&state.pool, &slug).await?;
+    state.template_cache.invalidate().await;
     Ok(Json(ApiResponse::success(
         serde_json::json!({ "activated": slug }),
     )))
@@ -83,6 +84,7 @@ pub async fn save_theme_config(
     service
         .save_theme_config(&state.pool, &slug, &req.config)
         .await?;
+    state.template_cache.invalidate().await;
     Ok(Json(ApiResponse::success(
         serde_json::json!({ "saved": slug }),
     )))

@@ -7,6 +7,7 @@ use tokio::sync::{broadcast, Mutex, RwLock};
 use crate::{
     bootstrap::config::AppConfig,
     modules::setup::domain::SetupStage,
+    modules::theme::cache::TemplateContextCache,
     shared::security::LoginRateLimiter,
     ws::ServerEvent,
 };
@@ -31,6 +32,8 @@ pub struct AppState {
     pub setup_stage: Arc<RwLock<SetupStage>>,
     /// In-memory login rate limiter for basic brute-force protection.
     pub login_rate_limiter: Arc<Mutex<LoginRateLimiter>>,
+    /// Cached template context with TTL-based invalidation.
+    pub template_cache: Arc<TemplateContextCache>,
 }
 
 impl AppState {
@@ -55,6 +58,7 @@ impl AppState {
             admin_url: Arc::new(RwLock::new(admin_url)),
             setup_stage: Arc::new(RwLock::new(setup_stage)),
             login_rate_limiter: Arc::new(Mutex::new(LoginRateLimiter::new())),
+            template_cache: Arc::new(TemplateContextCache::with_default_ttl()),
         })
     }
 

@@ -156,3 +156,5 @@ mod auth_tests;
 mod post_tests;
 mod setup_tests;
 mod backup_tests;
+mod theme_engine_tests;
+mod theme_provider_tests;
