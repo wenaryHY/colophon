@@ -309,6 +309,18 @@ pub async fn serve_active_static(
         return (StatusCode::FORBIDDEN, "403 Forbidden").into_response();
     }
 
+    // ── Security: validate theme_slug is a legitimate installed theme ──
+    let theme_manifest_path = state.theme_dir.join(&theme_slug).join("theme.toml");
+    if !theme_manifest_path.exists() || !theme_manifest_path.is_file() {
+        tracing::warn!(
+            module = "theme",
+            event = "static_theme_slug_invalid",
+            theme_slug = %theme_slug,
+            "requested static file for non-existent theme slug"
+        );
+        return (StatusCode::NOT_FOUND, "404 Not Found").into_response();
+    }
+
     let full_path = state
         .theme_dir
         .join(&theme_slug)
