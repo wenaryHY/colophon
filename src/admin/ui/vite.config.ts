@@ -1,11 +1,13 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
+import type { ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 function printDevUrlPlugin() {
   return {
     name: 'print-dev-url',
-    configureServer(server) {
+    configureServer(server: ViteDevServer) {
       server.httpServer?.once('listening', () => {
         setTimeout(() => {
           console.log('\n\x1b[43m\x1b[30m======================================================\x1b[0m')

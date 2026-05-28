@@ -1,8 +1,8 @@
 # InkForge 项目现状（唯一真相来源）
 
-**最后更新**: 2026-04-12  
-**版本**: v0.3.5  
-**状态**: 开发中（Phase 3A 已结项验收，目前正在执行 Phase 3B Tauri In-Process 底座落地）
+**最后更新**: 2026-05-29  
+**版本**: v0.3.6-dev  
+**状态**: 开发中（架构演进 Phase 1/2 已完成，Tauri 壳已可编译，准备 Phase 3 插件系统）
 
 ---
 
@@ -20,6 +20,7 @@ InkForge 是一个 **Web 优先单体 CMS**。技术债已全部收口，核心�
 | 前端 | React 19 + TypeScript + Vite 8 | 已落地 |
 | 编辑器 | Tiptap + CodeMirror 6 | 已落地 |
 | 模板渲染 | MiniJinja | 已落地 |
+| 模板缓存 | TemplateContextCache（30s TTL + RwLock 双重检查） | 已落地 |
 | 搜索 | SQLite FTS5 | 已落地 |
 | 桌面壳 | Tauri 2 (In-Process 单进程模式) | 核心重构完成，进入打包验证 |
 | 测试基建 | Playwright (前端E2E) + 原生 Cargo test (后端集成) | 已落地并覆盖核心链路 |
@@ -140,6 +141,7 @@ InkForge 是一个 **Web 优先单体 CMS**。技术债已全部收口，核心�
 8. **在桌面端验收稳定前，不继续前推插件系统**
 9. ~~**消除 block_in_place 死锁风险 + 模板预提取底座**~~ ✅ 已完成（架构演进 Phase 1）
 10. ~~**模板引擎 trait 解耦 + TTL 缓存**~~ ✅ 已完成（架构演进 Phase 2）
+11. **Tauri 壳：已可编译，待修复 .ico 打包后即可全平台分发**
 
 ---
 
