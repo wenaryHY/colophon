@@ -397,3 +397,30 @@ pub async fn serve_upload_static(
         }
     }
 }
+
+pub async fn serve_plugin_static(
+    Path((plugin_slug, file_path)): Path<(String, String)>,
+) -> impl IntoResponse {
+    if file_path.contains("..") || file_path.contains('\\') || file_path.starts_with('/') {
+        return (StatusCode::FORBIDDEN, "403 Forbidden").into_response();
+    }
+
+    let plugins_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("plugins");
+    let full_path = plugins_dir.join(&plugin_slug).join("static").join(&file_path);
+
+    let ext = full_path.extension().and_then(|s| s.to_str()).unwrap_or("");
+    let mime = match ext {
+        "css" => "text/css",
+        "js" => "application/javascript",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "svg" => "image/svg+xml",
+        "woff2" => "font/woff2",
+        _ => "application/octet-stream",
+    };
+
+    match tokio::fs::read(&full_path).await {
+        Ok(d) => ([(header::CONTENT_TYPE, mime)], d).into_response(),
+        Err(_) => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
+    }
+}

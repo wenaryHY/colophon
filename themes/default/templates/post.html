@@ -210,6 +210,7 @@ a{color:var(--accent);text-decoration:none}
   .site-footer{flex-direction:column;gap:10px;align-items:flex-start}
 }
 </style>
+{{ plugin_head|safe }}
 </head>
 <body>
 <div class="wrap">
@@ -303,6 +304,7 @@ a{color:var(--accent);text-decoration:none}
 
   </footer>
 </div>
+{{ plugin_body|safe }}
 </body>
 <script>
   // 注入文章数据供 comments.js 使用

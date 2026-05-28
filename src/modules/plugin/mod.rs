@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::shared::error::AppResult;
 use crate::state::AppState;
 
+pub mod asset;
 pub mod registry;
 pub mod manager;
 
@@ -28,5 +29,9 @@ pub trait Plugin: Send + Sync {
 
     fn extend_template_env(&self, _env: &mut Environment<'_>) -> AppResult<()> {
         Ok(())
+    }
+
+    fn frontend_assets(&self) -> Vec<crate::modules::plugin::asset::PluginAsset> {
+        vec![]
     }
 }

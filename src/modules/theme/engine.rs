@@ -127,5 +127,11 @@ pub fn build_template_engine(
 
     plugin_manager.extend_template_env(&mut env)?;
 
+    let head_html = plugin_manager.render_asset_html("head");
+    env.add_global("plugin_head", Value::from_safe_string(head_html));
+
+    let body_html = plugin_manager.render_asset_html("body");
+    env.add_global("plugin_body", Value::from_safe_string(body_html));
+
     Ok(env)
 }

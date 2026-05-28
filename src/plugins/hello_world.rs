@@ -3,6 +3,7 @@ use axum::{extract::State, response::IntoResponse, routing::get, Json, Router};
 use minijinja::Environment;
 use std::sync::Arc;
 
+use crate::modules::plugin::asset::{AssetPlacement, PluginAsset};
 use crate::modules::plugin::Plugin;
 use crate::shared::error::AppResult;
 use crate::state::AppState;
@@ -55,5 +56,9 @@ impl Plugin for HelloWorldPlugin {
             },
         );
         Ok(())
+    }
+
+    fn frontend_assets(&self) -> Vec<PluginAsset> {
+        vec![PluginAsset::css(self.name(), "hello.css", AssetPlacement::Head)]
     }
 }

@@ -6,6 +6,7 @@ use minijinja::Environment;
 use crate::shared::error::AppResult;
 use crate::state::AppState;
 
+use super::asset::PluginAsset;
 use super::registry;
 use super::Plugin;
 
@@ -68,5 +69,26 @@ impl PluginManager {
 
     pub fn is_empty(&self) -> bool {
         self.plugins.is_empty()
+    }
+
+    pub fn collect_assets(&self) -> Vec<PluginAsset> {
+        let mut assets = Vec::new();
+        for plugin in &self.plugins {
+            assets.extend(plugin.frontend_assets());
+        }
+        assets
+    }
+
+    pub fn render_asset_html(&self, placement: &str) -> String {
+        self.collect_assets()
+            .iter()
+            .filter(|a| match placement {
+                "head" => matches!(a.placement, super::asset::AssetPlacement::Head),
+                "body" => matches!(a.placement, super::asset::AssetPlacement::Body),
+                _ => false,
+            })
+            .map(|a| a.render_html())
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }

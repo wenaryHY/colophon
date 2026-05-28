@@ -271,6 +271,10 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             get(modules::theme::handler::serve_active_static),
         )
         .route("/uploads/*file_path", get(modules::theme::handler::serve_upload_static))
+        .route(
+            "/static/plugins/:plugin_slug/*file_path",
+            get(modules::theme::handler::serve_plugin_static),
+        )
         .route("/setup", get(serve_setup_entry))
         .route("/admin", get(serve_admin_entry))
         .route("/admin/", get(redirect_admin_with_trailing_slash))
