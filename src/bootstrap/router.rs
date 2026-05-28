@@ -39,28 +39,16 @@ async fn render_home_entry(
     auth: Option<crate::shared::auth::AuthUser>,
 ) -> crate::shared::error::AppResult<Response> {
     if !(*state.setup_stage.read().await).is_completed() {
-        return Ok(Redirect::temporary("/setup").into_response());
+        return Ok(Redirect::temporary("/admin").into_response());
     }
     modules::theme::handler::render_home(State(state), headers, auth).await
 }
 
-async fn serve_setup_entry(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if (*state.setup_stage.read().await).is_completed() {
-        let admin_url = state.admin_url.read().await.clone();
-        let target = if admin_url.is_empty() {
-            "/admin".to_string()
-        } else {
-            admin_url
-        };
-        return Redirect::temporary(&target).into_response();
-    }
-    serve_admin_index(State(state)).await.into_response()
+async fn serve_setup_entry() -> impl IntoResponse {
+    Redirect::temporary("/admin").into_response()
 }
 
 async fn serve_admin_entry(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if !(*state.setup_stage.read().await).is_completed() {
-        return Redirect::temporary("/setup").into_response();
-    }
     serve_admin_index(State(state)).await.into_response()
 }
 
@@ -72,9 +60,6 @@ async fn serve_admin_path(
     Path(path): Path<String>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    if !(*state.setup_stage.read().await).is_completed() && !is_admin_asset_path(&path) {
-        return Redirect::temporary("/setup").into_response();
-    }
     if is_admin_asset_path(&path) {
         return admin::admin_static(Path(path), State(state)).await.into_response();
     }

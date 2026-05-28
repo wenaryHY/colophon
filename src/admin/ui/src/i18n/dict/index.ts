@@ -5,6 +5,7 @@ import { loginDict } from './login';
 import { postsDict } from './posts';
 import { settingsDict } from './settings';
 import { contentDict } from './content';
+import { setupDict } from './setup';
 
 // 合并所有字典
 export const dictionary = {
@@ -15,6 +16,7 @@ export const dictionary = {
     ...postsDict.zh,
     ...settingsDict.zh,
     ...contentDict.zh,
+    ...setupDict.zh,
   },
   en: {
     ...commonDict.en,
@@ -23,6 +25,7 @@ export const dictionary = {
     ...postsDict.en,
     ...settingsDict.en,
     ...contentDict.en,
+    ...setupDict.en,
   },
 };
 

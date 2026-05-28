@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiData, API_PREFIX } from '../lib/api';
 import type { SetupStatusResponse } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +24,7 @@ export default function Login() {
   const [regDisplayName, setRegDisplayName] = useState('');
   const [setupLoaded, setSetupLoaded] = useState(false);
   const [registerAvailable, setRegisterAvailable] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
@@ -30,7 +32,7 @@ export default function Login() {
       .then((status) => {
         if (!active) return;
         if (!status.installed) {
-          window.location.replace('/setup');
+          navigate('/setup');
           return;
         }
         setRegisterAvailable(status.allow_register);

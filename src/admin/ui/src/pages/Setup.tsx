@@ -58,7 +58,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 export default function Setup() {
   const toast = useToast();
-  const { lang, setLang } = useI18n();
+  const { t, lang, setLang } = useI18n();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -157,7 +157,7 @@ export default function Setup() {
   if (loading) {
     return (
       <div className="setup-wrapper">
-        <div className="setup-loading">正在检查安装状态…</div>
+        <div className="setup-loading">{t('checkingSetup')}</div>
       </div>
     );
   }
@@ -168,15 +168,15 @@ export default function Setup() {
         <div className="md3-card md3-card-completed if-scale-in">
           <div className="md3-card-body">
             <div className="md3-icon-success">✓</div>
-            <h2 className="md3-title font-headline">安装完成</h2>
-            <p className="md3-desc">首个管理员已创建，运行时配置也已刷新。系统会自动跳转到你刚设置的后台入口。</p>
+            <h2 className="md3-title font-headline">{t('setupCompleted')}</h2>
+            <p className="md3-desc">{t('setupCompletedDesc')}</p>
             <div className="md3-target-url">{redirectTarget}</div>
             <button
               type="button"
               className="md3-btn md3-btn-primary"
               onClick={() => { navigateToAdmin(redirectTarget); }}
             >
-              立即进入后台
+              {t('enterAdmin')}
             </button>
           </div>
         </div>
@@ -192,8 +192,8 @@ export default function Setup() {
           background: linear-gradient(180deg, rgba(249,115,22,0.08) 0%, rgba(255,255,255,0.92) 30%, var(--md-background) 100%);
           padding: 32px 20px 48px;
           display: flex;
-          justifyContent: center;
-          alignItems: center;
+          justify-content: center;
+          align-items: center;
           position: relative;
           overflow: hidden;
         }
@@ -400,11 +400,11 @@ export default function Setup() {
             <div className="md3-header-top">
               <div>
                 <div className="md3-badge">
-                  InkForge Setup
+                  {t('setupBadge')}
                 </div>
-                <h1 className="md3-header-title font-headline">完成首次安装</h1>
+                <h1 className="md3-header-title font-headline">{t('setupTitle')}</h1>
                 <p className="md3-header-desc">
-                  先配置前台公开地址和后台入口，再创建首个管理员。安装完成后，系统会自动进入你刚设置的后台地址。
+                  {t('setupDesc')}
                 </p>
               </div>
               <div className="md3-lang-switcher">
@@ -415,7 +415,7 @@ export default function Setup() {
                     onClick={() => setLang(value)}
                     className={`md3-lang-btn ${lang === value ? 'active' : ''}`}
                   >
-                    {value === 'zh' ? '中文' : 'EN'}
+                    {value === 'zh' ? t('langZh') : t('langEn')}
                   </button>
                 ))}
               </div>
@@ -425,48 +425,48 @@ export default function Setup() {
           <form onSubmit={handleSubmit} className="md3-form">
             <section className="md3-section">
               <div>
-                <h2 className="md3-section-title font-headline">1. 站点入口</h2>
-                <p className="md3-section-desc">前台公开地址必须是纯 origin；后台入口必须是完整 URL，且路径固定为 `/admin`。</p>
+                <h2 className="md3-section-title font-headline">{t('siteSection')}</h2>
+                <p className="md3-section-desc">{t('siteSectionDesc')}</p>
               </div>
               <div className="md3-grid-2">
-                <Field label="站点标题">
+                <Field label={t('siteTitle')}>
                   <input value={form.site_title} onChange={(e) => update('site_title', e.target.value)} className="md3-input" placeholder="InkForge" />
                 </Field>
-                <Field label="公开站点 URL" hint="例如 http://localhost:2000 或 https://www.example.com">
+                <Field label={t('siteUrl')} hint={t('siteUrlHint')}>
                   <input value={form.site_url} onChange={(e) => handleSiteUrlChange(e.target.value)} className="md3-input" placeholder="http://localhost:2000" />
                 </Field>
-                <Field label="后台入口 URL" hint="必须是完整后台入口，例如 http://localhost:2000/admin">
+                <Field label={t('adminUrl')} hint={t('adminUrlHint')}>
                   <input value={form.admin_url} onChange={(e) => update('admin_url', e.target.value)} className="md3-input" placeholder="http://localhost:2000/admin" />
 
                 </Field>
-                <Field label="公开注册">
+                <Field label={t('allowRegister')}>
                   <select value={form.allow_register ? 'true' : 'false'} onChange={(e) => update('allow_register', e.target.value === 'true')} className="md3-input">
-                    <option value="true">允许安装后公开注册</option>
-                    <option value="false">安装后默认关闭注册</option>
+                    <option value="true">{t('allowRegisterOn')}</option>
+                    <option value="false">{t('allowRegisterOff')}</option>
                   </select>
                 </Field>
               </div>
-              <Field label="站点描述" hint="用于 SEO 与首页摘要展示，可留空。">
+              <Field label={t('siteDescription')} hint={t('siteDescriptionHint')}>
                 <textarea value={form.site_description} onChange={(e) => update('site_description', e.target.value)} className="md3-input" style={{ minHeight: '108px', resize: 'vertical' }} placeholder="A personal blog powered by InkForge" />
               </Field>
             </section>
 
             <section className="md3-section">
               <div>
-                <h2 className="md3-section-title font-headline">2. 初始管理员</h2>
-                <p className="md3-section-desc">这个账号会在安装完成后立即登录，用于进入后台继续管理站点。</p>
+                <h2 className="md3-section-title font-headline">{t('adminSection')}</h2>
+                <p className="md3-section-desc">{t('adminSectionDesc')}</p>
               </div>
               <div className="md3-grid-3">
-                <Field label="用户名">
+                <Field label={t('username')}>
                   <input value={form.username} onChange={(e) => update('username', e.target.value)} className="md3-input" placeholder="admin" />
                 </Field>
-                <Field label="邮箱">
+                <Field label={t('email')}>
                   <input type="email" value={form.email} onChange={(e) => update('email', e.target.value)} className="md3-input" placeholder="admin@example.com" />
                 </Field>
-                <Field label="显示名称" hint="留空时默认使用用户名。">
+                <Field label={t('displayName')} hint={t('displayNameHint')}>
                   <input value={form.display_name} onChange={(e) => update('display_name', e.target.value)} className="md3-input" placeholder="管理员" />
                 </Field>
-                <Field label="密码" hint="至少 6 个字符。">
+                <Field label={t('password')} hint={t('passwordHint')}>
                   <input type="password" value={form.password} onChange={(e) => update('password', e.target.value)} className="md3-input" placeholder="******" />
                 </Field>
               </div>
@@ -474,14 +474,14 @@ export default function Setup() {
 
             <div className="md3-footer">
               <span className="md3-footer-text">
-                提交后会把安装阶段推进到 `completed`、创建首个管理员，并把会话直接切到新后台入口。
+                {t('footerText')}
               </span>
               <button
                 type="submit"
                 disabled={!canSubmit || submitting}
                 className="md3-btn-primary"
               >
-                {submitting ? '正在安装…' : '完成安装并进入后台'}
+                {submitting ? t('installing') : t('submitBtn')}
               </button>
             </div>
           </form>
