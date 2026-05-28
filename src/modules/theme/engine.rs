@@ -26,17 +26,29 @@ pub fn build_template_engine(
         }
     });
 
-    // ── 1A: Dynamic template loader ──────────────────────────────────
+    // ── 1A: Dynamic template loader (with path traversal protection) ─
     let loader_path = template_dir.clone();
     env.set_loader(move |name| {
-        let path = loader_path.join(name);
-        match std::fs::read_to_string(path) {
-            Ok(content) => Ok(Some(content)),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(minijinja::Error::new(
-                minijinja::ErrorKind::TemplateNotFound,
-                format!("IO error: {}", e),
-            )),
+        let raw_path = loader_path.join(name);
+        // Security: canonicalize the path and ensure it stays within the template directory
+        match std::fs::canonicalize(&raw_path) {
+            Ok(canonical) => {
+                if !canonical.starts_with(&loader_path) {
+                    return Err(minijinja::Error::new(
+                        minijinja::ErrorKind::InvalidOperation,
+                        "path traversal detected".to_string(),
+                    ));
+                }
+                match std::fs::read_to_string(&canonical) {
+                    Ok(content) => Ok(Some(content)),
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+                    Err(e) => Err(minijinja::Error::new(
+                        minijinja::ErrorKind::InvalidOperation,
+                        format!("IO error reading template: {}", e),
+                    )),
+                }
+            }
+            Err(_) => Ok(None), // file not found or other error
         }
     });
 
@@ -89,7 +101,11 @@ pub fn build_template_engine(
     let posts = ctx.recent_posts.clone();
     env.add_function(
         "get_recent_posts",
-        move |_limit: Option<i64>| -> Result<Value, minijinja::Error> {
+        move |limit: Option<i64>| -> Result<Value, minijinja::Error> {
+            let posts = match limit {
+                Some(n) => posts.iter().take(n as usize).cloned().collect::<Vec<_>>(),
+                None => posts.clone(),
+            };
             Ok(Value::from_serialize(&posts))
         },
     );
