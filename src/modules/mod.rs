@@ -11,3 +11,4 @@ pub mod tag;
 pub mod theme;
 pub mod trash;
 pub mod user;
+pub mod plugin;
