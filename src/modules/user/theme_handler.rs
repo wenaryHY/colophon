@@ -8,6 +8,7 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{
+    modules::theme::context::TemplateContext,
     shared::error::{AppError, AppResult},
     state::AppState,
 };
@@ -59,7 +60,8 @@ pub async fn render_profile_page(
         .await?
         .ok_or(AppError::Unauthorized)?;
 
-    let env = crate::modules::theme::engine::build_template_engine(state.clone()).await?;
+    let ctx = TemplateContext::load(&state).await?;
+    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir)?;
     let tmpl = env
         .get_template("profile.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -109,7 +111,8 @@ pub async fn render_login_page(
         "rendering login page"
     );
 
-    let env = crate::modules::theme::engine::build_template_engine(state.clone()).await?;
+    let ctx = TemplateContext::load(&state).await?;
+    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir)?;
     let tmpl = env
         .get_template("login.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -159,7 +162,8 @@ pub async fn render_register_page(
         "rendering registration page"
     );
 
-    let env = crate::modules::theme::engine::build_template_engine(state.clone()).await?;
+    let ctx = TemplateContext::load(&state).await?;
+    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir)?;
     let tmpl = env
         .get_template("register.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;

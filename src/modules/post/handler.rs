@@ -7,6 +7,7 @@ use axum::{
 };
 
 use crate::{
+    modules::theme::context::TemplateContext,
     shared::{
         auth::AdminUser,
         error::{AppError, AppResult},
@@ -169,20 +170,15 @@ pub async fn render_custom_page(
         }
         _ => {
             // "editor" mode — render via theme template using content_html
-            let env = crate::modules::theme::engine::build_template_engine(state.clone()).await?;
+            let ctx = TemplateContext::load(&state).await?;
+            let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir)?;
             let tmpl = env
                 .get_template("post.html")
                 .map_err(|e| AppError::Anyhow(anyhow::anyhow!("template error: {}", e)))?;
 
-            let site_title = crate::modules::setting::repository::get_string(
-                &state.pool, "site_title", "InkForge",
-            )
-            .await
-            .unwrap_or_default();
-
             let html = tmpl
                 .render(minijinja::context! {
-                    site_title => site_title,
+                    site_title => &ctx.site_title,
                     post => minijinja::context! {
                         title => page.title,
                         content_html => page.content_html,

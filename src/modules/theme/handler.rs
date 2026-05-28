@@ -16,7 +16,7 @@ use crate::{
     state::AppState,
 };
 
-use super::{domain::ThemeSummary, engine, service::ThemeService};
+use super::{context::TemplateContext, domain::ThemeSummary, engine, service::ThemeService};
 
 pub async fn active_theme(
     State(state): State<Arc<AppState>>,
@@ -191,34 +191,17 @@ pub async fn render_home(
         authenticated = auth.is_some(),
         "rendering home page"
     );
-    let site_title =
-        crate::modules::setting::repository::get_string(&state.pool, "site_title", "InkForge")
-            .await
-            .unwrap_or_default();
-    let site_desc =
-        crate::modules::setting::repository::get_string(&state.pool, "site_description", "")
-            .await
-            .unwrap_or_default();
-    let site_url = crate::modules::setting::repository::get_string(
-        &state.pool,
-        "site_url",
-        "",
-    )
-    .await
-    .unwrap_or_default();
-    let site_kw = crate::modules::setting::repository::get_string(&state.pool, "seo_keywords", "")
-        .await
-        .unwrap_or_default();
+    let ctx = TemplateContext::load(&state).await?;
 
     let seo_meta = crate::modules::seo::meta::build_home_meta(
-        &site_title,
-        &site_desc,
-        &site_url,
-        &site_kw,
+        &ctx.site_title,
+        &ctx.site_description,
+        &ctx.site_url,
+        "",  // seo_keywords
         "",
     );
 
-    let env = engine::build_template_engine(state.clone()).await?;
+    let env = engine::build_template_engine(&ctx, &state.theme_dir)?;
     let tmpl = env
         .get_template("index.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -278,29 +261,16 @@ pub async fn render_post(
     }
     let p = post.unwrap();
 
-    let site_title =
-        crate::modules::setting::repository::get_string(&state.pool, "site_title", "InkForge")
-            .await
-            .unwrap_or_default();
-    let site_url = crate::modules::setting::repository::get_string(
-        &state.pool,
-        "site_url",
-        "",
-    )
-    .await
-    .unwrap_or_default();
-    let site_kw = crate::modules::setting::repository::get_string(&state.pool, "seo_keywords", "")
-        .await
-        .unwrap_or_default();
+    let ctx = TemplateContext::load(&state).await?;
 
     let seo_meta = crate::modules::seo::meta::build_post_meta_with_content_type(
-        &site_title,
-        &site_url,
+        &ctx.site_title,
+        &ctx.site_url,
         &p.title,
         &p.slug,
         p.excerpt.as_deref(),
         &p.content_html,
-        &site_kw,
+        "",  // seo_keywords
         "",
         &p.content_type,
     );
@@ -309,7 +279,7 @@ pub async fn render_post(
         .await
         .unwrap_or_default();
 
-    let env = engine::build_template_engine(state.clone()).await?;
+    let env = engine::build_template_engine(&ctx, &state.theme_dir)?;
     let tmpl = env
         .get_template("post.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
