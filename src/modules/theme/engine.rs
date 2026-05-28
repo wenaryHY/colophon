@@ -29,7 +29,7 @@ pub fn build_template_engine(
     });
 
     // ── 1A: Dynamic template loader (with path traversal protection) ─
-    let loader_path = template_dir.clone();
+    let loader_path = std::fs::canonicalize(&template_dir).unwrap_or_else(|_| template_dir.clone());
     env.set_loader(move |name| {
         let raw_path = loader_path.join(name);
         // Security: canonicalize the path and ensure it stays within the template directory
