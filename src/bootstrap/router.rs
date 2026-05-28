@@ -271,7 +271,8 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .route(
             "/api/v1/admin/trash/:item_type/:id",
             delete(modules::trash::handler::purge_item),
-        );
+        )
+        .merge(state.plugin_manager.collect_routes());
 
     Router::new()
         .route("/", get(render_home_entry))

@@ -6,6 +6,7 @@ use tokio::sync::{broadcast, Mutex, RwLock};
 
 use crate::{
     bootstrap::config::AppConfig,
+    modules::plugin::manager::PluginManager,
     modules::setup::domain::SetupStage,
     modules::theme::cache::TemplateContextCache,
     shared::security::LoginRateLimiter,
@@ -34,6 +35,7 @@ pub struct AppState {
     pub login_rate_limiter: Arc<Mutex<LoginRateLimiter>>,
     /// Cached template context with TTL-based invalidation.
     pub template_cache: Arc<TemplateContextCache>,
+    pub plugin_manager: Arc<PluginManager>,
 }
 
 impl AppState {
@@ -44,6 +46,7 @@ impl AppState {
         site_url: String,
         admin_url: String,
         setup_stage: SetupStage,
+        plugin_manager: Arc<PluginManager>,
     ) -> anyhow::Result<Self> {
         let db_path = parse_sqlite_url(&config.database.url)?;
         Ok(Self {
@@ -59,6 +62,7 @@ impl AppState {
             setup_stage: Arc::new(RwLock::new(setup_stage)),
             login_rate_limiter: Arc::new(Mutex::new(LoginRateLimiter::new())),
             template_cache: Arc::new(TemplateContextCache::with_default_ttl()),
+            plugin_manager,
         })
     }
 

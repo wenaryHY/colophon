@@ -2,6 +2,7 @@ use minijinja::{AutoEscape, Environment, Value};
 use std::path::Path;
 
 use super::context::TemplateContext;
+use crate::modules::plugin::manager::PluginManager;
 use crate::shared::error::AppResult;
 
 /// Build a MiniJinja Environment for the current request.
@@ -14,6 +15,7 @@ use crate::shared::error::AppResult;
 pub fn build_template_engine(
     ctx: &TemplateContext,
     theme_dir: &Path,
+    plugin_manager: &PluginManager,
 ) -> AppResult<Environment<'static>> {
     let template_dir = theme_dir.join(&ctx.active_theme).join("templates");
 
@@ -122,6 +124,8 @@ pub fn build_template_engine(
             Ok(Value::from_serialize(&cats))
         },
     );
+
+    plugin_manager.extend_template_env(&mut env)?;
 
     Ok(env)
 }

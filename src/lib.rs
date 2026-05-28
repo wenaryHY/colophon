@@ -2,6 +2,7 @@ pub mod admin;
 pub mod bootstrap;
 pub mod infra;
 pub mod modules;
+pub mod plugins;
 pub mod shared;
 pub mod state;
 pub mod ws;
@@ -16,6 +17,8 @@ use sqlx::sqlite::SqlitePoolOptions;
 use state::AppState;
 use tokio::sync::broadcast;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+use crate::modules::plugin::manager::PluginManager;
 
 pub async fn serve() -> anyhow::Result<()> {
     tracing_subscriber::registry()
@@ -45,6 +48,13 @@ pub async fn serve() -> anyhow::Result<()> {
 
     let setup_runtime = modules::setup::service::bootstrap_runtime(&pool).await?;
 
+    crate::modules::plugin::registry::register(Box::new(
+        plugins::hello_world::HelloWorldPlugin::new(),
+    ))
+    .await;
+
+    let plugin_manager = Arc::new(PluginManager::load().await);
+
     let state = Arc::new(AppState::new(
         config.clone(),
         pool,
@@ -52,7 +62,10 @@ pub async fn serve() -> anyhow::Result<()> {
         setup_runtime.site_url,
         setup_runtime.admin_url,
         setup_runtime.stage,
+        plugin_manager.clone(),
     )?);
+
+    state.plugin_manager.init_all(&state).await?;
     modules::backup::scheduler::start_backup_scheduler(state.clone()).await?;
     modules::trash::scheduler::start_trash_scheduler(state.clone()).await?;
     let app = build_router(state).await;
