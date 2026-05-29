@@ -11,7 +11,7 @@ import {
   ExternalLink, Loader2, X, Home,
   LayoutDashboard, BarChart3, Users, Shield,
   Image, File, Archive, MoreHorizontal,
-  Copy, RefreshCw, Zap, Star, Clock, Edit, Edit2, Palette,
+  Copy, RefreshCw, Zap, Star, Clock, Edit, Edit2, Palette, Package,
   ArrowLeft,
   type LucideProps
 } from 'lucide-react';
@@ -75,6 +75,7 @@ export const IconEdit = icon(Edit, { size: 14 });
 export const IconClock = icon(Clock, { size: 14 });
 export const IconBan = icon(Ban, { size: 16 });
 export const IconPalette = icon(Palette);
+export const IconPackage = icon(Package);
 
 // === Spinner 动画图标 ===
 export function Spinner({ className = '', size = 20 }: { className?: string; size?: number }) {

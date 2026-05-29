@@ -3,7 +3,7 @@ import { useI18n } from '../i18n';
 import { useSlots } from '../lib/slots';
 import {
   IconFileText, IconFolderOpen, IconTag, IconMessageSquare,
-  IconUpload, IconSettings, IconUser, IconLogOut, IconPalette, IconTrash2,
+  IconUpload, IconSettings, IconUser, IconLogOut, IconPalette, IconTrash2, IconPackage,
 } from './Icons';
 
 // 导航配置类型
@@ -35,6 +35,7 @@ const navConfig: NavGroupConfig[] = [
       { key: 'upload', icon: IconUpload, labelKey: 'upload' },
       { key: 'media-categories', icon: IconFolderOpen, labelKey: 'mediaCategories' },
       { key: 'themes', icon: IconPalette, labelKey: 'themes' },
+      { key: 'plugins', icon: IconPackage, labelKey: 'plugins' },
       { key: 'trash', icon: IconTrash2, labelKey: 'trash' },
       { key: 'settings', icon: IconSettings, labelKey: 'settings' },
     ],

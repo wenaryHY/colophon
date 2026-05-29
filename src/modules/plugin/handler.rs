@@ -6,11 +6,13 @@ use axum::{
     Json,
 };
 
+use crate::shared::auth::AdminUser;
 use crate::shared::error::AppResult;
 use crate::shared::response::ApiResponse;
 use crate::state::AppState;
 
 use super::settings;
+use super::status;
 
 #[derive(serde::Deserialize)]
 pub struct UpdateSettingsRequest {
@@ -98,5 +100,52 @@ pub async fn list_slots(
 
     Ok(Json(ApiResponse::success(serde_json::json!({
         "slots": slots,
+    }))))
+}
+
+pub async fn list_plugins(
+    State(state): State<Arc<AppState>>,
+    _admin: AdminUser,
+) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
+    let manifests = state.plugin_manager.discovered_manifests();
+    let enabled_ids: Vec<String> = state.plugin_manager.plugin_names();
+
+    let plugins: Vec<serde_json::Value> = manifests.into_iter().map(|m| {
+        serde_json::json!({
+            "id": m.plugin.id,
+            "title": m.plugin.title,
+            "version": m.plugin.version,
+            "description": m.plugin.description,
+            "author": m.plugin.author,
+            "enabled": enabled_ids.contains(&m.plugin.id),
+            "has_settings": m.settings.is_some(),
+            "has_admin": m.admin.as_ref().map(|a| a.enabled.unwrap_or(false)).unwrap_or(false),
+        })
+    }).collect();
+
+    Ok(Json(ApiResponse::success(serde_json::json!({ "plugins": plugins }))))
+}
+
+pub async fn toggle_plugin(
+    State(state): State<Arc<AppState>>,
+    Path(plugin_name): Path<String>,
+    _admin: AdminUser,
+) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
+    let enabled_ids = status::get_enabled_ids(&state.pool).await?;
+    let currently_enabled = enabled_ids.contains(&plugin_name);
+    let new_enabled = !currently_enabled;
+
+    status::set_enabled(&state.pool, &plugin_name, new_enabled).await?;
+
+    tracing::info!(
+        module = "plugin",
+        plugin = plugin_name,
+        enabled = new_enabled,
+        "plugin toggled"
+    );
+
+    Ok(Json(ApiResponse::success(serde_json::json!({
+        "plugin_name": plugin_name,
+        "enabled": new_enabled,
     }))))
 }

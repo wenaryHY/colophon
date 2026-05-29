@@ -18,6 +18,7 @@ import ThemeDetail from './pages/ThemeDetail';
 import RecycleBin from './pages/RecycleBin';
 import Setup from './pages/Setup';
 import PluginSettings from './pages/PluginSettings';
+import PluginManager from './pages/PluginManager';
 
 const pageToRoute: Record<string, string> = {
   posts: '/posts',
@@ -28,12 +29,14 @@ const pageToRoute: Record<string, string> = {
   upload: '/upload',
   'media-categories': '/media-categories',
   themes: '/themes',
+  plugins: '/plugins',
   trash: '/trash',
 };
 
 function getActivePage(pathname: string): string {
   if (pathname.startsWith('/posts')) return 'posts';
   if (pathname.startsWith('/themes')) return 'themes';
+  if (pathname.startsWith('/plugins')) return 'plugins';
   if (pathname.startsWith('/categories')) return 'categories';
   if (pathname.startsWith('/tags')) return 'tags';
   if (pathname.startsWith('/comments')) return 'comments';
@@ -112,6 +115,7 @@ export default function App() {
           <Route path="themes/:slug" element={<ThemeDetail />} />
           <Route path="trash" element={<RecycleBin />} />
           <Route path="plugins/:name/settings" element={<PluginSettings />} />
+          <Route path="plugins" element={<PluginManager />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

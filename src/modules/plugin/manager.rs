@@ -115,6 +115,10 @@ impl PluginManager {
         Ok(())
     }
 
+    pub fn plugin_names(&self) -> Vec<String> {
+        self.plugins.iter().map(|p| p.name().to_string()).collect()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.plugins.is_empty()
     }
