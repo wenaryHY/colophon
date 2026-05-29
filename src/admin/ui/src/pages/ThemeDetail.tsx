@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Select } from '../components/Select';
 import { getThemeDetail, saveThemeConfig, activateTheme } from '../lib/api';
-import type { ThemeDetailResponse, ThemeConfigField } from '../types';
+import { getQueryClient } from '../lib/api';
+import type { ThemeConfigField } from '../types';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
 
@@ -21,58 +23,63 @@ export default function ThemeDetail() {
   const toast = useToast();
   const { t, format } = useI18n();
 
-  const [detail, setDetail] = useState<ThemeDetailResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
 
-  const loadDetail = useCallback(async () => {
-    if (!slug) return;
-    try {
-      setLoading(true);
-      const data = await getThemeDetail(slug);
-      setDetail(data);
-      setFormData(data.config || {});
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('loadThemeDetailFailed'), 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [slug, toast]);
+  const { data: detail, isLoading } = useQuery({
+    queryKey: ['theme-detail', slug],
+    queryFn: () => getThemeDetail(slug!),
+    enabled: !!slug,
+    staleTime: 0,
+  });
 
-  useEffect(() => {
-    void loadDetail();
-  }, [loadDetail]);
+  // 当 detail 变化时初始化 formData
+  const currentFormData = detail ? detail.config ?? {} : formData;
 
-  async function handleSave() {
-    if (!slug) return;
-    try {
-      setSaving(true);
-      await saveThemeConfig(slug, formData);
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!slug) return;
+      await saveThemeConfig(slug, currentFormData);
+    },
+    onSuccess: () => {
       toast(t('saveThemeConfigSuccess'), 'success');
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('saveThemeConfigFailed'), 'error');
-    } finally {
       setSaving(false);
-    }
-  }
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('saveThemeConfigFailed'), 'error');
+      setSaving(false);
+    },
+  });
 
-  async function handleActivate() {
-    if (!slug) return;
-    try {
-      setActivating(true);
+  const activateMutation = useMutation({
+    mutationFn: async () => {
+      if (!slug) return;
       await activateTheme(slug);
+    },
+    onSuccess: () => {
       toast(t('activateThemeSuccess'), 'success');
-      await loadDetail();
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('activateThemeFailed'), 'error');
-    } finally {
       setActivating(false);
-    }
+      getQueryClient().invalidateQueries({ queryKey: ['theme-detail', slug] });
+      getQueryClient().invalidateQueries({ queryKey: ['themes'] });
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('activateThemeFailed'), 'error');
+      setActivating(false);
+    },
+  });
+
+  function handleSave() {
+    setSaving(true);
+    saveMutation.mutate();
   }
 
-  if (loading) {
+  function handleActivate() {
+    setActivating(true);
+    activateMutation.mutate();
+  }
+
+  if (isLoading) {
     return <div style={{ padding: '20px', textAlign: 'center' }}>{t('loading')}</div>;
   }
 
@@ -140,8 +147,8 @@ export default function ThemeDetail() {
               <ThemeConfigFieldInput
                 key={key}
                 field={field}
-                value={formData[key]}
-                onChange={(val) => setFormData({ ...formData, [key]: val })}
+                value={currentFormData[key]}
+                onChange={(val) => setFormData({ ...currentFormData, [key]: val })}
                 t={t}
                 format={format}
               />

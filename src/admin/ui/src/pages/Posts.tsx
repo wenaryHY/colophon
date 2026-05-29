@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiData, API_PREFIX, paginationPages } from '../lib/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiData, API_PREFIX, paginationPages, getQueryClient } from '../lib/api';
 import { esc } from '../lib/utils';
 import { SlotRenderer } from '../lib/slots';
 import type { AdminPost, Category, PaginatedResponse, Setting } from '../types';
@@ -94,16 +95,9 @@ function PostEmptyState({ t }: { t: (key: string) => string }) {
 export default function Posts() {
   const { t, format } = useI18n();
   const toast = useToast();
-  const [posts, setPosts] = useState<AdminPost[]>([]);
-  const [total, setTotal] = useState(0);
-  const [pages, setPages] = useState(1);
   const [page, setPage] = useState(1);
-  const [commentTotal, setCommentTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [siteUrl, setSiteUrl] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   // 内容类型 Tab：文章 / 页面
@@ -113,80 +107,70 @@ export default function Posts() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchDeleteTarget, setBatchDeleteTarget] = useState(false);
 
-  const publishedCount = useMemo(() => posts.filter((p) => p.status === 'published').length, [posts]);
-  const draftCount = useMemo(() => posts.filter((p) => p.status === 'draft').length, [posts]);
+  // 获取文章列表
+  const { data: postsPayload, isLoading } = useQuery({
+    queryKey: ['posts', { page, contentTypeTab }],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page), page_size: '10', content_type: contentTypeTab });
+      return apiData<PaginatedResponse<AdminPost>>(`${API_PREFIX}/admin/posts?${params.toString()}`);
+    },
+  });
 
-  const fetchPosts = useCallback(async (nextPage: number) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(nextPage), page_size: '10', content_type: contentTypeTab });
-      const payload = await apiData<PaginatedResponse<AdminPost>>(`${API_PREFIX}/admin/posts?${params.toString()}`);
-      setPosts(payload.items || []);
-      setTotal(payload.pagination.total || 0);
-      setPages(paginationPages(payload));
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('loadPostsFailed'), 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [toast, contentTypeTab]);
-
-  const fetchMeta = useCallback(async () => {
-    try {
+  // 获取元数据（分类、评论数、siteUrl）
+  const { data: metaData } = useQuery({
+    queryKey: ['posts-meta'],
+    queryFn: async () => {
       const [categoryData, commentData, settingData] = await Promise.all([
         apiData<Category[]>(`${API_PREFIX}/categories`),
         apiData<PaginatedResponse<unknown>>(`${API_PREFIX}/admin/comments?page=1&page_size=1`),
         apiData<Setting[]>(`${API_PREFIX}/admin/settings`),
       ]);
-      setCategories(categoryData || []);
-      setCommentTotal(commentData.pagination.total || 0);
-      setSiteUrl(settingData.find((item) => item.key === 'site_url')?.value || '');
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('loadMetaFailed'), 'error');
-    }
-  }, [toast]);
+      return { categories: categoryData, commentTotal: commentData.pagination.total, siteUrl: settingData.find((item) => item.key === 'site_url')?.value || '' };
+    },
+  });
 
-  useEffect(() => { void fetchPosts(page); }, [page, fetchPosts]);
-  useEffect(() => { void fetchMeta(); }, [fetchMeta]);
+  const posts = postsPayload?.items ?? [];
+  const total = postsPayload?.pagination.total ?? 0;
+  const pages = postsPayload ? paginationPages(postsPayload) : 1;
+  const categories = metaData?.categories ?? [];
+  const commentTotal = metaData?.commentTotal ?? 0;
+  const siteUrl = metaData?.siteUrl ?? '';
 
-  // Tab 切换时重置分页和选择
-  useEffect(() => { setPage(1); setSelectedIds(new Set()); }, [contentTypeTab]);
-  useEffect(() => { setSelectedIds(new Set()); }, [page]);
+  const publishedCount = useMemo(() => posts.filter((p) => p.status === 'published').length, [posts]);
+  const draftCount = useMemo(() => posts.filter((p) => p.status === 'draft').length, [posts]);
 
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    try {
-      await apiData(`${API_PREFIX}/admin/posts/${deleteTarget.id}`, { method: 'DELETE' });
+  const invalidatePosts = () => getQueryClient().invalidateQueries({ queryKey: ['posts'] });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiData(`${API_PREFIX}/admin/posts/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
       toast(t('deleteSuccess'), 'success');
-      await fetchPosts(page);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('deleteFailed'), 'error');
-    } finally {
       setDeleteTarget(null);
-    }
-  }
+      invalidatePosts();
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('deleteFailed'), 'error');
+      setDeleteTarget(null);
+    },
+  });
 
-  async function handleBatchDelete() {
-    if (selectedIds.size === 0) return;
-    setBatchDeleteTarget(true);
-  }
-
-  async function confirmBatchDelete() {
-    try {
-      await Promise.all(
-        [...selectedIds].map(id =>
-          apiData(`${API_PREFIX}/admin/posts/${id}`, { method: 'DELETE' })
-        )
-      );
-      toast(format('batchDeletePostsSuccess', { count: selectedIds.size }), 'success');
+  const batchDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map(id =>
+        apiData(`${API_PREFIX}/admin/posts/${id}`, { method: 'DELETE' })
+      ));
+    },
+    onSuccess: (_, ids) => {
+      toast(format('batchDeletePostsSuccess', { count: ids.length }), 'success');
       setSelectedIds(new Set());
-      await fetchPosts(page);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('batchDeletePostsFailed'), 'error');
-    } finally {
       setBatchDeleteTarget(false);
-    }
-  }
+      invalidatePosts();
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('batchDeletePostsFailed'), 'error');
+      setBatchDeleteTarget(false);
+    },
+  });
 
   function toggleSelectAll() {
     if (selectedIds.size === posts.length) {
@@ -205,7 +189,7 @@ export default function Posts() {
     });
   }
 
-  if (loading && posts.length === 0) return <PostsSkeleton />;
+  if (isLoading && posts.length === 0) return <PostsSkeleton />;
 
   return (
     <>
@@ -232,7 +216,7 @@ export default function Posts() {
         borderRadius: 'var(--radius-full)',
       }}>
         <button
-          onClick={() => setContentTypeTab('post')}
+          onClick={() => { setContentTypeTab('post'); setPage(1); setSelectedIds(new Set()); }}
           style={{
             padding: '8px 20px', borderRadius: 'var(--radius-full)',
             border: 'none', cursor: 'pointer',
@@ -246,7 +230,7 @@ export default function Posts() {
           <IconFileText size={14} /> 文章
         </button>
         <button
-          onClick={() => setContentTypeTab('page')}
+          onClick={() => { setContentTypeTab('page'); setPage(1); setSelectedIds(new Set()); }}
           style={{
             padding: '8px 20px', borderRadius: 'var(--radius-full)',
             border: 'none', cursor: 'pointer',
@@ -304,7 +288,7 @@ export default function Posts() {
             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--md-on-primary-container)' }}>
               {format('selectedCount', { count: selectedIds.size })}
             </span>
-            <Button size="sm" variant="danger" onClick={handleBatchDelete}>
+            <Button size="sm" variant="danger" onClick={() => setBatchDeleteTarget(true)}>
               <IconTrash2 size={14} /> {t('batchDelete')}
             </Button>
           </div>
@@ -444,7 +428,7 @@ export default function Posts() {
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         title="删除文章"
         message={`确定要删除文章「${deleteTarget?.title || ''}」吗？此操作不可恢复。`}
         confirmText="确认删除" variant="danger"
@@ -454,7 +438,7 @@ export default function Posts() {
       <ConfirmDialog
         open={batchDeleteTarget}
         onClose={() => setBatchDeleteTarget(false)}
-        onConfirm={confirmBatchDelete}
+        onConfirm={() => batchDeleteMutation.mutate([...selectedIds])}
         title="批量删除文章"
         message={`确定要删除选中的 ${selectedIds.size} 篇文章吗？此操作不可恢复。`}
         confirmText={`删除 ${selectedIds.size} 篇`} variant="danger"

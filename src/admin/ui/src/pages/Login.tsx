@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiData, API_PREFIX } from '../lib/api';
 import { SlotRenderer } from '../lib/slots';
 import type { SetupStatusResponse } from '../types';
@@ -23,37 +23,15 @@ export default function Login() {
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regDisplayName, setRegDisplayName] = useState('');
-  const [setupLoaded, setSetupLoaded] = useState(false);
-  const [registerAvailable, setRegisterAvailable] = useState(false);
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    let active = true;
-    apiData<SetupStatusResponse>(`${API_PREFIX}/setup/status`)
-      .then((status) => {
-        if (!active) return;
-        if (!status.installed) {
-          navigate('/setup');
-          return;
-        }
-        setRegisterAvailable(status.allow_register);
-      })
-      .catch(() => {
-        if (active) setRegisterAvailable(false);
-      })
-      .finally(() => {
-        if (active) setSetupLoaded(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const { data: setupStatus, isLoading: setupLoading } = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: () => apiData<SetupStatusResponse>(`${API_PREFIX}/setup/status`),
+    staleTime: 30_000,
+    retry: false,
+  });
 
-  useEffect(() => {
-    if (!registerAvailable && tab === 'register') {
-      setTab('login');
-    }
-  }, [registerAvailable, tab]);
+  const registerAvailable = setupStatus?.allow_register ?? false;
 
   const tabs = useMemo<Tab[]>(
     () => (registerAvailable ? ['login', 'register'] : ['login']),
@@ -307,7 +285,7 @@ export default function Login() {
 
         {/* 表单区域 */}
         <div style={{ padding: showTabs ? '24px 28px 0' : '28px 28px 0' }}>
-          {!setupLoaded ? (
+          {setupLoading ? (
             <div
               style={{
                 minHeight: '132px',
@@ -322,7 +300,7 @@ export default function Login() {
             </div>
           ) : null}
 
-          {setupLoaded && tab === 'login' ? (
+          {!setupLoading && tab === 'login' ? (
             <form onSubmit={handleLogin} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <input type="text" value={loginValue} onChange={e => setLoginValue(e.target.value)}
                 placeholder={t('usernameOrEmail')} required style={inputStyle} onFocus={focusIn} onBlur={focusOut} />
@@ -342,7 +320,7 @@ export default function Login() {
             </form>
           ) : null}
 
-          {setupLoaded && tab === 'register' ? (
+          {!setupLoading && tab === 'register' ? (
             <form onSubmit={handleRegister} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <input type="text" value={regUsername} onChange={e => setRegUsername(e.target.value)}
                 placeholder={t('username')} required style={inputSmallStyle} onFocus={focusIn} onBlur={focusOut} />

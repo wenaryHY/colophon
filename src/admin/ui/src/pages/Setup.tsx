@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiData, API_PREFIX } from '../lib/api';
 
 import type { SetupInitializeResponse, SetupStatusResponse } from '../types';
@@ -59,7 +60,6 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 export default function Setup() {
   const toast = useToast();
   const { t, lang, setLang } = useI18n();
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [redirectTarget, setRedirectTarget] = useState('/admin');
@@ -75,32 +75,48 @@ export default function Setup() {
     display_name: '',
   });
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const status = await apiData<SetupStatusResponse>(`${API_PREFIX}/setup/status`);
-        if (!active) return;
-        if (status.installed) {
-          window.location.replace(status.admin_url || '/admin');
-          return;
-        }
-        setForm((prev) => ({
-          ...prev,
-          site_title: status.site_title || prev.site_title,
-          site_description: status.site_description || '',
-          site_url: status.site_url || '',
-          admin_url: status.admin_url || deriveAdminUrl(status.site_url || ''),
-          allow_register: status.allow_register,
-        }));
-      } catch (error) {
-        toast(error instanceof Error ? error.message : '加载安装向导失败', 'error');
-      } finally {
-        if (active) setLoading(false);
+  const { isLoading } = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: async () => {
+      const status = await apiData<SetupStatusResponse>(`${API_PREFIX}/setup/status`);
+      if (status.installed) {
+        window.location.replace(status.admin_url || '/admin');
+        return status;
       }
-    })();
-    return () => { active = false; };
-  }, [toast]);
+      setForm((prev) => ({
+        ...prev,
+        site_title: status.site_title || prev.site_title,
+        site_description: status.site_description || '',
+        site_url: status.site_url || '',
+        admin_url: status.admin_url || deriveAdminUrl(status.site_url || ''),
+        allow_register: status.allow_register,
+      }));
+      return status;
+    },
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  const initializeMutation = useMutation({
+    mutationFn: () => apiData<SetupInitializeResponse>(`${API_PREFIX}/setup/initialize`, {
+      method: 'POST',
+      body: JSON.stringify(form),
+    }),
+    onSuccess: (payload) => {
+      const nextTarget = payload.redirect_to || '/admin';
+      setRedirectTarget(nextTarget);
+      setCompleted(true);
+      toast('安装完成，正在进入后台…', 'success');
+      window.setTimeout(() => {
+        navigateToAdmin(nextTarget);
+      }, 900);
+      setSubmitting(false);
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : '安装失败', 'error');
+      setSubmitting(false);
+    },
+  });
 
   const canSubmit = useMemo(() => {
     return Boolean(
@@ -130,31 +146,14 @@ export default function Setup() {
     });
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!canSubmit || submitting) return;
     setSubmitting(true);
-    try {
-      const payload = await apiData<SetupInitializeResponse>(`${API_PREFIX}/setup/initialize`, {
-        method: 'POST',
-        body: JSON.stringify(form),
-      });
-      const nextTarget = payload.redirect_to || '/admin';
-      setRedirectTarget(nextTarget);
-      setCompleted(true);
-      toast('安装完成，正在进入后台…', 'success');
-      window.setTimeout(() => {
-        navigateToAdmin(nextTarget);
-      }, 900);
-
-    } catch (error) {
-      toast(error instanceof Error ? error.message : '安装失败', 'error');
-    } finally {
-      setSubmitting(false);
-    }
+    initializeMutation.mutate();
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="setup-wrapper">
         <div className="setup-loading">{t('checkingSetup')}</div>
@@ -206,7 +205,6 @@ export default function Setup() {
           background: radial-gradient(circle, rgba(251,191,36,0.12) 0%, transparent 74%);
         }
         
-        /* MD3 Card (Glassmorphism variant) */
         .md3-card {
           width: min(960px, 100%);
           background: rgba(255,255,255,0.85);
@@ -228,7 +226,6 @@ export default function Setup() {
           max-width: 560px;
         }
         
-        /* MD3 Header inside card */
         .md3-header {
           padding: 40px 36px 34px;
           background: linear-gradient(135deg, var(--md-primary-container) 0%, #ffe8cc 100%);
@@ -248,10 +245,9 @@ export default function Setup() {
         }
         .md3-header-desc {
           margin: 10px 0 0; max-width: 520px; font-size: 14px; line-height: 1.75;
-          color: rgba(124, 45, 18, 0.85); /* Slightly transparent on-primary-container */
+          color: rgba(124, 45, 18, 0.85);
         }
         
-        /* Lang switcher */
         .md3-lang-switcher {
           display: flex; gap: 4px; background: rgba(255,255,255,0.4);
           padding: 4px; border-radius: var(--radius-full);
@@ -272,7 +268,6 @@ export default function Setup() {
           background: rgba(255,255,255,0.2);
         }
         
-        /* Form body */
         .md3-form {
           padding: 30px 32px 34px; display: grid; gap: 32px;
         }
@@ -292,7 +287,6 @@ export default function Setup() {
           display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         }
         
-        /* Fields & Inputs */
         .md3-field {
           display: flex; flex-direction: column; gap: 8px;
         }
@@ -329,7 +323,6 @@ export default function Setup() {
           background-position-y: center;
         }
         
-        /* Buttons */
         .md3-btn-primary {
           min-width: 190px; border: none; border-radius: var(--radius-full);
           background: var(--md-primary); color: var(--md-on-primary);
@@ -351,7 +344,6 @@ export default function Setup() {
           cursor: not-allowed; opacity: 0.6; box-shadow: none;
         }
         
-        /* Footer area */
         .md3-footer {
           display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;
           padding-top: 12px;
@@ -361,7 +353,6 @@ export default function Setup() {
           font-size: 13px; color: var(--md-on-surface-variant); line-height: 1.7; flex: 1;
         }
         
-        /* Completed Screen */
         .md3-card-body {
           padding: 48px 42px; text-align: center;
         }

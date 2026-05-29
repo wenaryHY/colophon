@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { listTrash, restoreTrashItem, purgeTrashItem, purgeExpiredTrash } from '../lib/api';
+import { getQueryClient } from '../lib/api';
 import type { TrashItem } from '../types';
 import { PageHeader } from '../components/PageHeader';
 import { Card } from '../components/Card';
@@ -84,7 +86,6 @@ function PreviewPanel({ item, onClose, t, format }: { item: TrashItem; onClose: 
       zIndex: 1000, display: 'flex', flexDirection: 'column',
       animation: 'slideInRight 0.25s ease',
     }}>
-      {/* 头部 */}
       <div style={{
         padding: '20px 24px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -126,7 +127,6 @@ function PreviewPanel({ item, onClose, t, format }: { item: TrashItem; onClose: 
           onMouseLeave={e => { e.currentTarget.style.background = 'var(--md-surface-container-high)'; }}
         >✕</button>
       </div>
-      {/* 内容 */}
       <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
         <div style={{ marginBottom: '20px' }}>
           <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--md-outline)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
@@ -188,8 +188,6 @@ function PreviewPanel({ item, onClose, t, format }: { item: TrashItem; onClose: 
 export default function RecycleBin() {
   const toast = useToast();
   const { t, format } = useI18n();
-  const [items, setItems] = useState<TrashItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || '';
   const setActiveTab = (tab: string) => {
@@ -200,22 +198,66 @@ export default function RecycleBin() {
   const [restoreTarget, setRestoreTarget] = useState<TrashItem | null>(null);
   const [purgeTarget, setPurgeTarget] = useState<TrashItem | null>(null);
   const [batchAction, setBatchAction] = useState<'restore' | 'purge' | null>(null);
-  const [purging, setPurging] = useState(false);
 
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await listTrash(activeTab || undefined);
-      setItems(data || []);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('loadRecycleBinFailed'), 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [activeTab, toast]);
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['trash', { tab: activeTab }],
+    queryFn: () => listTrash(activeTab || undefined),
+  });
 
-  useEffect(() => { void fetchItems(); }, [fetchItems]);
-  useEffect(() => { setSelectedIds(new Set()); }, [activeTab]);
+  const invalidate = () => getQueryClient().invalidateQueries({ queryKey: ['trash'] });
+
+  const restoreMutation = useMutation({
+    mutationFn: (item: TrashItem) => restoreTrashItem(item.item_type, item.id),
+    onSuccess: (_, item) => {
+      toast(format('restoreSuccess', { name: item.name }), 'success');
+      setRestoreTarget(null);
+      setPreviewItem(null);
+      invalidate();
+    },
+    onError: (error) => toast(error instanceof Error ? error.message : t('actionFailed'), 'error'),
+  });
+
+  const purgeMutation = useMutation({
+    mutationFn: (item: TrashItem) => purgeTrashItem(item.item_type, item.id),
+    onSuccess: (_, item) => {
+      toast(format('purgeSuccess', { name: item.name }), 'success');
+      setPurgeTarget(null);
+      setPreviewItem(null);
+      invalidate();
+    },
+    onError: (error) => toast(error instanceof Error ? error.message : t('deleteFailed'), 'error'),
+  });
+
+  const batchMutation = useMutation({
+    mutationFn: async ({ action, items }: { action: 'restore' | 'purge'; items: TrashItem[] }) => {
+      if (action === 'restore') {
+        await Promise.all(items.map(i => restoreTrashItem(i.item_type, i.id)));
+      } else {
+        await Promise.all(items.map(i => purgeTrashItem(i.item_type, i.id)));
+      }
+    },
+    onSuccess: (_, { action, items: batchItems }) => {
+      toast(
+        action === 'restore'
+          ? format('recycleBatchRestoreSuccess', { count: batchItems.length })
+          : format('recycleBatchPurgeSuccess', { count: batchItems.length }),
+        'success'
+      );
+      setSelectedIds(new Set());
+      setBatchAction(null);
+      invalidate();
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('recycleBatchActionFailed'), 'error');
+      setBatchAction(null);
+    },
+  });
+
+  const purgeExpiredMutation = useMutation({
+    mutationFn: () => purgeExpiredTrash(),
+    onSuccess: () => { toast(t('purgeExpiredSuccess'), 'success'); invalidate(); },
+    onError: (error) => toast(error instanceof Error ? error.message : t('purgeExpiredFailed'), 'error'),
+  });
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = { '': items.length };
@@ -225,63 +267,12 @@ export default function RecycleBin() {
     return counts;
   }, [items]);
 
-  // 只统计当前 tab 的（如果有 tab 筛选的话 items 已经被后端过滤）
   const filteredItems = items;
 
-  async function handleRestore(item: TrashItem) {
-    try {
-      await restoreTrashItem(item.item_type, item.id);
-      toast(format('restoreSuccess', { name: item.name }), 'success');
-      setRestoreTarget(null);
-      setPreviewItem(null);
-      await fetchItems();
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('actionFailed'), 'error');
-    }
-  }
-
-  async function handlePurge(item: TrashItem) {
-    try {
-      await purgeTrashItem(item.item_type, item.id);
-      toast(format('purgeSuccess', { name: item.name }), 'success');
-      setPurgeTarget(null);
-      setPreviewItem(null);
-      await fetchItems();
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('deleteFailed'), 'error');
-    }
-  }
-
-  async function handleBatchAction() {
+  function handleBatchAction() {
     if (!batchAction || selectedIds.size === 0) return;
     const selected = filteredItems.filter(i => selectedIds.has(i.id));
-    try {
-      if (batchAction === 'restore') {
-        await Promise.all(selected.map(i => restoreTrashItem(i.item_type, i.id)));
-        toast(format('recycleBatchRestoreSuccess', { count: selected.length }), 'success');
-      } else {
-        await Promise.all(selected.map(i => purgeTrashItem(i.item_type, i.id)));
-        toast(format('recycleBatchPurgeSuccess', { count: selected.length }), 'success');
-      }
-      setSelectedIds(new Set());
-      setBatchAction(null);
-      await fetchItems();
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('recycleBatchActionFailed'), 'error');
-    }
-  }
-
-  async function handlePurgeExpired() {
-    setPurging(true);
-    try {
-      await purgeExpiredTrash();
-      toast(t('purgeExpiredSuccess'), 'success');
-      await fetchItems();
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('purgeExpiredFailed'), 'error');
-    } finally {
-      setPurging(false);
-    }
+    batchMutation.mutate({ action: batchAction, items: selected });
   }
 
   function toggleSelect(id: string) {
@@ -300,7 +291,7 @@ export default function RecycleBin() {
     }
   }
 
-  if (loading && items.length === 0) return <CardTableSkeleton cols={5} rows={4} />;
+  if (isLoading && items.length === 0) return <CardTableSkeleton cols={5} rows={4} />;
 
   return (
     <>
@@ -310,16 +301,15 @@ export default function RecycleBin() {
         actions={
           <Button
             variant="ghost"
-            onClick={handlePurgeExpired}
-            loading={purging}
-            disabled={purging}
+            onClick={() => purgeExpiredMutation.mutate()}
+            loading={purgeExpiredMutation.isPending}
+            disabled={purgeExpiredMutation.isPending}
           >
             <IconTrash2 size={14} /> {t('purgeExpired')}
           </Button>
         }
       />
 
-      {/* Tab 筛选 - Pill shape */}
       <div style={{
         display: 'flex', gap: '4px', marginBottom: '16px',
         background: 'var(--md-surface-container)', padding: '4px',
@@ -368,7 +358,6 @@ export default function RecycleBin() {
       </div>
 
       <Card style={{ overflow: 'hidden' }}>
-        {/* 批量操作栏 */}
         {selectedIds.size > 0 && (
           <div style={{
             padding: '12px 16px',
@@ -485,7 +474,6 @@ export default function RecycleBin() {
                     </td>
                     <td style={TD} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
-                        {/* 恢复 */}
                         <button
                           title={t('restoreItem')}
                           style={iconBtn('#10b981')}
@@ -495,7 +483,6 @@ export default function RecycleBin() {
                         >
                           <IconRefreshCw size={15} />
                         </button>
-                        {/* 永久删除 */}
                         <button
                           title={t('purgeItem')}
                           style={iconBtn('#ef4444')}
@@ -522,7 +509,6 @@ export default function RecycleBin() {
         )}
       </Card>
 
-      {/* 预览面板 */}
       {previewItem && (
         <>
           <div
@@ -537,29 +523,26 @@ export default function RecycleBin() {
         </>
       )}
 
-      {/* 恢复确认 */}
       <ConfirmDialog
         open={!!restoreTarget}
         onClose={() => setRestoreTarget(null)}
-        onConfirm={() => restoreTarget && handleRestore(restoreTarget)}
+        onConfirm={() => restoreTarget && restoreMutation.mutate(restoreTarget)}
         title={t('restoreTitle')}
         message={format('restoreMessage', { name: restoreTarget?.name || '' })}
         confirmText={t('restoreConfirm')}
         variant="info"
       />
 
-      {/* 永久删除确认 */}
       <ConfirmDialog
         open={!!purgeTarget}
         onClose={() => setPurgeTarget(null)}
-        onConfirm={() => purgeTarget && handlePurge(purgeTarget)}
+        onConfirm={() => purgeTarget && purgeMutation.mutate(purgeTarget)}
         title={t('purgeTitle')}
         message={format('purgeMessage', { name: purgeTarget?.name || '' })}
         confirmText={t('purgeConfirm')}
         variant="danger"
       />
 
-      {/* 批量操作确认 */}
       <ConfirmDialog
         open={!!batchAction}
         onClose={() => setBatchAction(null)}

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiData, paginationPages, API, API_PREFIX } from '../lib/api';
+import { useRef, useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiData, paginationPages, API, API_PREFIX, getQueryClient } from '../lib/api';
 
 import { esc } from '../lib/utils';
 import type { MediaItem, PaginatedResponse } from '../types';
@@ -27,46 +28,59 @@ const dropZoneActive: React.CSSProperties = {
 export default function Upload() {
   const { t } = useI18n();
   const toast = useToast();
-  const { categories, fetch: fetchCategories } = useMediaCategories();
+  const { categories } = useMediaCategories();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [items, setItems] = useState<MediaItem[]>([]);
   const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
   const [kind, setKind] = useState('');
   const [category, setCategory] = useState('');
   const [keyword, setKeyword] = useState('');
-  const [loading, setLoading] = useState(true);
-  // 重命名状态：id -> 是否在编辑
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
-  // 初始化时加载分类
-  useEffect(() => {
-    void fetchCategories().catch(err => {
-      console.error('Failed to load media categories:', err);
-    });
-  }, [fetchCategories]);
+  const { data: payload, isLoading } = useQuery({
+    queryKey: ['media', { page, kind, category, keyword }],
+    queryFn: () => {
+      const query = new URLSearchParams({ page: String(page), page_size: '16' });
+      if (kind) query.set('kind', kind);
+      if (category) query.set('category', category);
+      if (keyword.trim()) query.set('keyword', keyword.trim());
+      return apiData<PaginatedResponse<MediaItem>>(`${API_PREFIX}/admin/media?${query.toString()}`);
+    },
+  });
 
-  const fetchMedia = useCallback(async (nextPage: number, nextKind: string, nextCategory: string, nextKeyword: string) => {
-    setLoading(true);
-    try {
-      const query = new URLSearchParams({ page: String(nextPage), page_size: '16' });
-      if (nextKind) query.set('kind', nextKind);
-      if (nextCategory) query.set('category', nextCategory);
-      if (nextKeyword.trim()) query.set('keyword', nextKeyword.trim());
-      const payload = await apiData<PaginatedResponse<MediaItem>>(`${API_PREFIX}/admin/media?${query.toString()}`);
-      setItems(payload.items || []);
-      setPages(paginationPages(payload));
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('loadMediaFailed'), 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+  const items = payload?.items ?? [];
+  const pages = payload ? paginationPages(payload) : 1;
 
-  useEffect(() => { void fetchMedia(page, kind, category, keyword); }, [page, kind, category, keyword, fetchMedia]);
+  const invalidateMedia = () => getQueryClient().invalidateQueries({ queryKey: ['media'] });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiData(`${API_PREFIX}/admin/media/${id}`, { method: 'DELETE' }),
+    onSuccess: () => { toast(t('deleteMediaSuccess'), 'success'); invalidateMedia(); },
+    onError: (error) => toast(error instanceof Error ? error.message : t('deleteMediaFailed'), 'error'),
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      apiData(`${API_PREFIX}/admin/media/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => { toast(t('renameSuccess'), 'success'); setRenamingId(null); invalidateMedia(); },
+    onError: (error) => toast(error instanceof Error ? error.message : t('renameFailed'), 'error'),
+  });
+
+  const setCategoryMutation = useMutation({
+    mutationFn: ({ id, cat }: { id: string; cat: string }) =>
+      apiData(`${API_PREFIX}/admin/media/${id}/category`, {
+        method: 'PATCH',
+        body: JSON.stringify({ category: cat || null }),
+      }),
+    onSuccess: () => invalidateMedia(),
+    onError: (error) => toast(error instanceof Error ? error.message : t('updateCategoryFailed'), 'error'),
+  });
 
   async function doUpload(file: File) {
     const fd = new FormData();
@@ -83,7 +97,7 @@ export default function Upload() {
       if (!res.ok || json.code !== 0) throw new Error(json.message || t('uploadFailed'));
       setResult({ success: true, message: json.data.public_url });
       toast(t('uploadSuccess'), 'success');
-      await fetchMedia(1, kind, category, keyword);
+      invalidateMedia();
       setPage(1);
     } catch (error) {
       const msg = error instanceof Error ? error.message : t('uploadFailed');
@@ -93,15 +107,9 @@ export default function Upload() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
-  async function deleteMedia(id: string) {
+  function deleteMedia(id: string) {
     if (!window.confirm(t('deleteMediaConfirm'))) return;
-    try {
-      await apiData(`${API_PREFIX}/admin/media/${id}`, { method: 'DELETE' });
-      toast(t('deleteMediaSuccess'), 'success');
-      await fetchMedia(page, kind, category, keyword);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('deleteMediaFailed'), 'error');
-    }
+    deleteMutation.mutate(id);
   }
 
   function startRename(item: MediaItem) {
@@ -109,31 +117,13 @@ export default function Upload() {
     setRenameValue(item.original_name);
   }
 
-  async function commitRename(id: string) {
+  function commitRename(id: string) {
     if (!renameValue.trim()) { setRenamingId(null); return; }
-    try {
-      await apiData(`${API_PREFIX}/admin/media/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name: renameValue.trim() }),
-      });
-      toast(t('renameSuccess'), 'success');
-      setRenamingId(null);
-      await fetchMedia(page, kind, category, keyword);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('renameFailed'), 'error');
-    }
+    renameMutation.mutate({ id, name: renameValue.trim() });
   }
 
-  async function setItemCategory(id: string, cat: string) {
-    try {
-      await apiData(`${API_PREFIX}/admin/media/${id}/category`, {
-        method: 'PATCH',
-        body: JSON.stringify({ category: cat || null }),
-      });
-      await fetchMedia(page, kind, category, keyword);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('updateCategoryFailed'), 'error');
-    }
+  function setItemCategory(id: string, cat: string) {
+    setCategoryMutation.mutate({ id, cat });
   }
 
   function insertIntoEditor(url: string) {
@@ -159,7 +149,6 @@ export default function Upload() {
     <>
       <PageHeader title={t('mediaTitle')} subtitle={t('mediaSubtitle')} />
 
-      {/* 上传区域 */}
       <Card>
         <div style={{ padding: '22px' }}
           onClick={() => fileInputRef.current?.click()}
@@ -250,7 +239,6 @@ export default function Upload() {
         </div>
       </Card>
 
-      {/* 媒体列表 */}
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '20px 22px', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--md-on-surface)' }}>{t('mediaListTitle')}</span>
@@ -284,7 +272,7 @@ export default function Upload() {
         </div>
 
         <div style={{ padding: '0 22px 22px' }}>
-          {loading ? (
+          {isLoading ? (
             <div style={{ fontSize: '13.5px', color: 'var(--md-outline)', textAlign: 'center', padding: '40px' }}>{t('loading')}</div>
           ) : items.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
@@ -299,7 +287,6 @@ export default function Upload() {
                   onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget as HTMLDivElement).style.background = 'var(--md-surface-container)'}
                   onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget as HTMLDivElement).style.background = 'var(--md-surface-container-low)'}
                 >
-                  {/* 预览区 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {item.kind === 'image' ? (
                       <img src={`${API === '' ? '' : API}${item.public_url}`} alt={item.original_name}
@@ -311,7 +298,6 @@ export default function Upload() {
                       </div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* 文件名（可重命名） */}
                       {renamingId === item.id ? (
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <input
@@ -340,7 +326,6 @@ export default function Upload() {
                     </div>
                   </div>
 
-                  {/* 分类标签 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <IconFolder size={12} style={{ color: 'var(--md-outline)', flexShrink: 0 }} />
                     <select
@@ -355,7 +340,6 @@ export default function Upload() {
                     </select>
                   </div>
 
-                  {/* 操作按钮 */}
                   <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                     <button type="button" onClick={() => insertIntoEditor(item.public_url)}
                       title={t('insertToEditor')}

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiData, API_PREFIX } from '../lib/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiData, API_PREFIX, getQueryClient } from '../lib/api';
 import { esc } from '../lib/utils';
 import type { Category } from '../types';
 import { PageHeader } from '../components/PageHeader';
@@ -36,14 +37,11 @@ const iconBtn: React.CSSProperties = {
 export default function Categories() {
   const toast = useToast();
   const { t, format } = useI18n();
-  const [items, setItems] = useState<Category[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [desc, setDesc] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const navigate = useNavigate();
 
@@ -51,15 +49,64 @@ export default function Categories() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
-  const fetchCategories = useCallback(async () => {
-    setLoading(true);
-    try { setItems(await apiData<Category[]>(`${API_PREFIX}/categories`)); }
-    catch (error) { toast(error instanceof Error ? error.message : t('loadCategoriesFailed'), 'error'); }
-    finally { setLoading(false); }
-  }, [toast]);
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => apiData<Category[]>(`${API_PREFIX}/categories`),
+  });
 
-  useEffect(() => { void fetchCategories(); }, [fetchCategories]);
-  useEffect(() => { setSelectedIds(new Set()); }, []);
+  const saveMutation = useMutation({
+    mutationFn: async ({ isEdit, catId, body }: {
+      isEdit: boolean;
+      catId?: string;
+      body: { name: string; slug?: string; description: string | null };
+    }) => {
+      if (isEdit) {
+        return apiData(`${API_PREFIX}/admin/categories/${catId}`, { method: 'PATCH', body: JSON.stringify(body) });
+      }
+      return apiData(`${API_PREFIX}/admin/categories`, { method: 'POST', body: JSON.stringify(body) });
+    },
+    onSuccess: () => {
+      toast(t('saveSuccess'), 'success');
+      closeEditor();
+      getQueryClient().invalidateQueries({ queryKey: ['categories'] });
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('saveFailed'), 'error');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (catId: string) =>
+      apiData(`${API_PREFIX}/admin/categories/${catId}`, { method: 'DELETE' }),
+    onSuccess: (_, catId) => {
+      toast(t('deleteSuccess'), 'success');
+      setSelectedIds(prev => { const next = new Set(prev); next.delete(catId); return next; });
+      setDeleteTarget(null);
+      getQueryClient().invalidateQueries({ queryKey: ['categories'] });
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('deleteFailed'), 'error');
+      setDeleteTarget(null);
+    },
+  });
+
+  const batchDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map(id =>
+        apiData(`${API_PREFIX}/admin/categories/${id}`, { method: 'DELETE' })
+      ));
+    },
+    onSuccess: (_, ids) => {
+      toast(format('batchDeleteCategoriesSuccess', { count: ids.length }), 'success');
+      setSelectedIds(new Set());
+      setBatchDeleteOpen(false);
+      getQueryClient().invalidateQueries({ queryKey: ['categories'] });
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('batchDeleteFailed'), 'error');
+      setBatchDeleteOpen(false);
+    },
+  });
 
   function openEditor(item?: Category) {
     setEditing(item || null); setName(item?.name || ''); setSlug(item?.slug || '');
@@ -67,46 +114,22 @@ export default function Categories() {
   }
 
   function closeEditor() {
-    setEditorOpen(false); setEditing(null); setName(''); setSlug(''); setDesc(''); setSaving(false);
+    setEditorOpen(false); setEditing(null); setName(''); setSlug(''); setDesc('');
   }
 
-  async function handleSave() {
+  function handleSave() {
     if (!name.trim()) { toast(t('categoryNameRequired'), 'error'); return; }
-    setSaving(true);
-    try {
-      const body = { name: name.trim(), slug: slug || undefined, description: desc || null };
-      if (editing?.id) await apiData(`${API_PREFIX}/admin/categories/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) });
-      else await apiData(`${API_PREFIX}/admin/categories`, { method: 'POST', body: JSON.stringify(body) });
-      toast(t('saveSuccess'), 'success'); closeEditor(); await fetchCategories();
-    } catch (error) { toast(error instanceof Error ? error.message : t('saveFailed'), 'error'); }
-    finally { setSaving(false); }
+    const body = { name: name.trim(), slug: slug || undefined, description: desc || null };
+    saveMutation.mutate({
+      isEdit: !!editing?.id,
+      catId: editing?.id,
+      body,
+    });
   }
 
-  async function confirmDelete() {
+  function confirmDelete() {
     if (!deleteTarget) return;
-    try {
-      await apiData(`${API_PREFIX}/admin/categories/${deleteTarget.id}`, { method: 'DELETE' });
-      toast(t('deleteSuccess'), 'success');
-      setSelectedIds(prev => { const next = new Set(prev); next.delete(deleteTarget.id); return next; });
-      await fetchCategories();
-    } catch (error) { toast(error instanceof Error ? error.message : t('deleteFailed'), 'error'); }
-    finally { setDeleteTarget(null); }
-  }
-
-  async function handleBatchDelete() {
-    setBatchDeleteOpen(true);
-  }
-
-  async function confirmBatchDelete() {
-    try {
-      await Promise.all([...selectedIds].map(id =>
-        apiData(`${API_PREFIX}/admin/categories/${id}`, { method: 'DELETE' })
-      ));
-      toast(format('batchDeleteCategoriesSuccess', { count: selectedIds.size }), 'success');
-      setSelectedIds(new Set());
-      await fetchCategories();
-    } catch (error) { toast(error instanceof Error ? error.message : t('batchDeleteFailed'), 'error'); }
-    finally { setBatchDeleteOpen(false); }
+    deleteMutation.mutate(deleteTarget.id);
   }
 
   function toggleSelect(id: string) {
@@ -123,7 +146,7 @@ export default function Categories() {
     else setSelectedIds(new Set(items.map(c => c.id)));
   }
 
-  if (loading) return <CardTableSkeleton cols={4} rows={4} />;
+  if (isLoading) return <CardTableSkeleton cols={4} rows={4} />;
 
   return (
     <>
@@ -133,7 +156,7 @@ export default function Categories() {
         actions={
           <div style={{ display: 'flex', gap: '8px' }}>
             {selectedIds.size > 0 && (
-              <Button variant="danger" onClick={handleBatchDelete}>
+              <Button variant="danger" onClick={() => setBatchDeleteOpen(true)}>
                 <IconTrash2 size={14} /> {format('batchDeleteCategories', { count: selectedIds.size })}
               </Button>
             )}
@@ -257,12 +280,12 @@ export default function Categories() {
       <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete}
         title={t('deleteCategoryTitle')} message={format('deleteCategoryMessage', { name: deleteTarget?.name || '' })} variant="danger" confirmText={t('delete')} />
 
-      <ConfirmDialog open={batchDeleteOpen} onClose={() => setBatchDeleteOpen(false)} onConfirm={confirmBatchDelete}
+      <ConfirmDialog open={batchDeleteOpen} onClose={() => setBatchDeleteOpen(false)} onConfirm={() => batchDeleteMutation.mutate([...selectedIds])}
         title={t('batchDeleteCategoryTitle')} message={format('batchDeleteCategoryMessage', { count: selectedIds.size })}
         variant="danger" confirmText={format('deleteCountConfirm', { count: selectedIds.size })} />
 
       <Modal open={editorOpen} onClose={closeEditor} title={editing ? t('editCategoryTitle') : t('createCategoryTitle')}
-        actions={<><Button variant="ghost" onClick={closeEditor}>{t('cancel')}</Button><Button onClick={handleSave} disabled={saving} loading={saving}>{t('save')}</Button></>}>
+        actions={<><Button variant="ghost" onClick={closeEditor}>{t('cancel')}</Button><Button onClick={handleSave} disabled={saveMutation.isPending} loading={saveMutation.isPending}>{t('save')}</Button></>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <Input label={t('categoryName')} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('categoryNamePlaceholder')} />
           <Input label={t('slugLabel')} value={slug} onChange={(e) => setSlug(e.target.value)} placeholder={t('categorySlugPlaceholder')} />

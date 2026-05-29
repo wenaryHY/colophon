@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiData, API, API_PREFIX } from '../lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { apiData, API, API_PREFIX, getQueryClient } from '../lib/api';
 import { esc } from '../lib/utils';
 import { SlotRenderer } from '../lib/slots';
 import type { AdminPost, Category, Tag } from '../types';
@@ -30,7 +31,6 @@ export default function PostEditor() {
   const toast = useToast();
 
   const isEdit = !!id;
-  const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [post, setPost] = useState<AdminPost | null>(null);
 
@@ -48,49 +48,36 @@ export default function PostEditor() {
   // 渲染模式选择弹窗
   const [renderModeChoice, setRenderModeChoice] = useState<RenderModeChoice | null>(null);
 
-  // 元数据
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-
   // 加载文章详情（编辑模式）
-  useEffect(() => {
-    if (!isEdit) return;
-    (async () => {
-      try {
-        const p = await apiData<AdminPost>(`${API_PREFIX}/admin/posts/${id}`);
-        setPost(p);
-        setTitle(p.title || '');
-        setContent(p.content_md || '');
-        setExcerpt(p.excerpt || '');
-        setStatus(p.status === 'published' ? 'published' : 'draft');
-        setCategoryId(p.category_id || '');
-        setSelectedTagIds(p.tags?.map((tag) => tag.id) || []);
-        setContentType(p.content_type || 'post');
-        setPageEditMode(p.page_render_mode === 'custom_html' ? 'custom_html' : 'editor');
-      } catch (error) {
-        toast(error instanceof Error ? error.message : '加载文章失败', 'error');
-        navigate('/posts');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [id, isEdit, navigate, toast]);
+  const { isLoading: postLoading } = useQuery({
+    queryKey: ['post', id],
+    queryFn: async () => {
+      const p = await apiData<AdminPost>(`${API_PREFIX}/admin/posts/${id}`);
+      setPost(p);
+      setTitle(p.title || '');
+      setContent(p.content_md || '');
+      setExcerpt(p.excerpt || '');
+      setStatus(p.status === 'published' ? 'published' : 'draft');
+      setCategoryId(p.category_id || '');
+      setSelectedTagIds(p.tags?.map((tag) => tag.id) || []);
+      setContentType(p.content_type || 'post');
+      setPageEditMode(p.page_render_mode === 'custom_html' ? 'custom_html' : 'editor');
+      return p;
+    },
+    enabled: isEdit,
+  });
 
-  // 加载分类和标签
-  useEffect(() => {
-    (async () => {
-      try {
-        const [categoryData, tagData] = await Promise.all([
-          apiData<Category[]>(`${API_PREFIX}/categories`),
-          apiData<Tag[]>(`${API_PREFIX}/tags`),
-        ]);
-        setCategories(categoryData || []);
-        setTags(tagData || []);
-      } catch (error) {
-        toast(error instanceof Error ? error.message : '加载元数据失败', 'error');
-      }
-    })();
-  }, [toast]);
+  // 加载分类
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => apiData<Category[]>(`${API_PREFIX}/categories`),
+  });
+
+  // 加载标签
+  const { data: tags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => apiData<Tag[]>(`${API_PREFIX}/tags`),
+  });
 
   function toggleTag(tagId: string) {
     setSelectedTagIds((prev) =>
@@ -182,6 +169,7 @@ export default function PostEditor() {
       }
 
       toast(t('saveSuccess'), 'success');
+      getQueryClient().invalidateQueries({ queryKey: ['posts'] });
       navigate('/posts');
     } catch (error) {
       toast(error instanceof Error ? error.message : t('saveFailed'), 'error');
@@ -190,7 +178,7 @@ export default function PostEditor() {
     }
   }
 
-  if (loading) {
+  if (postLoading) {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: 'var(--md-on-surface-variant)' }}>
         加载中…

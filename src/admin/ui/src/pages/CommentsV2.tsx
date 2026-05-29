@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiData, paginationPages, API_PREFIX } from '../lib/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiData, paginationPages, API_PREFIX, getQueryClient } from '../lib/api';
 import { esc } from '../lib/utils';
 import type { Comment, PaginatedResponse } from '../types';
 import { PageHeader } from '../components/PageHeader';
@@ -59,109 +60,98 @@ export default function CommentsV2() {
   const toast = useToast();
   const navigate = useNavigate();
   const { t, format } = useI18n();
-  const [items, setItems] = useState<Comment[]>([]);
-  const [total, setTotal] = useState(0);
-  const [pages, setPages] = useState(1);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
 
   const [deleteTarget, setDeleteTarget] = useState<Comment | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
-  const fetchComments = useCallback(
-    async (nextPage: number) => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({
-          page: String(nextPage),
-          page_size: '15',
-        });
-
-        const payload = await apiData<PaginatedResponse<Comment>>(
-          `${API_PREFIX}/admin/comments?${params.toString()}`
-        );
-        setItems(payload.items || []);
-        setTotal(payload.pagination.total || 0);
-        setPages(paginationPages(payload));
-      } catch (error) {
-        toast(error instanceof Error ? error.message : t('loadCommentsFailed'), 'error');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [toast]
-  );
-
-  useEffect(() => {
-    void fetchComments(page);
-  }, [page, fetchComments]);
-
-  useEffect(() => {
-    setSelectedIds(new Set());
-  }, [page]);
-
-  async function handleApprove(id: string) {
-    try {
-      await apiData(`${API_PREFIX}/admin/comments/${id}/approve`, { method: 'POST' });
-      toast(t('approvedSuccess'), 'success');
-      await fetchComments(page);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('actionFailed'), 'error');
-    }
-  }
-
-  async function handleReject(id: string) {
-    try {
-      await apiData(`${API_PREFIX}/admin/comments/${id}/reject`, { method: 'POST' });
-      toast(t('rejectedSuccess'), 'success');
-      await fetchComments(page);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('actionFailed'), 'error');
-    }
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    try {
-      await apiData(`${API_PREFIX}/admin/comments/${deleteTarget.id}`, { method: 'DELETE' });
-      toast(t('movedToTrashSuccess'), 'success');
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(deleteTarget.id);
-        return next;
+  const { data: payload, isLoading } = useQuery({
+    queryKey: ['comments', { page }],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: '15',
       });
-      await fetchComments(page);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('deleteFailed'), 'error');
-    } finally {
-      setDeleteTarget(null);
-    }
-  }
-
-  async function handleBatchApprove() {
-    const pendingIds = [...selectedIds].filter((id) => {
-      const c = items.find((i) => i.id === id);
-      return c && c.status === 'pending';
-    });
-    if (pendingIds.length === 0) {
-      toast(t('noPendingComments'), 'info');
-      return;
-    }
-
-    try {
-      await Promise.all(
-        pendingIds.map((id) => apiData(`${API_PREFIX}/admin/comments/${id}/approve`, { method: 'POST' }))
+      return apiData<PaginatedResponse<Comment>>(
+        `${API_PREFIX}/admin/comments?${params.toString()}`
       );
+    },
+  });
+
+  const items = payload?.items ?? [];
+  const total = payload?.pagination.total ?? 0;
+  const pages = payload ? paginationPages(payload) : 1;
+
+  const invalidateComments = () => getQueryClient().invalidateQueries({ queryKey: ['comments'] });
+
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => apiData(`${API_PREFIX}/admin/comments/${id}/approve`, { method: 'POST' }),
+    onSuccess: () => { toast(t('approvedSuccess'), 'success'); invalidateComments(); },
+    onError: (error) => toast(error instanceof Error ? error.message : t('actionFailed'), 'error'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) => apiData(`${API_PREFIX}/admin/comments/${id}/reject`, { method: 'POST' }),
+    onSuccess: () => { toast(t('rejectedSuccess'), 'success'); invalidateComments(); },
+    onError: (error) => toast(error instanceof Error ? error.message : t('actionFailed'), 'error'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiData(`${API_PREFIX}/admin/comments/${id}`, { method: 'DELETE' }),
+    onSuccess: (_, id) => {
+      toast(t('movedToTrashSuccess'), 'success');
+      setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+      setDeleteTarget(null);
+      invalidateComments();
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('deleteFailed'), 'error');
+      setDeleteTarget(null);
+    },
+  });
+
+  const batchApproveMutation = useMutation({
+    mutationFn: async (pendingIds: string[]) => {
+      await Promise.all(pendingIds.map((id) => apiData(`${API_PREFIX}/admin/comments/${id}/approve`, { method: 'POST' })));
+    },
+    onSuccess: (_, pendingIds) => {
       toast(format('batchApproveSuccess', { count: pendingIds.length }), 'success');
       setSelectedIds(new Set());
-      await fetchComments(page);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('batchActionFailed'), 'error');
-    }
-  }
+      invalidateComments();
+    },
+    onError: (error) => toast(error instanceof Error ? error.message : t('batchActionFailed'), 'error'),
+  });
 
-  async function handleBatchReject() {
+  const batchRejectMutation = useMutation({
+    mutationFn: async (pendingIds: string[]) => {
+      await Promise.all(pendingIds.map((id) => apiData(`${API_PREFIX}/admin/comments/${id}/reject`, { method: 'POST' })));
+    },
+    onSuccess: (_, pendingIds) => {
+      toast(format('batchRejectSuccess', { count: pendingIds.length }), 'success');
+      setSelectedIds(new Set());
+      invalidateComments();
+    },
+    onError: (error) => toast(error instanceof Error ? error.message : t('batchActionFailed'), 'error'),
+  });
+
+  const batchDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((id) => apiData(`${API_PREFIX}/admin/comments/${id}`, { method: 'DELETE' })));
+    },
+    onSuccess: (_, ids) => {
+      toast(`${t('movedToTrashSuccess')} ${ids.length} ${t('items')}`, 'success');
+      setSelectedIds(new Set());
+      setBatchDeleteOpen(false);
+      invalidateComments();
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('batchDeleteFailed'), 'error');
+      setBatchDeleteOpen(false);
+    },
+  });
+
+  function handleBatchApprove() {
     const pendingIds = [...selectedIds].filter((id) => {
       const c = items.find((i) => i.id === id);
       return c && c.status === 'pending';
@@ -170,17 +160,19 @@ export default function CommentsV2() {
       toast(t('noPendingComments'), 'info');
       return;
     }
+    batchApproveMutation.mutate(pendingIds);
+  }
 
-    try {
-      await Promise.all(
-        pendingIds.map((id) => apiData(`${API_PREFIX}/admin/comments/${id}/reject`, { method: 'POST' }))
-      );
-      toast(format('batchRejectSuccess', { count: pendingIds.length }), 'success');
-      setSelectedIds(new Set());
-      await fetchComments(page);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('batchActionFailed'), 'error');
+  function handleBatchReject() {
+    const pendingIds = [...selectedIds].filter((id) => {
+      const c = items.find((i) => i.id === id);
+      return c && c.status === 'pending';
+    });
+    if (pendingIds.length === 0) {
+      toast(t('noPendingComments'), 'info');
+      return;
     }
+    batchRejectMutation.mutate(pendingIds);
   }
 
   function toggleSelect(id: string) {
@@ -202,7 +194,7 @@ export default function CommentsV2() {
     [items]
   );
 
-  if (loading && items.length === 0) return <PostsSkeleton />;
+  if (isLoading && items.length === 0) return <PostsSkeleton />;
 
   return (
     <>
@@ -385,7 +377,7 @@ export default function CommentsV2() {
                               <button
                                 title={t('approveAction')}
                                 style={{ ...iconBtn, color: '#10b981' }}
-                                onClick={() => handleApprove(cmt.id)}
+                                onClick={() => approveMutation.mutate(cmt.id)}
                                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--md-surface-container)'; e.currentTarget.style.transform = 'scale(0.95)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'var(--md-surface-container-low)'; e.currentTarget.style.transform = 'scale(1)'; }}
                               >
@@ -394,7 +386,7 @@ export default function CommentsV2() {
                               <button
                                 title={t('rejectAction')}
                                 style={{ ...iconBtn, color: '#f59e0b' }}
-                                onClick={() => handleReject(cmt.id)}
+                                onClick={() => rejectMutation.mutate(cmt.id)}
                                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--md-surface-container)'; e.currentTarget.style.transform = 'scale(0.95)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'var(--md-surface-container-low)'; e.currentTarget.style.transform = 'scale(1)'; }}
                               >
@@ -434,7 +426,7 @@ export default function CommentsV2() {
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         title={t('deleteCommentTitle')}
         message={format('deleteCommentMessage', { name: deleteTarget?.display_name || '' })}
         variant="danger"
@@ -444,18 +436,7 @@ export default function CommentsV2() {
       <ConfirmDialog
         open={batchDeleteOpen}
         onClose={() => setBatchDeleteOpen(false)}
-        onConfirm={async () => {
-          try {
-            await Promise.all([...selectedIds].map((id) => apiData(`${API_PREFIX}/admin/comments/${id}`, { method: 'DELETE' })));
-            toast(`${t('movedToTrashSuccess')} ${selectedIds.size} ${t('items')}`, 'success');
-            setSelectedIds(new Set());
-            await fetchComments(page);
-          } catch (error) {
-            toast(error instanceof Error ? error.message : t('batchDeleteFailed'), 'error');
-          } finally {
-            setBatchDeleteOpen(false);
-          }
-        }}
+        onConfirm={() => batchDeleteMutation.mutate([...selectedIds])}
         title={t('batchDeleteCommentTitle')}
         message={format('batchDeleteCommentMessage', { count: selectedIds.size })}
         variant="danger"

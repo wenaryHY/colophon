@@ -1,4 +1,4 @@
-import type { ApiResponse, PaginatedResponse } from '../types';
+import type { PaginatedResponse } from '../types';
 
 export const API = `${window.location.protocol}//${window.location.host}`;
 
@@ -6,169 +6,49 @@ export const API = `${window.location.protocol}//${window.location.host}`;
 export const API_PREFIX = '/api/v1';
 
 export class ApiClientError extends Error {
-  code: number;
-  clientRequestId?: string;
-  requestId?: string;
+  status: number;
 
-  constructor(message: string, code = 50000) {
+  constructor(status: number, message: string) {
     super(message);
-    this.code = code;
+    this.name = 'ApiClientError';
+    this.status = status;
   }
 }
 
-function generateClientRequestId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
+export async function api<T = unknown>(path: string, opts: RequestInit = {}): Promise<T> {
+  const url = path.startsWith('http')
+    ? path
+    : path.startsWith(API_PREFIX)
+      ? path
+      : `${API_PREFIX}${path.startsWith('/') ? '' : '/'}${path}`;
 
-export async function api<T = unknown>(path: string, opts: RequestInit = {}): Promise<ApiResponse<T>> {
-  const headers = new Headers(opts.headers || {});
-  const clientRequestId = generateClientRequestId();
-
-  headers.set('X-Client-Request-Id', clientRequestId);
-
+  const headers = new Headers(opts.headers as HeadersInit | undefined);
   if (opts.body && !(opts.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const res = await fetch(API + path, { ...opts, headers, credentials: 'include' });
-  const text = await res.text();
-  let data: ApiResponse<T>;
-
-  try {
-    data = text ? (JSON.parse(text) as ApiResponse<T>) : ({
-      code: res.ok ? 0 : 50000,
-      message: text || 'Empty response',
-      data: null,
-      request_id: res.headers.get('X-Request-Id') || res.headers.get('X-Client-Request-Id') || '',
-    } as ApiResponse<T>);
-  } catch {
-    const err = new ApiClientError(text || 'Invalid server response');
-    err.clientRequestId = clientRequestId;
-    err.requestId = res.headers.get('X-Request-Id') || res.headers.get('X-Client-Request-Id') || undefined;
-    throw err;
-  }
-
-  if (!res.ok || data.code !== 0) {
-    const err = new ApiClientError(data.message || `Request failed with ${res.status}`, data.code);
-    err.clientRequestId = clientRequestId;
-    err.requestId = data.request_id || res.headers.get('X-Request-Id') || res.headers.get('X-Client-Request-Id') || undefined;
-    throw err;
-  }
-
-  return data;
-}
-
-/* ── SWR 缓存：GET 请求立即返回陈化数据，后台静默刷新 ── */
-/*  窗口：0-30s 新鲜直接返回 + 后台刷新；30s+ 陈化数据返回 + 后台刷新 */
-interface CacheEntry<T = unknown> {
-  data: T;
-  timestamp: number;
-}
-
-const GET_CACHE_TTL = 30_000; // 30s fresh window
-const cache = new Map<string, CacheEntry>();
-const pendingRequests = new Map<string, Promise<unknown>>();
-
-// 缓存版本号：防止 invalidate 后飞行中的旧请求覆盖新数据
-const cacheVersion = new Map<string, number>();
-
-function getCacheVersion(key: string): number {
-  return cacheVersion.get(key) || 0;
-}
-
-function bumpCacheVersion(prefix: string): void {
-  const newVersion = Date.now();
-  for (const key of cache.keys()) {
-    if (key.startsWith(prefix)) {
-      cacheVersion.set(key, newVersion);
-    }
-  }
-  cacheVersion.set(prefix, newVersion);
-}
-
-function buildCacheKey(url: string): string {
-  return url;
-}
-
-/** 从 URL 中提取资源前缀，用于非 GET 请求后批量失效同类缓存 */
-function extractResourcePrefix(url: string): string {
-  const match = url.match(/^(\/api\/v1\/[^/]+\/[^/]+)\b/);
-  return match ? match[1] : url;
-}
-
-/** 执行 GET 请求并写入缓存（内部复用 api() 以保留 Header 注入与错误处理） */
-async function doGet<T>(url: string, version: number): Promise<T> {
-  const response = await api<unknown>(url);
-  const key = buildCacheKey(url);
-  const currentVersion = getCacheVersion(key);
-  if (version >= currentVersion) {
-    cache.set(key, { data: response.data, timestamp: Date.now() });
-  }
-  return response.data as T;
-}
-
-/** 后台静默刷新：若有同 key 的进行中请求则跳过，避免并发重复 */
-function refreshInBackground(url: string, version: number): void {
-  const key = buildCacheKey(url);
-  if (pendingRequests.has(key)) return;
-  const promise = doGet(url, version).finally(() => {
-    pendingRequests.delete(key);
+  const response = await fetch(url, {
+    ...opts,
+    credentials: 'include',
+    headers,
   });
-  pendingRequests.set(key, promise);
+
+  if (!response.ok) {
+    throw new ApiClientError(response.status, `Request failed: ${response.status}`);
+  }
+
+  return response.json() as T;
 }
 
-/** 按资源前缀批量失效缓存（先 bump 版本号，防止飞行中的旧请求覆盖新数据） */
-function invalidateCacheByPrefix(prefix: string): void {
-  bumpCacheVersion(prefix);
-  for (const key of cache.keys()) {
-    if (key.startsWith(prefix)) {
-      cache.delete(key);
-    }
-  }
-}
-
-/**
- * SWR get：优先返回缓存数据（新鲜或陈化），同时后台刷新
- * 仅当无任何缓存时才同步等待请求结果
- */
-async function swrGet<T>(url: string): Promise<T> {
-  const key = buildCacheKey(url);
-  const entry = cache.get(key);
-  const now = Date.now();
-  const currentVersion = getCacheVersion(key);
-
-  if (entry && (now - entry.timestamp) < GET_CACHE_TTL) {
-    // 新鲜窗口内：直接返回缓存，后台静默刷新
-    refreshInBackground(url, currentVersion);
-    return entry.data as T;
-  }
-
-  if (entry) {
-    // 陈化窗口：返回旧数据，后台静默刷新
-    refreshInBackground(url, currentVersion);
-    return entry.data as T;
-  }
-
-  // 无缓存：同步等待请求
-  return doGet<T>(url, currentVersion);
+interface ApiResponse<T = unknown> {
+  code: number;
+  message: string;
+  data?: T;
+  request_id: string;
 }
 
 export async function apiData<T = unknown>(path: string, opts: RequestInit = {}): Promise<T> {
-  const isGet = !opts.method || opts.method === 'GET';
-
-  if (!isGet) {
-    const prefix = extractResourcePrefix(path);
-    invalidateCacheByPrefix(prefix);
-  }
-
-  if (isGet) {
-    return swrGet<T>(path);
-  }
-
-  const response = await api<T>(path, opts);
+  const response = await api<ApiResponse<T>>(path, opts);
   return response.data as T;
 }
 
@@ -176,7 +56,23 @@ export function paginationPages<T>(payload: PaginatedResponse<T>): number {
   return Math.max(1, Math.ceil(payload.pagination.total / payload.pagination.page_size));
 }
 
-// MediaCategory API
+// ── TanStack Query 全局引用 ──
+
+import { QueryClient } from '@tanstack/react-query';
+
+let _queryClient: QueryClient | null = null;
+
+export function setQueryClient(client: QueryClient) {
+  _queryClient = client;
+}
+
+export function getQueryClient(): QueryClient {
+  if (!_queryClient) throw new Error('QueryClient not initialized');
+  return _queryClient;
+}
+
+// ── MediaCategory API ──
+
 export async function listMediaCategories() {
   return apiData<import('../types').MediaCategory[]>(`${API_PREFIX}/admin/media/categories`);
 }
@@ -201,7 +97,8 @@ export async function deleteMediaCategory(id: string) {
   });
 }
 
-// Theme API
+// ── Theme API ──
+
 export async function getThemeDetail(slug: string) {
   return apiData<import('../types').ThemeDetailResponse>(`${API_PREFIX}/admin/themes/${slug}/detail`);
 }
@@ -228,7 +125,8 @@ export async function uploadTheme(file: File) {
   });
 }
 
-// Backup API
+// ── Backup API ──
+
 export async function createBackup(provider: string = 'local') {
   return apiData(`${API_PREFIX}/admin/backup`, {
     method: 'POST',

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
-import { apiData, API_PREFIX } from '../lib/api';
+import { apiData, API_PREFIX, getQueryClient } from '../lib/api';
 import type { ThemeConfigField, ThemeSummary } from '../types';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
@@ -24,40 +25,33 @@ export default function Themes() {
   const navigate = useNavigate();
   const toast = useToast();
   const { t, format } = useI18n();
-  const [themes, setThemes] = useState<ThemeSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activatingSlug, setActivatingSlug] = useState<string | null>(null);
 
-  const loadThemes = useCallback(async () => {
-    try {
-      setLoading(true);
-      const items = await apiData<ThemeSummary[]>(`${API_PREFIX}/admin/themes`);
-      setThemes(items);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('loadThemesFailed'), 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+  const { data: themes = [], isLoading } = useQuery({
+    queryKey: ['themes'],
+    queryFn: () => apiData<ThemeSummary[]>(`${API_PREFIX}/admin/themes`),
+  });
 
-  useEffect(() => {
-    void loadThemes();
-  }, [loadThemes]);
+  const activateMutation = useMutation({
+    mutationFn: (slug: string) =>
+      apiData(`${API_PREFIX}/admin/themes/${slug}/activate`, { method: 'POST' }),
+    onSuccess: () => {
+      toast(t('switchThemeSuccess'), 'success');
+      setActivatingSlug(null);
+      getQueryClient().invalidateQueries({ queryKey: ['themes'] });
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('switchThemeFailed'), 'error');
+      setActivatingSlug(null);
+    },
+  });
+
+  const handleActivate = (slug: string) => {
+    setActivatingSlug(slug);
+    activateMutation.mutate(slug);
+  };
 
   const activeTheme = useMemo(() => themes.find((item) => item.active), [themes]);
-
-  async function handleActivate(slug: string) {
-    try {
-      setActivatingSlug(slug);
-      await apiData(`${API_PREFIX}/admin/themes/${slug}/activate`, { method: 'POST' });
-      toast(t('switchThemeSuccess'), 'success');
-      await loadThemes();
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('switchThemeFailed'), 'error');
-    } finally {
-      setActivatingSlug(null);
-    }
-  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -65,7 +59,7 @@ export default function Themes() {
         title={t('themesTitle')}
         subtitle={t('themesSubtitle')}
         actions={
-          <Button onClick={() => void loadThemes()} disabled={loading} loading={loading}>
+          <Button onClick={() => getQueryClient().invalidateQueries({ queryKey: ['themes'] })} disabled={isLoading} loading={isLoading}>
             {t('refreshThemes')}
           </Button>
         }
@@ -99,7 +93,7 @@ export default function Themes() {
           </div>
         </div>
         <div style={{ padding: '24px' }}>
-          {themes.length === 0 && !loading ? (
+          {themes.length === 0 && !isLoading ? (
             <div style={{ padding: '28px', textAlign: 'center', color: 'var(--md-outline)' }}>{t('noThemes')}</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>

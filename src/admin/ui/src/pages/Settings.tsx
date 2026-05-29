@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   apiData,
   API,
@@ -8,8 +9,9 @@ import {
   listBackups,
   mergeRestoreBackup,
 } from '../lib/api';
+import { getQueryClient } from '../lib/api';
 import { SlotRenderer } from '../lib/slots';
-import type { BackupListResponse, Setting, ThemeSummary } from '../types';
+import type { Setting, ThemeSummary } from '../types';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -20,12 +22,10 @@ import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
 import { useAuth } from '../contexts/AuthContext';
 
-/* 样式常量 */
 const sectionStyle: React.CSSProperties = {
   background: 'var(--md-surface-container-lowest)',
   borderRadius: 'var(--radius-lg)',
   marginBottom: '20px',
-  // overflow: 'hidden' removed to allow TimePicker popover to overflow
 };
 const secHeadStyle: React.CSSProperties = {
   padding: '18px 24px', background: 'var(--md-surface-container-low)',
@@ -112,35 +112,39 @@ export default function Settings() {
   const { t, lang, setLang } = useI18n();
   const { user, refreshUser } = useAuth();
   const restoreInputRef = useRef<HTMLInputElement>(null);
-  const [themes, setThemes] = useState<ThemeSummary[]>([]);
-  const [backups, setBackups] = useState<BackupListResponse[]>([]);
   const [kv, setKv] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-  const [creatingBackup, setCreatingBackup] = useState(false);
   const [downloadingBackupId, setDownloadingBackupId] = useState<string | null>(null);
   const [mergeRestoringId, setMergeRestoringId] = useState<string | null>(null);
-  const [deletingBackupId, setDeletingBackupId] = useState<string | null>(null);
 
-  const loadBackups = useCallback(async () => {
-    const items = await listBackups();
-    setBackups(items);
-  }, []);
+  // 加载设置和主题
+  const { data: themes = [] } = useQuery({
+    queryKey: ['settings-themes'],
+    queryFn: () => apiData<ThemeSummary[]>(`${API_PREFIX}/admin/themes`),
+    staleTime: 60_000,
+  });
 
-  const load = useCallback(async () => {
-    try {
-      const [settingItems, themeItems] = await Promise.all([
-        apiData<Setting[]>(`${API_PREFIX}/admin/settings`),
-        apiData<ThemeSummary[]>(`${API_PREFIX}/admin/themes`),
-      ]);
-      setThemes(themeItems);
+  const { } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const settingItems = await apiData<Setting[]>(`${API_PREFIX}/admin/settings`);
       const nextKv: Record<string, string> = {};
       settingItems.forEach((item) => { nextKv[item.key] = item.value; });
-      setKv(nextKv);
-      await loadBackups();
-    } catch (error) { toast(error instanceof Error ? error.message : '加载设置失败', 'error'); }
-  }, [loadBackups, toast]);
+      setKv((prev) => {
+        // 只在第一次加载时设置初始值
+        if (Object.keys(prev).length === 0) return nextKv;
+        return prev;
+      });
+      return settingItems;
+    },
+    staleTime: 60_000,
+  });
 
-  useEffect(() => { void load(); }, [load]);
+  // 加载备份
+  const { data: backups = [], refetch: refetchBackups } = useQuery({
+    queryKey: ['backups'],
+    queryFn: () => listBackups(),
+    staleTime: 10_000,
+  });
 
   function update(key: string, value: string) { setKv((prev) => ({ ...prev, [key]: value })); }
 
@@ -169,54 +173,33 @@ export default function Settings() {
     }
   }
 
-  async function handleCreateBackup() {
-    setCreatingBackup(true);
-    try {
-      await createBackup('local');
-      await loadBackups();
-      toast('已创建新备份', 'success');
-    } catch (error) {
-      toast(error instanceof Error ? error.message : '创建备份失败', 'error');
-    } finally {
-      setCreatingBackup(false);
-    }
-  }
+  const createBackupMutation = useMutation({
+    mutationFn: () => createBackup('local'),
+    onSuccess: () => { toast('已创建新备份', 'success'); refetchBackups(); },
+    onError: (error) => toast(error instanceof Error ? error.message : '创建备份失败', 'error'),
+  });
 
-  async function handleMergeRestore(backupId: string) {
-    if (!window.confirm('将执行"合并恢复"：保留当前新数据并合并备份历史数据，是否继续？')) {
-      return;
-    }
-    setMergeRestoringId(backupId);
-    try {
-      await mergeRestoreBackup(backupId);
+  const mergeRestoreMutation = useMutation({
+    mutationFn: (backupId: string) => mergeRestoreBackup(backupId),
+    onSuccess: () => {
       toast('合并恢复成功，页面即将刷新', 'success');
-      setTimeout(() => location.reload(), 1200);
-    } catch (error) {
-      toast(error instanceof Error ? error.message : '合并恢复失败', 'error');
-    } finally {
       setMergeRestoringId(null);
-    }
-  }
+      setTimeout(() => location.reload(), 1200);
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : '合并恢复失败', 'error');
+      setMergeRestoringId(null);
+    },
+  });
 
-  async function handleDeleteBackup(backupId: string) {
-    if (!window.confirm('确定删除这个备份吗？删除后不可恢复。')) {
-      return;
-    }
-    setDeletingBackupId(backupId);
-    try {
-      await deleteBackupApi(backupId);
-      await loadBackups();
-      toast('备份已删除', 'success');
-    } catch (error) {
-      toast(error instanceof Error ? error.message : '删除备份失败', 'error');
-    } finally {
-      setDeletingBackupId(null);
-    }
-  }
+  const deleteBackupMutation = useMutation({
+    mutationFn: (backupId: string) => deleteBackupApi(backupId),
+    onSuccess: () => { toast('备份已删除', 'success'); refetchBackups(); },
+    onError: (error) => toast(error instanceof Error ? error.message : '删除备份失败', 'error'),
+  });
 
-  async function handleSave() {
-    setSaving(true);
-    try {
+  const saveSettingsMutation = useMutation({
+    mutationFn: async () => {
       const items: Array<[string, string]> = [
         ['site_title', kv.site_title || ''],
         ['site_description', kv.site_description || ''],
@@ -230,36 +213,48 @@ export default function Settings() {
       ];
       for (const [key, value] of items) await apiData(`${API_PREFIX}/admin/settings`, { method: 'PATCH', body: JSON.stringify({ key, value }) });
       if (kv.active_theme) await apiData(`${API_PREFIX}/admin/themes/${kv.active_theme}/activate`, { method: 'POST' });
+    },
+    onSuccess: () => {
       toast('设置已保存', 'success');
-      await load();
-    } catch (error) { toast(error instanceof Error ? error.message : '保存设置失败', 'error'); }
-    finally { setSaving(false); }
+      getQueryClient().invalidateQueries({ queryKey: ['settings'] });
+      getQueryClient().invalidateQueries({ queryKey: ['settings-themes'] });
+    },
+    onError: (error) => toast(error instanceof Error ? error.message : '保存设置失败', 'error'),
+  });
+
+  const languageMutation = useMutation({
+    mutationFn: async (newLang: 'zh' | 'en') => {
+      setLang(newLang);
+      if (user) {
+        await apiData(`${API_PREFIX}/me/profile`, {
+          method: 'PATCH',
+          body: JSON.stringify({ language: newLang }),
+        });
+        await refreshUser();
+      }
+    },
+    onError: (error) => toast(error instanceof Error ? error.message : '保存语言设置失败', 'error'),
+  });
+
+  function handleMergeRestore(backupId: string) {
+    if (!window.confirm('将执行"合并恢复"：保留当前新数据并合并备份历史数据，是否继续？')) {
+      return;
+    }
+    setMergeRestoringId(backupId);
+    mergeRestoreMutation.mutate(backupId);
+  }
+
+  function handleDeleteBackup(backupId: string) {
+    if (!window.confirm('确定删除这个备份吗？删除后不可恢复。')) return;
+    deleteBackupMutation.mutate(backupId);
   }
 
   const activeThemeOptions = useMemo(() => themes.map((t) => ({ value: t.manifest.slug, label: t.manifest.name })), [themes]);
 
-  // 处理语言切换并同步到后端
-  const handleLanguageChange = async (newLang: 'zh' | 'en') => {
-    setLang(newLang);
-    if (user) {
-      try {
-        await apiData(`${API_PREFIX}/me/profile`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            language: newLang,
-          }),
-        });
-        await refreshUser();
-      } catch (error) {
-        toast(error instanceof Error ? error.message : '保存语言设置失败', 'error');
-      }
-    }
-  };
-
   return (
     <>
       <PageHeader title={t('title')} subtitle={t('subtitle')}
-        actions={<Button onClick={handleSave} disabled={saving} loading={saving}>{t('saveChanges')}</Button>} />
+        actions={<Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending} loading={saveSettingsMutation.isPending}>{t('saveChanges')}</Button>} />
 
       <SettingSection title="基础信息" description="站点名称、描述等核心信息">
         <FormRow label="站点标题">
@@ -327,7 +322,6 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* 已安装主题 */}
         <div style={{ marginTop: '22px', paddingTop: '18px', background: 'var(--md-surface-container-low)', borderRadius: 'var(--radius-md)', padding: '18px' }}>
           <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--md-outline)', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '16px' }}>
             已安装的主题
@@ -404,27 +398,24 @@ export default function Settings() {
         </div>
       </SettingSection>
 
-      {/* 界面设置 */}
       <SettingSection title={t('uiSettings')} description={t('uiSettingsDesc')}>
         <FormRow label={t('interfaceLanguage')}>
-          <Select value={lang} onChange={(e) => handleLanguageChange(e.target.value as 'zh' | 'en')}>
+          <Select value={lang} onChange={(e) => languageMutation.mutate(e.target.value as 'zh' | 'en')}>
             <option value="zh">{t('languageZh')}</option>
             <option value="en">{t('languageEn')}</option>
           </Select>
         </FormRow>
       </SettingSection>
 
-      {/* 数据备份 */}
       <SettingSection
         title={t('dataBackup')}
         description={t('dataBackupDesc')}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* 操作按钮行 */}
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button onClick={handleCreateBackup} disabled={creatingBackup} loading={creatingBackup}>
+            <Button onClick={() => createBackupMutation.mutate()} disabled={createBackupMutation.isPending} loading={createBackupMutation.isPending}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-              {creatingBackup ? '创建中…' : '创建备份'}
+              {createBackupMutation.isPending ? '创建中…' : '创建备份'}
             </Button>
             <Button variant="ghost" onClick={() => restoreInputRef.current?.click()}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -448,7 +439,6 @@ export default function Settings() {
                   body: formData,
                   credentials: 'include',
                 })
-
                   .then((r) => r.json())
                   .then((json) => {
                     if (json.code === 0) {
@@ -466,7 +456,6 @@ export default function Settings() {
             />
           </div>
 
-          {/* 备份列表 */}
           <div style={{ paddingTop: '16px' }}>
             <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--md-outline)', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '12px' }}>
               备份历史 ({backups.length})
@@ -492,7 +481,6 @@ export default function Settings() {
                     onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--md-surface-container-high)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--md-surface-container)'; }}
                   >
-                    {/* 左侧信息 */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
                       <div style={{
                         width: '34px', height: '34px', borderRadius: '8px',
@@ -517,7 +505,6 @@ export default function Settings() {
                       </div>
                     </div>
 
-                    {/* 右侧操作 */}
                     <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                       <Button
                         variant="ghost"
@@ -543,8 +530,8 @@ export default function Settings() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteBackup(b.id)}
-                        disabled={deletingBackupId === b.id}
-                        loading={deletingBackupId === b.id}
+                        disabled={deleteBackupMutation.isPending}
+                        loading={deleteBackupMutation.isPending}
                         title="删除此备份"
                         style={{ color: '#ef4444' }}
                       >

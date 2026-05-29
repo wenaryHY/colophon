@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { Card } from '../components/Card';
@@ -75,12 +75,6 @@ export default function MediaCategories() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MediaCategory | null>(null);
   const [form, setForm] = useState(INITIAL_FORM);
-
-  useEffect(() => {
-    void fetch().catch((error) => {
-      toast(error instanceof Error ? error.message : t('loadMediaCategoriesFailed'), 'error');
-    });
-  }, [fetch, toast]);
 
   const sortedCategories = useMemo(
     () => [...categories].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
@@ -215,9 +209,7 @@ export default function MediaCategories() {
               {t('mediaCategoryListDesc')}
             </div>
           </div>
-          <Button variant="ghost" onClick={() => void fetch().catch((error) => {
-            toast(error instanceof Error ? error.message : t('refreshFailed'), 'error');
-          })}>
+          <Button variant="ghost" onClick={() => fetch()}>
             {t('refreshList')}
           </Button>
         </div>

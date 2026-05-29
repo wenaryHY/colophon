@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { apiData, API_PREFIX } from '../lib/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiData, API_PREFIX, getQueryClient } from '../lib/api';
 import { useI18n } from '../i18n';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
@@ -171,60 +172,70 @@ export default function PluginSettings() {
   const navigate = useNavigate();
   const { t } = useI18n();
 
-  const [schema, setSchema] = useState<SettingDef[]>([]);
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [dirtyValues, setDirtyValues] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
+  const lastDefaultsRef = useRef<string>('');
 
-  useEffect(() => {
-    if (!name) {
-      setError('缺少插件名称参数');
-      setLoading(false);
-      return;
+  const { data: settingsData, isLoading } = useQuery({
+    queryKey: ['pluginSettings', name],
+    queryFn: () => apiData<PluginSettingsResponse>(`${API_PREFIX}/admin/plugins/${name}/settings`),
+    enabled: !!name,
+    staleTime: 0,
+  });
+
+  // 从 API 响应计算默认值
+  const defaultValues = useMemo(() => {
+    if (!settingsData) return {};
+    const merged: Record<string, string> = { ...settingsData.values };
+    for (const s of settingsData.settings) {
+      if (!(s.key in merged) && s.default !== undefined) {
+        merged[s.key] = s.default;
+      }
     }
+    return merged;
+  }, [settingsData]);
 
-    setLoading(true);
-    setError('');
+  // 首次加载时重置 dirty values
+  const defaultsKey = JSON.stringify(Object.keys(defaultValues).sort());
+  if (lastDefaultsRef.current !== defaultsKey) {
+    lastDefaultsRef.current = defaultsKey;
+    // 延迟到下一个微任务重置 state，避免在 render 中 setState
+    queueMicrotask(() => setDirtyValues({}));
+  }
 
-    apiData<PluginSettingsResponse>(`${API_PREFIX}/admin/plugins/${name}/settings`)
-      .then((data) => {
-        setSchema(data.settings);
-        const merged: Record<string, string> = { ...data.values };
-        for (const s of data.settings) {
-          if (!(s.key in merged) && s.default !== undefined) {
-            merged[s.key] = s.default;
-          }
-        }
-        setValues(merged);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setLoading(false));
-  }, [name]);
+  // 当前值 = 默认值覆盖用户修改
+  const currentValues: Record<string, string> = { ...defaultValues, ...dirtyValues };
 
-  const update = (key: string, value: string) => {
-    setValues((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleSave = async () => {
-    if (!name) return;
-    setSaving(true);
-    setError('');
-    try {
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!name) return;
       await apiData<{ updated: boolean }>(`${API_PREFIX}/admin/plugins/${name}/settings`, {
         method: 'PUT',
-        body: JSON.stringify({ settings: values }),
+        body: JSON.stringify({ settings: currentValues }),
       });
+    },
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: ['pluginSettings', name] });
       navigate('/admin/plugins');
-    } catch (e) {
+    },
+    onError: (e) => {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setSaving(false);
-    }
+    },
+  });
+
+  const update = (key: string, value: string) => {
+    setDirtyValues((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleSave = () => {
+    setError('');
+    saveMutation.mutate();
+  };
+
+  const schema = settingsData?.settings ?? [];
+
   /* ── Loading ── */
-  if (loading) {
+  if (isLoading) {
     return <div style={CENTER_STYLE}>Loading...</div>;
   }
 
@@ -259,7 +270,7 @@ export default function PluginSettings() {
         title={name || t('pluginSettings')}
         subtitle="配置插件运行参数"
         actions={
-          <Button onClick={handleSave} disabled={saving} loading={saving}>
+          <Button onClick={handleSave} disabled={saveMutation.isPending} loading={saveMutation.isPending}>
             保存
           </Button>
         }
@@ -287,7 +298,7 @@ export default function PluginSettings() {
         <div style={secBodyStyle}>
           {schema.map((s) => (
             <FormRow key={s.key} label={s.label} hint={s.description}>
-              {renderControl(s, values[s.key] ?? '', (val) => update(s.key, val))}
+              {renderControl(s, currentValues[s.key] ?? '', (val) => update(s.key, val))}
             </FormRow>
           ))}
         </div>

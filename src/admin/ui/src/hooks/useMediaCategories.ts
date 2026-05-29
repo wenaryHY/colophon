@@ -1,69 +1,45 @@
-import { useCallback, useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { listMediaCategories, createMediaCategory, updateMediaCategory, deleteMediaCategory } from '../lib/api';
-import type { MediaCategory, CreateMediaCategoryRequest, UpdateMediaCategoryRequest } from '../types';
+import { getQueryClient } from '../lib/api';
+import type { CreateMediaCategoryRequest, UpdateMediaCategoryRequest } from '../types';
+
+const QUERY_KEY = ['mediaCategories'] as const;
 
 export function useMediaCategories() {
-  const [categories, setCategories] = useState<MediaCategory[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: categories = [], isLoading, error } = useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: () => listMediaCategories(),
+  });
 
-  const fetch = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await listMediaCategories();
-      setCategories(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '加载分类失败';
-      setError(message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const createMutation = useMutation({
+    mutationFn: (data: CreateMediaCategoryRequest) => createMediaCategory(data),
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
 
-  const create = useCallback(async (data: CreateMediaCategoryRequest) => {
-    try {
-      const newCategory = await createMediaCategory(data);
-      setCategories(prev => [...prev, newCategory]);
-      return newCategory;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '创建分类失败';
-      setError(message);
-      throw err;
-    }
-  }, []);
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateMediaCategoryRequest }) =>
+      updateMediaCategory(id, data),
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
 
-  const update = useCallback(async (id: string, data: UpdateMediaCategoryRequest) => {
-    try {
-      const updated = await updateMediaCategory(id, data);
-      setCategories(prev => prev.map(c => c.id === id ? updated : c));
-      return updated;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '更新分类失败';
-      setError(message);
-      throw err;
-    }
-  }, []);
-
-  const remove = useCallback(async (id: string) => {
-    try {
-      await deleteMediaCategory(id);
-      setCategories(prev => prev.filter(c => c.id !== id));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '删除分类失败';
-      setError(message);
-      throw err;
-    }
-  }, []);
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => deleteMediaCategory(id),
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
 
   return {
     categories,
-    loading,
-    error,
-    fetch,
-    create,
-    update,
-    remove,
+    loading: isLoading,
+    error: error ? String(error) : null,
+    fetch: () => getQueryClient().invalidateQueries({ queryKey: QUERY_KEY }),
+    create: (data: CreateMediaCategoryRequest) => createMutation.mutateAsync(data),
+    update: (id: string, data: UpdateMediaCategoryRequest) => updateMutation.mutateAsync({ id, data }),
+    remove: (id: string) => removeMutation.mutateAsync(id),
   };
 }

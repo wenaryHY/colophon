@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiData, API_PREFIX } from '../lib/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiData, API_PREFIX, getQueryClient } from '../lib/api';
 import { esc } from '../lib/utils';
 import type { Tag } from '../types';
 import { PageHeader } from '../components/PageHeader';
@@ -44,16 +45,18 @@ const iconBtn: React.CSSProperties = {
 export default function Tags() {
   const toast = useToast();
   const { t, format } = useI18n();
-  const [items, setItems] = useState<Tag[]>([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => apiData<Tag[]>(`${API_PREFIX}/tags`),
+  });
 
   // Modal 状态：新建或编辑
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [saving, setSaving] = useState(false);
 
   // 删除状态
   const [deleteTag, setDeleteTag] = useState<Tag | null>(null);
@@ -62,14 +65,64 @@ export default function Tags() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
-  const fetchTags = useCallback(async () => {
-    setLoading(true);
-    try { setItems(await apiData<Tag[]>(`${API_PREFIX}/tags`)); }
-    catch (error) { toast(error instanceof Error ? error.message : t('loadTagsFailed'), 'error'); }
-    finally { setLoading(false); }
-  }, [toast]);
+  const saveMutation = useMutation({
+    mutationFn: async ({ isEdit, tagId, body }: {
+      isEdit: boolean;
+      tagId?: string;
+      body: { name: string; slug?: string };
+    }) => {
+      if (isEdit) {
+        return apiData(`${API_PREFIX}/admin/tags/${tagId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        });
+      }
+      return apiData(`${API_PREFIX}/admin/tags`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    },
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: ['tags'] });
+      closeEditor();
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('saveFailed'), 'error');
+    },
+  });
 
-  useEffect(() => { void fetchTags(); }, [fetchTags]);
+  const deleteMutation = useMutation({
+    mutationFn: (tagId: string) =>
+      apiData(`${API_PREFIX}/admin/tags/${tagId}`, { method: 'DELETE' }),
+    onSuccess: (_, tagId) => {
+      toast(t('deleteSuccess'), 'success');
+      setSelectedIds(prev => { const next = new Set(prev); next.delete(tagId); return next; });
+      setDeleteTag(null);
+      getQueryClient().invalidateQueries({ queryKey: ['tags'] });
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('deleteFailed'), 'error');
+      setDeleteTag(null);
+    },
+  });
+
+  const batchDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map(id =>
+        apiData(`${API_PREFIX}/admin/tags/${id}`, { method: 'DELETE' })
+      ));
+    },
+    onSuccess: (_, ids) => {
+      toast(format('tagsDeletedSuccess', { count: ids.length }), 'success');
+      setSelectedIds(new Set());
+      setBatchDeleteOpen(false);
+      getQueryClient().invalidateQueries({ queryKey: ['tags'] });
+    },
+    onError: (error) => {
+      toast(error instanceof Error ? error.message : t('batchDeleteFailed'), 'error');
+      setBatchDeleteOpen(false);
+    },
+  });
 
   // 打开新建
   function openCreate() {
@@ -92,71 +145,20 @@ export default function Tags() {
     setEditingTag(null);
     setName('');
     setSlug('');
-    setSaving(false);
   }
 
   async function handleSave() {
     if (!name.trim()) { toast(t('tagNameRequired'), 'error'); return; }
-    setSaving(true);
-    try {
-      if (editingTag) {
-        // 编辑模式
-        await apiData(`${API_PREFIX}/admin/tags/${editingTag.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ name: name.trim(), slug: slug || undefined })
-        });
-        toast(t('updateSuccess'), 'success');
-      } else {
-        // 新建模式
-        await apiData(`${API_PREFIX}/admin/tags`, {
-          method: 'POST',
-          body: JSON.stringify({ name: name.trim(), slug: slug || undefined })
-        });
-        toast(t('createSuccess'), 'success');
-      }
-      closeEditor();
-      await fetchTags();
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('saveFailed'), 'error');
-    } finally {
-      setSaving(false);
-    }
+    saveMutation.mutate({
+      isEdit: !!editingTag,
+      tagId: editingTag?.id,
+      body: { name: name.trim(), slug: slug || undefined },
+    });
   }
 
-  async function confirmDelete() {
+  function confirmDelete() {
     if (!deleteTag) return;
-    try {
-      await apiData(`${API_PREFIX}/admin/tags/${deleteTag.id}`, { method: 'DELETE' });
-      toast(t('deleteSuccess'), 'success');
-      setSelectedIds(prev => { const next = new Set(prev); next.delete(deleteTag.id); return next; });
-      await fetchTags();
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('deleteFailed'), 'error');
-    } finally {
-      setDeleteTag(null);
-    }
-  }
-
-  // 批量删除
-  async function handleBatchDelete() {
-    setBatchDeleteOpen(true);
-  }
-
-  async function confirmBatchDelete() {
-    try {
-      await Promise.all(
-        [...selectedIds].map(id =>
-          apiData(`${API_PREFIX}/admin/tags/${id}`, { method: 'DELETE' })
-        )
-      );
-      toast(format('tagsDeletedSuccess', { count: selectedIds.size }), 'success');
-      setSelectedIds(new Set());
-      await fetchTags();
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('batchDeleteFailed'), 'error');
-    } finally {
-      setBatchDeleteOpen(false);
-    }
+    deleteMutation.mutate(deleteTag.id);
   }
 
   // 选择逻辑
@@ -185,7 +187,7 @@ export default function Tags() {
         actions={
           <div style={{ display: 'flex', gap: '8px' }}>
             {selectedIds.size > 0 && (
-              <Button variant="danger" onClick={handleBatchDelete}>
+              <Button variant="danger" onClick={() => setBatchDeleteOpen(true)}>
                 <IconTrash2 size={14} /> {format('batchDeleteTags', { count: selectedIds.size })}
               </Button>
             )}
@@ -221,7 +223,7 @@ export default function Tags() {
       <Card>
         <div style={{ padding: '22px' }}>
           {/* 全选行 */}
-          {!loading && items.length > 0 && (
+          {!isLoading && items.length > 0 && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: '12px',
               marginBottom: '16px', paddingBottom: '16px',
@@ -247,7 +249,7 @@ export default function Tags() {
             </div>
           )}
 
-          {loading ? (
+          {isLoading ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
               {[...Array(6)].map((_, i) => (
                 <Skeleton key={i} width={100} height={36} className="rounded-lg" />
@@ -368,7 +370,7 @@ export default function Tags() {
       <ConfirmDialog
         open={batchDeleteOpen}
         onClose={() => setBatchDeleteOpen(false)}
-        onConfirm={confirmBatchDelete}
+        onConfirm={() => batchDeleteMutation.mutate([...selectedIds])}
         title={t('batchDeleteTagTitle')}
         message={format('batchDeleteTagMessage', { count: selectedIds.size })}
         variant="danger"
@@ -384,7 +386,7 @@ export default function Tags() {
         actions={
           <>
             <Button variant="ghost" onClick={closeEditor}>{t('cancel')}</Button>
-            <Button onClick={handleSave} disabled={saving} loading={saving}>{t('save')}</Button>
+            <Button onClick={handleSave} disabled={saveMutation.isPending} loading={saveMutation.isPending}>{t('save')}</Button>
           </>
         }
       >

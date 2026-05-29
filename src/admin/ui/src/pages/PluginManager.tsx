@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiData, API_PREFIX } from '../lib/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiData, API_PREFIX, getQueryClient } from '../lib/api';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { useI18n } from '../i18n';
@@ -35,44 +35,36 @@ const CARD_STYLE: React.CSSProperties = {
 };
 
 export default function PluginManager() {
-  const [plugins, setPlugins] = useState<PluginInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
   const navigate = useNavigate();
   const toast = useToast();
   const { t } = useI18n();
 
-  useEffect(() => {
-    setLoading(true);
-    apiData<{ plugins: PluginInfo[] }>(`${API_PREFIX}/admin/plugins`)
-      .then((d) => setPlugins(d.plugins))
-      .catch((e) => toast(e instanceof Error ? e.message : t('loadFailed', '加载失败'), 'error'))
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: pluginData, isLoading } = useQuery({
+    queryKey: ['plugins'],
+    queryFn: () => apiData<{ plugins: PluginInfo[] }>(`${API_PREFIX}/admin/plugins`),
+  });
 
-  const toggle = async (id: string) => {
-    setTogglingId(id);
-    try {
-      await fetch(`${API_PREFIX}/admin/plugins/${id}/toggle`, {
+  const toggleMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetch(`${API_PREFIX}/admin/plugins/${id}/toggle`, {
         method: 'POST',
         credentials: 'include',
-      });
-      setPlugins((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, enabled: !p.enabled } : p)),
-      );
-    } catch (e) {
-      toast(e instanceof Error ? e.message : '操作失败', 'error');
-    } finally {
-      setTogglingId(null);
-    }
-  };
+      }),
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: ['plugins'] });
+    },
+    onError: (e) => {
+      toast(e instanceof Error ? e.message : t('loadFailed', '操作失败'), 'error');
+    },
+  });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="setup-loading">{t('loading', '加载中...')}</div>
     );
   }
 
+  const plugins = pluginData?.plugins ?? [];
   const enabledCount = plugins.filter((p) => p.enabled).length;
 
   return (
@@ -197,8 +189,8 @@ export default function PluginManager() {
                   <Button
                     variant={p.enabled ? 'warning' : 'primary'}
                     size="sm"
-                    onClick={() => toggle(p.id)}
-                    loading={togglingId === p.id}
+                    onClick={() => toggleMutation.mutate(p.id)}
+                    loading={toggleMutation.isPending}
                   >
                     {p.enabled ? t('disable', '禁用') : t('enable', '启用')}
                   </Button>

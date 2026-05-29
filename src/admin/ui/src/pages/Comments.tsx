@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiData, paginationPages, API_PREFIX } from '../lib/api';
+import { useMemo, useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiData, paginationPages, API_PREFIX, getQueryClient } from '../lib/api';
 import { esc } from '../lib/utils';
 import type { Comment, PaginatedResponse } from '../types';
 import { PageHeader } from '../components/PageHeader';
@@ -33,93 +34,100 @@ const iconBtn: React.CSSProperties = {
 
 export default function Comments() {
   const toast = useToast();
-  const [items, setItems] = useState<Comment[]>([]);
-  const [total, setTotal] = useState(0);
-  const [pages, setPages] = useState(1);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<Comment | null>(null);
 
   // 批量选择
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
-  const fetchComments = useCallback(async (nextPage: number) => {
-    setLoading(true);
-    try {
-      const payload = await apiData<PaginatedResponse<Comment>>(`${API_PREFIX}/admin/comments?page=${nextPage}&page_size=15`);
-      setItems(payload.items || []); setTotal(payload.pagination.total || 0); setPages(paginationPages(payload));
-    } catch (error) { toast(error instanceof Error ? error.message : '加载评论失败', 'error'); }
-    finally { setLoading(false); }
-  }, [toast]);
+  const { data: payload, isLoading } = useQuery({
+    queryKey: ['comments-legacy', { page }],
+    queryFn: () => apiData<PaginatedResponse<Comment>>(`${API_PREFIX}/admin/comments?page=${page}&page_size=15`),
+  });
 
-  useEffect(() => { void fetchComments(page); }, [page, fetchComments]);
-  useEffect(() => { setSelectedIds(new Set()); }, [page]);
+  const items = payload?.items ?? [];
+  const total = payload?.pagination.total ?? 0;
+  const pages = payload ? paginationPages(payload) : 1;
 
-  async function handleApprove(id: string) {
-    try { await apiData(`${API_PREFIX}/admin/comments/${id}/approve`, { method: 'POST' }); toast('已通过', 'success'); await fetchComments(page); }
-    catch (error) { toast(error instanceof Error ? error.message : '操作失败', 'error'); }
-  }
+  const invalidate = () => getQueryClient().invalidateQueries({ queryKey: ['comments-legacy'] });
 
-  async function handleReject(id: string) {
-    try { await apiData(`${API_PREFIX}/admin/comments/${id}/reject`, { method: 'POST' }); toast('已拒绝', 'success'); await fetchComments(page); }
-    catch (error) { toast(error instanceof Error ? error.message : '操作失败', 'error'); }
-  }
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => apiData(`${API_PREFIX}/admin/comments/${id}/approve`, { method: 'POST' }),
+    onSuccess: () => { toast('已通过', 'success'); invalidate(); },
+    onError: (error) => toast(error instanceof Error ? error.message : '操作失败', 'error'),
+  });
 
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    try {
-      await apiData(`${API_PREFIX}/admin/comments/${deleteTarget.id}`, { method: 'DELETE' });
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) => apiData(`${API_PREFIX}/admin/comments/${id}/reject`, { method: 'POST' }),
+    onSuccess: () => { toast('已拒绝', 'success'); invalidate(); },
+    onError: (error) => toast(error instanceof Error ? error.message : '操作失败', 'error'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiData(`${API_PREFIX}/admin/comments/${id}`, { method: 'DELETE' }),
+    onSuccess: (_, id) => {
       toast('删除成功', 'success');
-      setSelectedIds(prev => { const next = new Set(prev); next.delete(deleteTarget.id); return next; });
-      await fetchComments(page);
-    } catch (error) { toast(error instanceof Error ? error.message : '删除失败', 'error'); }
-    finally { setDeleteTarget(null); }
-  }
+      setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+      setDeleteTarget(null);
+      invalidate();
+    },
+    onError: (error) => { toast(error instanceof Error ? error.message : '删除失败', 'error'); setDeleteTarget(null); },
+  });
 
-  // 批量操作
-  async function handleBatchApprove() {
-    const pendingIds = [...selectedIds].filter(id => {
-      const c = items.find(i => i.id === id);
-      return c && c.status === 'pending';
-    });
-    if (pendingIds.length === 0) { toast('没有待审核的评论', 'info'); return; }
-    try {
+  const batchApproveMutation = useMutation({
+    mutationFn: async (pendingIds: string[]) => {
       await Promise.all(pendingIds.map(id => apiData(`${API_PREFIX}/admin/comments/${id}/approve`, { method: 'POST' })));
+    },
+    onSuccess: (_, pendingIds) => {
       toast(`成功通过 ${pendingIds.length} 条评论`, 'success');
       setSelectedIds(new Set());
-      await fetchComments(page);
-    } catch (error) { toast(error instanceof Error ? error.message : '批量操作失败', 'error'); }
-  }
+      invalidate();
+    },
+    onError: (error) => toast(error instanceof Error ? error.message : '批量操作失败', 'error'),
+  });
 
-  async function handleBatchReject() {
+  const batchRejectMutation = useMutation({
+    mutationFn: async (pendingIds: string[]) => {
+      await Promise.all(pendingIds.map(id => apiData(`${API_PREFIX}/admin/comments/${id}/reject`, { method: 'POST' })));
+    },
+    onSuccess: (_, pendingIds) => {
+      toast(`成功拒绝 ${pendingIds.length} 条评论`, 'success');
+      setSelectedIds(new Set());
+      invalidate();
+    },
+    onError: (error) => toast(error instanceof Error ? error.message : '批量操作失败', 'error'),
+  });
+
+  const batchDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map(id => apiData(`${API_PREFIX}/admin/comments/${id}`, { method: 'DELETE' })));
+    },
+    onSuccess: (_, ids) => {
+      toast(`成功删除 ${ids.length} 条评论`, 'success');
+      setSelectedIds(new Set());
+      setBatchDeleteOpen(false);
+      invalidate();
+    },
+    onError: (error) => { toast(error instanceof Error ? error.message : '批量删除失败', 'error'); setBatchDeleteOpen(false); },
+  });
+
+  function handleBatchApprove() {
     const pendingIds = [...selectedIds].filter(id => {
       const c = items.find(i => i.id === id);
       return c && c.status === 'pending';
     });
     if (pendingIds.length === 0) { toast('没有待审核的评论', 'info'); return; }
-    try {
-      await Promise.all(pendingIds.map(id => apiData(`${API_PREFIX}/admin/comments/${id}/reject`, { method: 'POST' })));
-      toast(`成功拒绝 ${pendingIds.length} 条评论`, 'success');
-      setSelectedIds(new Set());
-      await fetchComments(page);
-    } catch (error) { toast(error instanceof Error ? error.message : '批量操作失败', 'error'); }
+    batchApproveMutation.mutate(pendingIds);
   }
 
-  async function handleBatchDelete() {
-    setBatchDeleteOpen(true);
-  }
-
-  async function confirmBatchDelete() {
-    try {
-      await Promise.all([...selectedIds].map(id =>
-        apiData(`${API_PREFIX}/admin/comments/${id}`, { method: 'DELETE' })
-      ));
-      toast(`成功删除 ${selectedIds.size} 条评论`, 'success');
-      setSelectedIds(new Set());
-      await fetchComments(page);
-    } catch (error) { toast(error instanceof Error ? error.message : '批量删除失败', 'error'); }
-    finally { setBatchDeleteOpen(false); }
+  function handleBatchReject() {
+    const pendingIds = [...selectedIds].filter(id => {
+      const c = items.find(i => i.id === id);
+      return c && c.status === 'pending';
+    });
+    if (pendingIds.length === 0) { toast('没有待审核的评论', 'info'); return; }
+    batchRejectMutation.mutate(pendingIds);
   }
 
   function toggleSelect(id: string) {
@@ -138,7 +146,7 @@ export default function Comments() {
 
   const pendingCount = useMemo(() => items.filter((i) => i.status === 'pending').length, [items]);
 
-  if (loading && items.length === 0) return <PostsSkeleton />;
+  if (isLoading && items.length === 0) return <PostsSkeleton />;
 
   return (
     <>
@@ -159,7 +167,7 @@ export default function Comments() {
               <Button variant="ghost" size="sm" onClick={handleBatchReject}>
                 <IconBan size={14} /> 批量拒绝
               </Button>
-              <Button variant="danger" size="sm" onClick={handleBatchDelete}>
+              <Button variant="danger" size="sm" onClick={() => setBatchDeleteOpen(true)}>
                 <IconTrash2 size={14} /> 删除 ({selectedIds.size})
               </Button>
             </div>
@@ -254,14 +262,14 @@ export default function Comments() {
                             <button
                               title="通过"
                               style={{ ...iconBtn, background: 'transparent', color: '#10b981' }}
-                              onClick={() => handleApprove(cmt.id)}
+                              onClick={() => approveMutation.mutate(cmt.id)}
                               onMouseEnter={e => { e.currentTarget.style.background = '#ecfdf5'; e.currentTarget.style.color = '#059669'; }}
                               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#10b981'; }}
                             ><IconCheckCircle size={16} /></button>
                             <button
                               title="拒绝"
                               style={{ ...iconBtn, background: 'transparent', color: '#f59e0b' }}
-                              onClick={() => handleReject(cmt.id)}
+                              onClick={() => rejectMutation.mutate(cmt.id)}
                               onMouseEnter={e => { e.currentTarget.style.background = '#fffbeb'; e.currentTarget.style.color = '#d97706'; }}
                               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#f59e0b'; }}
                             ><IconBan size={16} /></button>
@@ -289,10 +297,10 @@ export default function Comments() {
         <Pagination page={page} pages={pages} onPageChange={setPage} />
       </Card>
 
-      <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete}
+      <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         title="删除评论" message={`确定要删除 ${deleteTarget?.display_name || ''} 的评论吗？`} variant="danger" confirmText="删除" />
 
-      <ConfirmDialog open={batchDeleteOpen} onClose={() => setBatchDeleteOpen(false)} onConfirm={confirmBatchDelete}
+      <ConfirmDialog open={batchDeleteOpen} onClose={() => setBatchDeleteOpen(false)} onConfirm={() => batchDeleteMutation.mutate([...selectedIds])}
         title="批量删除评论" message={`确定要删除选中的 ${selectedIds.size} 条评论吗？此操作不可恢复。`}
         variant="danger" confirmText={`删除 ${selectedIds.size} 条`} />
     </>
