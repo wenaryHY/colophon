@@ -6,12 +6,14 @@
 
   var MSG = {
     zh: {
-      commentSubmitted: '评论已提交审核。',
+      commentApproved: '评论已发布。',
+      commentPending: '评论已提交审核，通过后显示。',
       submitError: '无法提交评论。',
       newCommentAppeared: '有一条新评论已发布。',
     },
     en: {
-      commentSubmitted: 'Comment submitted for review.',
+      commentApproved: 'Comment published.',
+      commentPending: 'Comment submitted for review. It will appear after approval.',
       submitError: 'Unable to submit comment.',
       newCommentAppeared: 'A new approved comment just appeared.',
     },
@@ -94,14 +96,18 @@
     logDebug('submit_start', { slug });
 
     try {
-      await window.InkForgeApi.apiRequest(`/api/v1/posts/${slug}/comments`, {
+      const result = await window.InkForgeApi.apiRequest(`/api/v1/posts/${slug}/comments`, {
         method: 'POST',
         body: {
           content: String(data.get('content') || '').trim(),
         },
       });
 
-      showToast(t('commentSubmitted'), 'success');
+      if (result && result.status === 'approved') {
+        showToast(t('commentApproved'), 'success');
+      } else {
+        showToast(t('commentPending'), 'info');
+      }
       logDebug('submit_success', { slug });
       form.reset();
     } catch (error) {

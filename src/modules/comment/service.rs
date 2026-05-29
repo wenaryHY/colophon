@@ -162,9 +162,20 @@ pub async fn create_comment(
         author_name: auth.username.clone(),
         content: content.clone(),
         status: status.to_string(),
-        created_at,
+        created_at: created_at.clone(),
     };
     let _ = state.event_tx.send(event);
+
+    // 直接通过的评论也推送 WS，前台文章页实时显示
+    if status == "approved" {
+        let _ = state.event_tx.send(ServerEvent::CommentApproved {
+            id: comment_id.clone(),
+            post_id: post.id.clone(),
+            author_name: auth.username.clone(),
+            content: content.clone(),
+            created_at,
+        });
+    }
 
     tracing::info!(
         module = "comment",

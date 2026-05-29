@@ -205,16 +205,36 @@ export default function Settings() {
         ['site_title', kv.site_title || ''],
         ['site_description', kv.site_description || ''],
         ['site_url', kv.site_url || ''],
-        ['allow_register', kv.allow_register || 'true'],
-        ['allow_comment', kv.allow_comment || 'true'],
-        ['comment_require_login', kv.comment_require_login || 'true'],
+        ['allow_register', String(kv.allow_register ?? true)],
+        ['allow_comment', String(kv.allow_comment ?? true)],
+        ['comment_require_login', String(kv.comment_require_login ?? true)],
         ['comment_moderation_mode', kv.comment_moderation_mode || 'all'],
-        ['comment_max_length', kv.comment_max_length || '2000'],
+        ['comment_max_length', String(kv.comment_max_length || 2000)],
         ['theme_default_mode', kv.theme_default_mode || 'system'],
       ];
-      for (const [key, value] of items) await apiData(`${API_PREFIX}/admin/settings`, { method: 'PATCH', body: JSON.stringify({ key, value }) });
-      if (kv.active_theme) await apiData(`${API_PREFIX}/admin/themes/${kv.active_theme}/activate`, { method: 'POST' });
+
+      const results = await Promise.allSettled(
+        items.map(([key, value]) =>
+          apiData(`${API_PREFIX}/admin/settings`, {
+            method: 'PATCH',
+            body: JSON.stringify({ key, value }),
+          })
+        )
+      );
+
+      const failures = results
+        .map((r, i) => r.status === 'rejected' ? items[i][0] : null)
+        .filter(Boolean);
+
+      if (failures.length > 0) {
+        throw new Error(`设置保存失败: ${failures.join(', ')}`);
+      }
+
+      if (kv.active_theme) {
+        await apiData(`${API_PREFIX}/admin/themes/${kv.active_theme}/activate`, { method: 'POST' });
+      }
     },
+    retry: 0,
     onSuccess: () => {
       toast('设置已保存', 'success');
       getQueryClient().invalidateQueries({ queryKey: ['settings'] });

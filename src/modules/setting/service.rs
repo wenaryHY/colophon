@@ -23,7 +23,6 @@ const ALLOWED_SETTINGS: &[&str] = &[
     "allow_comment",
     "comment_require_login",
     "comment_moderation_mode",
-    "comment_trusted_after_approved",
     "comment_max_length",
     "active_theme",
     "theme_default_mode",

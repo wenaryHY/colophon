@@ -338,3 +338,46 @@ a:hover {
 .if-toast-out  { animation: toastOut 0.25s ease-in forwards; }
 .if-shimmer    { animation: shimmer 1.8s ease-in-out infinite; background-size: 200% 200%; background-image: linear-gradient(90deg, var(--md-surface-container) 25%, var(--md-surface-container-high) 50%, var(--md-surface-container) 75%); }
 .if-pulse      { animation: pulse 2s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════
+   Tiptap / ProseMirror 编辑器内容样式
+   ═══════════════════════════════════════ */
+.ProseMirror {
+  min-height: 400px;
+  padding: 1.5rem;
+  outline: none;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--md-on-surface);
+}
+.ProseMirror h1 { font-size: 2rem; font-weight: 700; margin: 1.5em 0 0.5em; }
+.ProseMirror h2 { font-size: 1.5rem; font-weight: 600; margin: 1.3em 0 0.4em; }
+.ProseMirror h3 { font-size: 1.25rem; font-weight: 600; margin: 1.1em 0 0.3em; }
+.ProseMirror h4 { font-size: 1.1rem; font-weight: 500; margin: 1em 0 0.2em; }
+.ProseMirror p { margin: 0.8em 0; }
+.ProseMirror code { background: var(--md-surface-container-high); color: var(--md-error); padding: 0.2em 0.4em; border-radius: 4px; font-size: 0.9em; }
+.ProseMirror pre { background: var(--md-surface-container-highest); padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1em 0; }
+.ProseMirror pre code { background: transparent; color: inherit; padding: 0; }
+.ProseMirror blockquote { border-left: 4px solid var(--md-primary); padding-left: 1rem; margin: 1em 0; color: var(--md-on-surface-variant); font-style: italic; }
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.5rem; margin: 0.8em 0; }
+.ProseMirror li { margin: 0.3em 0; }
+.ProseMirror li p { margin: 0; }
+.ProseMirror hr { border: none; border-top: 2px solid var(--md-outline-variant); margin: 2em 0; }
+.ProseMirror a { color: var(--md-primary); text-decoration: underline; }
+.ProseMirror mark { background: #fef08a; color: inherit; padding: 0.1em 0.2em; border-radius: 2px; }
+.ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--md-outline); font-style: italic; pointer-events: none; float: left; height: 0; }
+
+/* ═══════════════════════════════════════
+   工具栏按钮样式
+   ═══════════════════════════════════════ */
+.toolbar-btn {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--md-on-surface-variant);
+}
+.toolbar-btn:hover { background: var(--md-surface-container-high); }
+.toolbar-btn.is-active { background: var(--md-primary-container); color: var(--md-on-primary-container); }
