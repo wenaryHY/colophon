@@ -61,18 +61,92 @@ export async function api<T = unknown>(path: string, opts: RequestInit = {}): Pr
   return data;
 }
 
-/* ── GET 请求内存缓存（30s TTL），消除页面切换骨架屏 ── */
-const _getCache = new Map<string, { data: unknown; ts: number }>();
-const GET_CACHE_TTL = 30_000;
+/* ── SWR 缓存：GET 请求立即返回陈化数据，后台静默刷新 ── */
+/*  窗口：0-30s 新鲜直接返回 + 后台刷新；30s+ 陈化数据返回 + 后台刷新 */
+interface CacheEntry<T = unknown> {
+  data: T;
+  timestamp: number;
+}
+
+const GET_CACHE_TTL = 30_000; // 30s fresh window
+const cache = new Map<string, CacheEntry>();
+const pendingRequests = new Map<string, Promise<unknown>>();
+
+function buildCacheKey(url: string): string {
+  return url;
+}
+
+/** 从 URL 中提取资源前缀，用于非 GET 请求后批量失效同类缓存 */
+function extractResourcePrefix(url: string): string {
+  const match = url.match(/^(\/api\/v1\/[^/]+\/[^/]+)\b/);
+  return match ? match[1] : url;
+}
+
+/** 执行 GET 请求并写入缓存（内部复用 api() 以保留 Header 注入与错误处理） */
+async function doGet<T>(url: string): Promise<T> {
+  const response = await api<unknown>(url);
+  const key = buildCacheKey(url);
+  cache.set(key, { data: response.data, timestamp: Date.now() });
+  return response.data as T;
+}
+
+/** 后台静默刷新：若有同 key 的进行中请求则跳过，避免并发重复 */
+function refreshInBackground(url: string): void {
+  const key = buildCacheKey(url);
+  if (pendingRequests.has(key)) return;
+  const promise = doGet(url).finally(() => {
+    pendingRequests.delete(key);
+  });
+  pendingRequests.set(key, promise);
+}
+
+/** 按资源前缀批量失效缓存 */
+function invalidateCacheByPrefix(prefix: string): void {
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) {
+      cache.delete(key);
+    }
+  }
+}
+
+/**
+ * SWR get：优先返回缓存数据（新鲜或陈化），同时后台刷新
+ * 仅当无任何缓存时才同步等待请求结果
+ */
+async function swrGet<T>(url: string): Promise<T> {
+  const key = buildCacheKey(url);
+  const entry = cache.get(key);
+  const now = Date.now();
+
+  if (entry && (now - entry.timestamp) < GET_CACHE_TTL) {
+    // 新鲜窗口内：直接返回缓存，后台静默刷新
+    refreshInBackground(url);
+    return entry.data as T;
+  }
+
+  if (entry) {
+    // 陈化窗口：返回旧数据，后台静默刷新
+    refreshInBackground(url);
+    return entry.data as T;
+  }
+
+  // 无缓存：同步等待请求
+  return doGet<T>(url);
+}
 
 export async function apiData<T = unknown>(path: string, opts: RequestInit = {}): Promise<T> {
   const isGet = !opts.method || opts.method === 'GET';
-  if (isGet) {
-    const cached = _getCache.get(path);
-    if (cached && Date.now() - cached.ts < GET_CACHE_TTL) return cached.data as T;
+
+  if (!isGet) {
+    const prefix = extractResourcePrefix(path);
+    invalidateCacheByPrefix(prefix);
   }
+
+  if (isGet) {
+    return swrGet<T>(path);
+  }
+
   const response = await api<T>(path, opts);
-  if (isGet) _getCache.set(path, { data: response.data as unknown, ts: Date.now() });
   return response.data as T;
 }
 
