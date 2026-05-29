@@ -72,6 +72,23 @@ const GET_CACHE_TTL = 30_000; // 30s fresh window
 const cache = new Map<string, CacheEntry>();
 const pendingRequests = new Map<string, Promise<unknown>>();
 
+// 缓存版本号：防止 invalidate 后飞行中的旧请求覆盖新数据
+const cacheVersion = new Map<string, number>();
+
+function getCacheVersion(key: string): number {
+  return cacheVersion.get(key) || 0;
+}
+
+function bumpCacheVersion(prefix: string): void {
+  const newVersion = Date.now();
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) {
+      cacheVersion.set(key, newVersion);
+    }
+  }
+  cacheVersion.set(prefix, newVersion);
+}
+
 function buildCacheKey(url: string): string {
   return url;
 }
@@ -83,25 +100,29 @@ function extractResourcePrefix(url: string): string {
 }
 
 /** 执行 GET 请求并写入缓存（内部复用 api() 以保留 Header 注入与错误处理） */
-async function doGet<T>(url: string): Promise<T> {
+async function doGet<T>(url: string, version: number): Promise<T> {
   const response = await api<unknown>(url);
   const key = buildCacheKey(url);
-  cache.set(key, { data: response.data, timestamp: Date.now() });
+  const currentVersion = getCacheVersion(key);
+  if (version >= currentVersion) {
+    cache.set(key, { data: response.data, timestamp: Date.now() });
+  }
   return response.data as T;
 }
 
 /** 后台静默刷新：若有同 key 的进行中请求则跳过，避免并发重复 */
-function refreshInBackground(url: string): void {
+function refreshInBackground(url: string, version: number): void {
   const key = buildCacheKey(url);
   if (pendingRequests.has(key)) return;
-  const promise = doGet(url).finally(() => {
+  const promise = doGet(url, version).finally(() => {
     pendingRequests.delete(key);
   });
   pendingRequests.set(key, promise);
 }
 
-/** 按资源前缀批量失效缓存 */
+/** 按资源前缀批量失效缓存（先 bump 版本号，防止飞行中的旧请求覆盖新数据） */
 function invalidateCacheByPrefix(prefix: string): void {
+  bumpCacheVersion(prefix);
   for (const key of cache.keys()) {
     if (key.startsWith(prefix)) {
       cache.delete(key);
@@ -117,21 +138,22 @@ async function swrGet<T>(url: string): Promise<T> {
   const key = buildCacheKey(url);
   const entry = cache.get(key);
   const now = Date.now();
+  const currentVersion = getCacheVersion(key);
 
   if (entry && (now - entry.timestamp) < GET_CACHE_TTL) {
     // 新鲜窗口内：直接返回缓存，后台静默刷新
-    refreshInBackground(url);
+    refreshInBackground(url, currentVersion);
     return entry.data as T;
   }
 
   if (entry) {
     // 陈化窗口：返回旧数据，后台静默刷新
-    refreshInBackground(url);
+    refreshInBackground(url, currentVersion);
     return entry.data as T;
   }
 
   // 无缓存：同步等待请求
-  return doGet<T>(url);
+  return doGet<T>(url, currentVersion);
 }
 
 export async function apiData<T = unknown>(path: string, opts: RequestInit = {}): Promise<T> {
