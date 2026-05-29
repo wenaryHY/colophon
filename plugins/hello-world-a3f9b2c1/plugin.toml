@@ -12,3 +12,14 @@ inkforge = ">=0.3.0"
 template = true
 routes = true
 assets = ["css"]
+
+[[settings]]
+key = "greeting_target"
+label = "问候对象"
+type = "text"
+default = "World"
+description = "hello_world 模板函数的默认参数"
+
+[admin]
+enabled = true
+entry = "settings.html"

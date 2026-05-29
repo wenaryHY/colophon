@@ -15,6 +15,8 @@ pub mod manifest;
 pub mod id_strategy;
 pub mod status;
 pub mod loader;
+pub mod handler;
+pub mod settings;
 
 #[async_trait]
 pub trait Plugin: Send + Sync {

@@ -15,6 +15,8 @@ export const navDict = {
     themes: '主题管理',
     trash: '回收站',
     settings: '设置',
+    plugins: '插件',
+    pluginSettings: '插件设置',
 
     // 用户
     visitSite: '访问站点',
@@ -37,6 +39,8 @@ export const navDict = {
     themes: 'Themes',
     trash: 'Trash',
     settings: 'Settings',
+    plugins: 'Plugins',
+    pluginSettings: 'Plugin Settings',
 
     // User
     visitSite: 'Visit Site',

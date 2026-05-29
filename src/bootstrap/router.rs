@@ -257,6 +257,9 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/admin/trash/:item_type/:id",
             delete(modules::trash::handler::purge_item),
         )
+        .route("/api/v1/admin/plugins/:name/settings",
+            get(crate::modules::plugin::handler::get_settings)
+                .put(crate::modules::plugin::handler::update_settings))
         .merge(state.plugin_manager.collect_routes());
 
     Router::new()

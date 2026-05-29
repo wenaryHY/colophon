@@ -15,6 +15,7 @@ import Themes from './pages/Themes';
 import ThemeDetail from './pages/ThemeDetail';
 import RecycleBin from './pages/RecycleBin';
 import Setup from './pages/Setup';
+import PluginSettings from './pages/PluginSettings';
 
 const pageToRoute: Record<string, string> = {
   posts: '/posts',
@@ -96,6 +97,7 @@ export default function App() {
           <Route path="themes" element={<Themes />} />
           <Route path="themes/:slug" element={<ThemeDetail />} />
           <Route path="trash" element={<RecycleBin />} />
+          <Route path="plugins/:name/settings" element={<PluginSettings />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
