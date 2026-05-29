@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiData, API, API_PREFIX, getQueryClient } from '../lib/api';
@@ -50,24 +50,26 @@ export default function PostEditor() {
   const [renderModeChoice, setRenderModeChoice] = useState<RenderModeChoice | null>(null);
 
   // 加载文章详情（编辑模式）
-  const { isLoading: postLoading } = useQuery({
+  const { data: postData, isLoading: postLoading } = useQuery({
     queryKey: ['post', id],
-    queryFn: async () => {
-      const p = await apiData<AdminPost>(`${API_PREFIX}/admin/posts/${id}`);
-      setPost(p);
-      setTitle(p.title || '');
-      setContent(p.content_md || '');
-      setContentHtml(p.content_html || '');
-      setExcerpt(p.excerpt || '');
-      setStatus(p.status === 'published' ? 'published' : 'draft');
-      setCategoryId(p.category_id || '');
-      setSelectedTagIds(p.tags?.map((tag) => tag.id) || []);
-      setContentType(p.content_type || 'post');
-      setPageEditMode(p.page_render_mode === 'custom_html' ? 'custom_html' : 'editor');
-      return p;
-    },
+    queryFn: () => apiData<AdminPost>(`${API_PREFIX}/admin/posts/${id}`),
     enabled: isEdit,
+    staleTime: 0,  // 编辑页不缓存
   });
+
+  useEffect(() => {
+    if (!postData) return;
+    setPost(postData);
+    setTitle(postData.title || '');
+    setContent(postData.content_md || '');
+    setContentHtml(postData.content_html || '');
+    setExcerpt(postData.excerpt || '');
+    setStatus(postData.status === 'published' ? 'published' : 'draft');
+    setCategoryId(postData.category_id || '');
+    setSelectedTagIds(postData.tags?.map((tag) => tag.id) || []);
+    setContentType(postData.content_type || 'post');
+    setPageEditMode(postData.page_render_mode === 'custom_html' ? 'custom_html' : 'editor');
+  }, [postData]);
 
   // 加载分类
   const { data: categories = [] } = useQuery({
@@ -173,6 +175,7 @@ export default function PostEditor() {
 
       toast(t('saveSuccess'), 'success');
       getQueryClient().invalidateQueries({ queryKey: ['posts'] });
+      if (id) getQueryClient().invalidateQueries({ queryKey: ['post', id] });
       navigate('/posts');
     } catch (error) {
       toast(error instanceof Error ? error.message : t('saveFailed'), 'error');
