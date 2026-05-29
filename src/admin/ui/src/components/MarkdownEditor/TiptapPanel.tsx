@@ -55,7 +55,7 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Markdown.configure({
-        html: false,
+        html: true,
         transformPastedText: true,
         transformCopiedText: true,
       }),
