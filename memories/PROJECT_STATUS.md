@@ -143,6 +143,7 @@ InkForge 是一个 **Web 优先单体 CMS**。技术债已全部收口，核心�
 10. ~~**模板引擎 trait 解耦 + TTL 缓存**~~ ✅ 已完成（架构演进 Phase 2）
 11. **Tauri 壳：已可编译，待修复 .ico 打包后即可全平台分发**
 12. ~~**插件系统（Phase 3）: Plugin trait + PluginManager + HelloWorld demo**~~ ✅ 已完成（2026-05-29）
+13. ~~**Phase 4a: Manifest 自动发现 + 启用禁用 + 版本检查**~~ ✅ 已完成（2026-05-29）
 
 ---
 

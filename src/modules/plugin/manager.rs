@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use axum::Router;
@@ -7,6 +8,7 @@ use crate::shared::error::AppResult;
 use crate::state::AppState;
 
 use super::asset::PluginAsset;
+use super::loader::DiscoveredPlugin;
 use super::registry;
 use super::Plugin;
 
@@ -22,6 +24,27 @@ impl PluginManager {
             count = plugins.len(),
             "PluginManager loaded {} plugin(s)",
             plugins.len()
+        );
+        Self { plugins }
+    }
+
+    pub async fn load_with(discovered: Vec<DiscoveredPlugin>) -> Self {
+        let all_plugins = registry::take_all().await;
+        let discovered_ids: HashSet<String> = discovered
+            .iter()
+            .map(|d| d.manifest.plugin.id.clone())
+            .collect();
+        let plugins: Vec<Box<dyn Plugin>> = all_plugins
+            .into_iter()
+            .filter(|p| discovered_ids.contains(p.name()))
+            .collect();
+        tracing::info!(
+            module = "plugin",
+            discovered = discovered.len(),
+            loaded = plugins.len(),
+            "PluginManager loaded {}/{} discovered plugin(s)",
+            plugins.len(),
+            discovered.len()
         );
         Self { plugins }
     }

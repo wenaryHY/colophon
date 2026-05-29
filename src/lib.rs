@@ -2,10 +2,11 @@ pub mod admin;
 pub mod bootstrap;
 pub mod infra;
 pub mod modules;
-pub mod plugins;
 pub mod shared;
 pub mod state;
 pub mod ws;
+
+include!(concat!(env!("OUT_DIR"), "/plugin_registry.rs"));
 
 #[cfg(test)]
 pub mod tests;
@@ -18,6 +19,8 @@ use state::AppState;
 use tokio::sync::broadcast;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use std::path::PathBuf;
+use crate::modules::plugin::loader::PluginLoader;
 use crate::modules::plugin::manager::PluginManager;
 
 pub async fn serve() -> anyhow::Result<()> {
@@ -48,12 +51,14 @@ pub async fn serve() -> anyhow::Result<()> {
 
     let setup_runtime = modules::setup::service::bootstrap_runtime(&pool).await?;
 
-    crate::modules::plugin::registry::register(Box::new(
-        plugins::hello_world::HelloWorldPlugin::new(),
-    ))
-    .await;
+    register_all().await;
 
-    let plugin_manager = Arc::new(PluginManager::load().await);
+    let loader = PluginLoader::new(
+        PathBuf::from("plugins"),
+        env!("CARGO_PKG_VERSION"),
+    );
+    let discovered = loader.discover(&pool).await?;
+    let plugin_manager = Arc::new(PluginManager::load_with(discovered).await);
 
     let state = Arc::new(AppState::new(
         config.clone(),

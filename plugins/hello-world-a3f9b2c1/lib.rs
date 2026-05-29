@@ -20,7 +20,7 @@ impl HelloWorldPlugin {
 #[async_trait]
 impl Plugin for HelloWorldPlugin {
     fn name(&self) -> &str {
-        "hello-world"
+        "hello-world-a3f9b2c1"
     }
 
     fn version(&self) -> &str {
@@ -30,7 +30,7 @@ impl Plugin for HelloWorldPlugin {
     async fn init(&self, _state: &Arc<AppState>) -> AppResult<()> {
         tracing::info!(
             module = "plugin",
-            plugin = "hello-world",
+            plugin = "hello-world-a3f9b2c1",
             "HelloWorld plugin initialized"
         );
         Ok(())
@@ -39,7 +39,7 @@ impl Plugin for HelloWorldPlugin {
     fn api_routes(&self) -> Router<Arc<AppState>> {
         async fn hello_handler(State(_state): State<Arc<AppState>>) -> impl IntoResponse {
             Json(serde_json::json!({
-                "plugin": "hello-world",
+                "plugin": "hello-world-a3f9b2c1",
                 "status": "ok"
             }))
         }

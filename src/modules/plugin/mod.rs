@@ -9,6 +9,10 @@ use crate::state::AppState;
 pub mod asset;
 pub mod registry;
 pub mod manager;
+pub mod manifest;
+pub mod id_strategy;
+pub mod status;
+pub mod loader;
 
 #[async_trait]
 pub trait Plugin: Send + Sync {

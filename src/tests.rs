@@ -159,4 +159,5 @@ mod backup_tests;
 mod theme_engine_tests;
 mod theme_provider_tests;
 mod plugin_manager_tests;
-mod plugin_hello_world_tests;
+mod plugin_manifest_tests;
+mod plugin_id_strategy_tests;

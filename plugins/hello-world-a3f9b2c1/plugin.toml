@@ -1,0 +1,14 @@
+[plugin]
+id = "hello-world-a3f9b2c1"
+title = "Hello World"
+version = "0.1.0"
+description = "A demo plugin"
+author = "InkForge Team"
+
+[engine]
+inkforge = ">=0.3.0"
+
+[hooks]
+template = true
+routes = true
+assets = ["css"]
