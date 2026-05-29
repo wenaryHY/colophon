@@ -61,8 +61,18 @@ export async function api<T = unknown>(path: string, opts: RequestInit = {}): Pr
   return data;
 }
 
+/* ── GET 请求内存缓存（30s TTL），消除页面切换骨架屏 ── */
+const _getCache = new Map<string, { data: unknown; ts: number }>();
+const GET_CACHE_TTL = 30_000;
+
 export async function apiData<T = unknown>(path: string, opts: RequestInit = {}): Promise<T> {
+  const isGet = !opts.method || opts.method === 'GET';
+  if (isGet) {
+    const cached = _getCache.get(path);
+    if (cached && Date.now() - cached.ts < GET_CACHE_TTL) return cached.data as T;
+  }
   const response = await api<T>(path, opts);
+  if (isGet) _getCache.set(path, { data: response.data as unknown, ts: Date.now() });
   return response.data as T;
 }
 

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { apiData, API_PREFIX } from '../lib/api';
 import type { CurrentUser } from '../types';
 import { useI18n } from '../i18n';
@@ -22,6 +22,7 @@ interface AuthContextValue {
 }
 
 const SESSION_TOKEN = 'session';
+const AUTH_STORAGE_KEY = 'inkforge_auth_user';
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -29,10 +30,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const { setLang } = useI18n();
+  /** 仅首次挂载运行一次 auth 校验 */
+  const authChecked = useRef(false);
 
   const clearAuth = useCallback(() => {
     setTokenState('');
     setUser(null);
+    try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch { /* ignore quota / priv errors */ }
   }, []);
 
   const applySession = useCallback(() => {
@@ -43,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const me = await apiData<CurrentUser>(`${API_PREFIX}/me`);
     setUser(me);
     applySession();
+    try { sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(me)); } catch { /* ignore */ }
     if (me.language) {
       setLang(me.language);
       saveLanguage(me.language);
@@ -50,6 +55,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applySession, setLang]);
 
   useEffect(() => {
+    if (authChecked.current) return;
+    authChecked.current = true;
+
+    // 快速恢复：从 sessionStorage 还原，消除首次骨架
+    const stored = sessionStorage.getItem(AUTH_STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as CurrentUser;
+        setUser(parsed);
+        applySession();
+        setIsLoading(false);
+      } catch { /* 脏数据，忽略 */ }
+    }
+
     let active = true;
     refreshUser()
       .catch(() => {
@@ -61,7 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [refreshUser, clearAuth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const login = useCallback(async (loginValue: string, password: string) => {
     try {
