@@ -1,5 +1,8 @@
 use std::sync::Arc;
 
+use chrono::{NaiveDateTime, Utc};
+use sqlx::SqlitePool;
+
 use crate::{
     modules::{post::repository as post_repository, setting::repository as setting_repository},
     shared::{
@@ -88,6 +91,9 @@ pub async fn create_comment(
         );
         return Err(AppError::BadRequest("comment is too long".into()));
     }
+
+    // 速率限制：同一用户 10 秒内只能提交一条评论
+    check_rate_limit(&state.pool, &auth.id).await?;
 
     let post = post_repository::find_comment_target(&state.pool, slug)
         .await?
@@ -308,4 +314,27 @@ pub async fn purge_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_js
         return Err(AppError::NotFound);
     }
     Ok(serde_json::json!({ "purged": true }))
+}
+
+/// 查询该用户最后一条评论的时间，若距现在不足 10 秒则拒绝
+async fn check_rate_limit(pool: &SqlitePool, user_id: &str) -> AppResult<()> {
+    let last_time: Option<String> = sqlx::query_scalar(
+        "SELECT created_at FROM comments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+
+    if let Some(ref last_time) = last_time {
+        if let Ok(last_naive) = NaiveDateTime::parse_from_str(last_time, "%Y-%m-%d %H:%M:%S") {
+            let last_dt = last_naive.and_utc();
+            let now = Utc::now();
+            let elapsed = now.signed_duration_since(last_dt);
+            if elapsed.num_seconds() < 10 {
+                return Err(AppError::BadRequest("评论发送过快，请稍后再试".into()));
+            }
+        }
+    }
+
+    Ok(())
 }
