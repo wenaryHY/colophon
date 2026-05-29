@@ -18,6 +18,7 @@
 - 💾 **备份与恢复** — 本地备份，一键还原，定时备份调度
 - 🌐 **API 版本化** — `/api/v1/` 正式路由，旧路由兼容过渡
 - 🌍 **i18n** — 管理后台多语言支持
+- 🧩 **插件系统** — Rust trait 插件：路由 / 模板函数 / 前端资产 / Hooks / 配置面板 / 前端插槽
 
 ## 🛠️ 技术栈
 
@@ -129,6 +130,7 @@ inkforge/
 │   │   ├── setup/           # 安装向导
 │   │   ├── post/            # 文章 / 页面
 │   │   ├── comment/         # 评论
+│   │   ├── plugin/          # 插件系统（trait、registry、manager、hooks、slots）
 │   │   ├── category/        # 分类
 │   │   ├── tag/             # 标签
 │   │   ├── media/           # 媒体管理
@@ -139,8 +141,9 @@ inkforge/
 │   │   ├── trash/           # 统一回收站（含过期清理调度）
 │   │   └── user/            # 用户管理
 │   └── admin/ui/            # React 管理后台源码
-├── migrations/              # SQLite 迁移文件（001–013）
+├── migrations/              # SQLite 迁移文件（001–015）
 ├── config/                  # TOML 配置文件
+├── plugins/                # 外部插件目录（build.rs 自动发现）
 ├── themes/default/          # 默认前台主题（MiniJinja 模板）
 ├── src-tauri/               # Tauri 桌面壳（In-Process 已落地）
 ├── uploads/                 # 上传文件目录
@@ -200,7 +203,8 @@ export INKFORGE__DATABASE__URL=sqlite:///data/inkforge.db?mode=rwc
 - [x] API 版本化
 - [x] Docker 部署 + Litestream
 - [x] 安装向导（Web）
-- [ ] 插件系统（WASM）
+- [x] 插件系统（Rust trait：路由 / Hooks / 配置面板 / 前端插槽）
+- [ ] 插件系统 WASM 运行时（热加载 / 沙箱 / 远程安装）
 - [ ] S3/OSS 对象存储适配
 - [ ] 多语言前台支持
 - [x] Tauri In-Process 启动模型与单窗口状态路由
