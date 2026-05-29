@@ -171,7 +171,8 @@ pub async fn render_custom_page(
         _ => {
             // "editor" mode — render via theme template using content_html
             let ctx = TemplateContext::load(&state).await?;
-            let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, state.plugin_manager.as_ref(), &state.template_env_cache)?;
+            let plugin_guard = state.plugin_manager.read().await;
+            let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache)?;
             let tmpl = env
                 .get_template("post.html")
                 .map_err(|e| AppError::Anyhow(anyhow::anyhow!("template error: {}", e)))?;

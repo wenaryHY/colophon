@@ -203,7 +203,7 @@ pub async fn create_post(
     let has_original_tags = body.tag_ids.is_some();
 
     // =============== Hook: post.before_save (Filter) ===============
-    let hook_registry = state.plugin_manager.hook_registry();
+    let hook_registry = state.plugin_manager.read().await.hook_registry().clone();
     let mut save_ctx = HookContext {
         hook_name: "post.before_save".into(),
         data: HookData::PostBeforeSave(PostBeforeSaveData {
@@ -353,7 +353,7 @@ pub async fn update_post(
     let has_original_tags = body.tag_ids.is_some();
 
     // =============== Hook: post.before_save (Filter) ===============
-    let hook_registry = state.plugin_manager.hook_registry();
+    let hook_registry = state.plugin_manager.read().await.hook_registry().clone();
     let mut save_ctx = HookContext {
         hook_name: "post.before_save".into(),
         data: HookData::PostBeforeSave(PostBeforeSaveData {

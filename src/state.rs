@@ -41,7 +41,7 @@ pub struct AppState {
     /// Stores the "base" Environment (loader + static filters + theme_assets_url)
     /// without per-request data. Cloned and extended on each request.
     pub template_env_cache: Arc<std::sync::RwLock<HashMap<String, Environment<'static>>>>,
-    pub plugin_manager: Arc<PluginManager>,
+    pub plugin_manager: Arc<tokio::sync::RwLock<PluginManager>>,
 }
 
 impl AppState {
@@ -52,7 +52,7 @@ impl AppState {
         site_url: String,
         admin_url: String,
         setup_stage: SetupStage,
-        plugin_manager: Arc<PluginManager>,
+        plugin_manager: Arc<tokio::sync::RwLock<PluginManager>>,
     ) -> anyhow::Result<Self> {
         let db_path = parse_sqlite_url(&config.database.url)?;
         Ok(Self {

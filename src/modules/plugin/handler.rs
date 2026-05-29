@@ -13,6 +13,7 @@ use crate::state::AppState;
 
 use super::settings;
 use super::status;
+use super::manager::PluginManager;
 
 #[derive(serde::Deserialize)]
 pub struct UpdateSettingsRequest {
@@ -36,6 +37,8 @@ pub async fn get_settings(
 
     let setting_defs = state
         .plugin_manager
+        .read()
+        .await
         .discovered_manifests()
         .into_iter()
         .find(|m| m.plugin.id == plugin_name)
@@ -64,6 +67,8 @@ pub async fn update_settings(
 
     let setting_defs: HashMap<String, super::manifest::SettingDef> = state
         .plugin_manager
+        .read()
+        .await
         .discovered_manifests()
         .into_iter()
         .find(|m| m.plugin.id == plugin_name)
@@ -95,6 +100,8 @@ pub async fn list_slots(
     let enabled_set: HashSet<String> = enabled_ids.into_iter().collect();
     let slots: Vec<serde_json::Value> = state
         .plugin_manager
+        .read()
+        .await
         .discovered_manifests()
         .into_iter()
         .filter(|m| enabled_set.contains(&m.plugin.id))
@@ -127,7 +134,7 @@ pub async fn list_plugins(
     State(state): State<Arc<AppState>>,
     _admin: AdminUser,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
-    let manifests = state.plugin_manager.discovered_manifests();
+    let manifests = state.plugin_manager.read().await.discovered_manifests();
     let enabled_ids: Vec<String> = status::get_enabled_ids(&state.pool).await?;
 
     let plugins: Vec<serde_json::Value> = manifests.into_iter().map(|m| {
@@ -158,14 +165,38 @@ pub async fn toggle_plugin(
     status::set_enabled(&state.pool, &plugin_name, new_enabled).await?;
 
     if !new_enabled {
-        state.plugin_manager.hook_registry().unregister_all(&plugin_name).await;
+        let hook_registry = state.plugin_manager.read().await.hook_registry().clone();
+        hook_registry.unregister_all(&plugin_name).await;
+    }
+
+    // ── 重建 PluginManager ──
+    // 1. 重新注册所有插件到全局 registry（含启用和禁用的）
+    crate::register_all().await;
+
+    // 2. 重新发现启用插件（反映新的启用/禁用状态）
+    let loader = super::loader::PluginLoader::new(
+        std::path::PathBuf::from("plugins"),
+        env!("CARGO_PKG_VERSION"),
+    );
+    let discovered = loader.discover(&state.pool).await?;
+
+    // 3. 构建新 PluginManager
+    let new_manager = PluginManager::load_with(discovered).await;
+
+    // 4. 初始化新插件
+    new_manager.init_all(&state).await?;
+
+    // 5. 替换
+    {
+        let mut guard = state.plugin_manager.write().await;
+        *guard = new_manager;
     }
 
     tracing::info!(
         module = "plugin",
         plugin = plugin_name,
         enabled = new_enabled,
-        "plugin toggled"
+        "plugin toggled and PluginManager rebuilt"
     );
 
     Ok(Json(ApiResponse::success(serde_json::json!({

@@ -125,7 +125,7 @@ pub async fn create_comment(
 
     // comment.before_create filter hook：允许插件在写 DB 前修改评论内容
     let mut content = body.content.trim().to_string();
-    let hook_registry = state.plugin_manager.hook_registry();
+    let hook_registry = state.plugin_manager.read().await.hook_registry().clone();
     let mut comment_ctx = HookContext {
         hook_name: "comment.before_create".into(),
         data: HookData::CommentBeforeCreate(CommentBeforeCreateData {

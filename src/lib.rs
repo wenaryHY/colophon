@@ -58,7 +58,7 @@ pub async fn serve() -> anyhow::Result<()> {
         env!("CARGO_PKG_VERSION"),
     );
     let discovered = loader.discover(&pool).await?;
-    let plugin_manager = Arc::new(PluginManager::load_with(discovered).await);
+    let plugin_manager = Arc::new(tokio::sync::RwLock::new(PluginManager::load_with(discovered).await));
 
     let state = Arc::new(AppState::new(
         config.clone(),
@@ -70,7 +70,7 @@ pub async fn serve() -> anyhow::Result<()> {
         plugin_manager.clone(),
     )?);
 
-    state.plugin_manager.init_all(&state).await?;
+    state.plugin_manager.write().await.init_all(&state).await?;
     modules::backup::scheduler::start_backup_scheduler(state.clone()).await?;
     modules::trash::scheduler::start_trash_scheduler(state.clone()).await?;
     let app = build_router(state).await;

@@ -204,7 +204,8 @@ pub async fn render_home(
         "",
     );
 
-    let env = engine::build_template_engine(&ctx, &state.theme_dir, state.plugin_manager.as_ref(), &state.template_env_cache)?;
+    let plugin_guard = state.plugin_manager.read().await;
+    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache)?;
     let tmpl = env
         .get_template("index.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -266,7 +267,7 @@ pub async fn render_post(
 
     let ctx = TemplateContext::load(&state).await?;
 
-    let hook_registry = state.plugin_manager.hook_registry();
+    let hook_registry = state.plugin_manager.read().await.hook_registry().clone();
     let mut render_ctx = HookContext {
         hook_name: "post.before_render".into(),
         data: HookData::PostBeforeRender(PostBeforeRenderData {
@@ -302,7 +303,8 @@ pub async fn render_post(
         .await
         .unwrap_or_default();
 
-    let env = engine::build_template_engine(&ctx, &state.theme_dir, state.plugin_manager.as_ref(), &state.template_env_cache)?;
+    let plugin_guard = state.plugin_manager.read().await;
+    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache)?;
     let tmpl = env
         .get_template("post.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
