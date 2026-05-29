@@ -1,6 +1,6 @@
 {
   "name": "inkforge",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "concurrently -n rust,vite -c blue,green \"cargo run\" \"npm run dev --prefix src/admin/ui\"",

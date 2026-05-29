@@ -2920,7 +2920,7 @@ dependencies = [
 
 [[package]]
 name = "inkforge"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "ammonia",
  "anyhow",
@@ -2965,7 +2965,7 @@ dependencies = [
 
 [[package]]
 name = "inkforge-desktop"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "inkforge",
  "reqwest 0.12.28",
