@@ -25,6 +25,7 @@ declare module '@tiptap/core' {
 interface Props {
   value: string;
   onChange: (value: string) => void;
+  onHtmlChange?: (html: string) => void;
 }
 
 const PRESET_COLORS = [
@@ -33,7 +34,7 @@ const PRESET_COLORS = [
   '#4a86e8', '#0000ff', '#9900ff', '#ff00ff',
 ];
 
-export function TiptapPanel({ value, onChange }: Props) {
+export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
   const isExternalUpdateRef = useRef(false);
   const [colorOpen, setColorOpen] = useState(false);
 
@@ -65,6 +66,9 @@ export function TiptapPanel({ value, onChange }: Props) {
       if (isExternalUpdateRef.current) return;
       const md = editor.storage.markdown!.getMarkdown();
       onChange(md);
+      if (onHtmlChange) {
+        onHtmlChange(editor.getHTML());
+      }
     },
     editorProps: {
       attributes: {

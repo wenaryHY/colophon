@@ -37,6 +37,7 @@ export default function PostEditor() {
   // 表单字段
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [contentHtml, setContentHtml] = useState('');
   const [excerpt, setExcerpt] = useState('');
   const [status, setStatus] = useState<'published' | 'draft'>('draft');
   const [categoryId, setCategoryId] = useState('');
@@ -119,6 +120,7 @@ export default function PostEditor() {
         title: title.trim(),
         excerpt: excerpt.trim() || null,
         content_md: content,
+        content_html: contentHtml || undefined,
         status,
         visibility: 'public',
         category_id: categoryId || null,
@@ -279,7 +281,7 @@ export default function PostEditor() {
                   {t('postContentLabel')}
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                  <MarkdownEditor value={content} onChange={setContent} />
+                  <MarkdownEditor value={content} onChange={setContent} onHtmlChange={setContentHtml} />
                 </div>
               </div>
               <Input

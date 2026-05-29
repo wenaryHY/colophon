@@ -35,6 +35,14 @@ fn markdown_to_html(markdown: &str) -> String {
     ammonia::clean(&html_out)
 }
 
+fn sanitize_html(html: &str) -> String {
+    let mut builder = ammonia::Builder::default();
+    builder.add_tags(&["span", "mark"]);
+    builder.add_tag_attributes("span", &["style"]);
+    builder.add_tag_attributes("mark", &["style"]);
+    ammonia::clean(html)
+}
+
 fn normalize_status(value: Option<&str>) -> AppResult<String> {
     let status = value.unwrap_or("draft");
     if !matches!(status, "draft" | "published" | "trashed") {
@@ -196,7 +204,10 @@ pub async fn create_post(
 
     let status = normalize_status(body.status.as_deref())?;
     let visibility = normalize_visibility(body.visibility.as_deref())?;
-    let mut content_html = markdown_to_html(&content_md);
+    let mut content_html = body.content_html
+        .filter(|h| !h.trim().is_empty())
+        .map(|h| sanitize_html(&h))
+        .unwrap_or_else(|| markdown_to_html(&content_md));
     let mut excerpt = body.excerpt.clone();
     let mut category_id = body.category_id.clone();
     let mut tags = body.tag_ids.clone().unwrap_or_default();
@@ -337,7 +348,10 @@ pub async fn update_post(
     // If content_md is provided, update it (and re-render content_html).
     // If not provided, keep existing values.
     let content_md = body.content_md.unwrap_or(current.content_md.clone());
-    let mut content_html = markdown_to_html(&content_md);
+    let mut content_html = body.content_html
+        .filter(|h| !h.trim().is_empty())
+        .map(|h| sanitize_html(&h))
+        .unwrap_or_else(|| markdown_to_html(&content_md));
 
     let mut title = body.title.unwrap_or(current.title.clone());
     let mut slug = body.slug.unwrap_or(current.slug.clone());

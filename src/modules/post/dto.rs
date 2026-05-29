@@ -36,6 +36,7 @@ pub struct CreatePostRequest {
     pub content_type: Option<String>,
     pub custom_html_path: Option<String>,
     pub page_render_mode: Option<String>,
+    pub content_html: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -54,6 +55,7 @@ pub struct UpdatePostRequest {
     pub content_type: Option<String>,
     pub custom_html_path: Option<String>,
     pub page_render_mode: Option<String>,
+    pub content_html: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

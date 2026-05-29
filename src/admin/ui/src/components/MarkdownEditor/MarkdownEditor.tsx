@@ -9,9 +9,10 @@ type Mode = 'source' | 'wysiwyg';
 interface Props {
   value: string;
   onChange: (value: string) => void;
+  onHtmlChange?: (html: string) => void;
 }
 
-export function MarkdownEditor({ value, onChange }: Props) {
+export function MarkdownEditor({ value, onChange, onHtmlChange }: Props) {
   const [mode, setMode] = useState<Mode>('source');
   const [mediaOpen, setMediaOpen] = useState(false);
   const cmViewRef = useRef<EditorView | null>(null);
@@ -99,7 +100,7 @@ export function MarkdownEditor({ value, onChange }: Props) {
         {mode === 'source' ? (
           <CodeMirrorPanel value={value} onChange={handleChange} onEditorReady={handleEditorReady} />
         ) : (
-          <TiptapPanel value={value} onChange={handleChange} />
+          <TiptapPanel value={value} onChange={handleChange} onHtmlChange={onHtmlChange} />
         )}
       </div>
 
