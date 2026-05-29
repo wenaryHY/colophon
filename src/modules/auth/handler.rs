@@ -32,13 +32,23 @@ pub async fn register(
         has_display_name = body.display_name.as_deref().map(|value| !value.trim().is_empty()).unwrap_or(false),
         "received registration request"
     );
+    let expires_in_seconds = state.config.auth.expires_in_seconds;
     let (login_data, refresh_token) = service::register(state, body).await?;
+    let access_token = login_data.access_token.clone();
     let refresh_cookie = build_refresh_cookie(&refresh_token);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
     let json = Json(ApiResponse::success(login_data));
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
+    let session_cookie = build_session_cookie(
+        &access_token,
+        expires_in_seconds,
+    );
+    resp_headers.append(
+        axum::http::header::SET_COOKIE,
+        axum::http::HeaderValue::from_str(&session_cookie).unwrap(),
+    );
     Ok((resp_headers, json).into_response())
 }
 
@@ -56,13 +66,23 @@ pub async fn login(
         login = %body.login,
         "received login request"
     );
+    let expires_in_seconds = state.config.auth.expires_in_seconds;
     let (login_data, refresh_token) = service::login(state, body).await?;
+    let access_token = login_data.access_token.clone();
     let refresh_cookie = build_refresh_cookie(&refresh_token);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
     let json = Json(ApiResponse::success(login_data));
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
+    let session_cookie = build_session_cookie(
+        &access_token,
+        expires_in_seconds,
+    );
+    resp_headers.append(
+        axum::http::header::SET_COOKIE,
+        axum::http::HeaderValue::from_str(&session_cookie).unwrap(),
+    );
     Ok((resp_headers, json).into_response())
 }
 
@@ -228,6 +248,18 @@ fn build_refresh_cookie(token: &str) -> String {
 /// 清除 refresh_token cookie
 fn build_clear_refresh_cookie() -> String {
     "inkforge_refresh=; Path=/api/v1/auth/refresh; Max-Age=0; HttpOnly; SameSite=Strict".to_string()
+}
+
+/// 构建 session cookie（access_token），15 分钟过期，Path=/
+fn build_session_cookie(access_token: &str, max_age_seconds: i64) -> String {
+    let secure = if cfg!(debug_assertions) {
+        ""
+    } else {
+        "; Secure"
+    };
+    format!(
+        "inkforge_session={access_token}; Path=/; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}"
+    )
 }
 
 /// 清除 session cookie（access_token）
