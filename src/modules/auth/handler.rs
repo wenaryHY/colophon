@@ -247,7 +247,8 @@ fn build_refresh_cookie(token: &str) -> String {
 
 /// 清除 refresh_token cookie
 fn build_clear_refresh_cookie() -> String {
-    "inkforge_refresh=; Path=/api/v1/auth/refresh; Max-Age=0; HttpOnly; SameSite=Strict".to_string()
+    let secure = if cfg!(debug_assertions) { "" } else { "; Secure" };
+    format!("inkforge_refresh=; Path=/api/v1/auth/refresh; Max-Age=0; HttpOnly; SameSite=Strict{secure}")
 }
 
 /// 构建 session cookie（access_token），15 分钟过期，Path=/
@@ -264,5 +265,6 @@ fn build_session_cookie(access_token: &str, max_age_seconds: i64) -> String {
 
 /// 清除 session cookie（access_token）
 fn build_clear_session_cookie() -> String {
-    "inkforge_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict".to_string()
+    let secure = if cfg!(debug_assertions) { "" } else { "; Secure" };
+    format!("inkforge_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict{secure}")
 }

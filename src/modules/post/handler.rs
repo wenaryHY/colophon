@@ -166,10 +166,11 @@ pub async fn render_custom_page(
                 return Err(AppError::NotFound);
             }
             let content = tokio::fs::read_to_string(&index_path).await?;
-            let mut response = axum::response::Html(content).into_response();
+            let cleaned = ammonia::clean(&content);
+            let mut response = axum::response::Html(cleaned).into_response();
             crate::shared::security::mark_response_security_profile(
                 &mut response,
-                crate::shared::security::SECURITY_PROFILE_THEME_HTML,
+                crate::shared::security::SECURITY_PROFILE_CUSTOM_HTML,
             );
             Ok(response)
         }

@@ -2,10 +2,9 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use axum::Router;
-use axum::http::StatusCode;
+use axum::extract::{FromRequestParts, State};
 use axum::response::IntoResponse;
 use minijinja::Environment;
-use sqlx::SqlitePool;
 
 use crate::shared::error::AppResult;
 use crate::state::AppState;
@@ -102,24 +101,43 @@ impl PluginManager {
         Ok(())
     }
 
-    pub fn collect_routes(&self, pool: SqlitePool) -> Router<Arc<AppState>> {
+    pub fn collect_routes(&self, state: &Arc<AppState>) -> Router<Arc<AppState>> {
         let mut router = Router::new();
         for plugin in &self.plugins {
             let plugin_name = plugin.name().to_string();
             let plugin_routes = plugin.api_routes();
-            let pool = pool.clone();
-            let wrapped = plugin_routes.layer(axum::middleware::from_fn(
-                move |req: axum::extract::Request,
+            let state_clone = state.clone();
+            let pool = state.pool.clone();
+
+            let wrapped = plugin_routes.layer(axum::middleware::from_fn_with_state(
+                state_clone,
+                move |State(app_state): State<Arc<AppState>>,
+                      mut req: axum::extract::Request,
                       next: axum::middleware::Next|
                       -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>> {
                     let plugin_name = plugin_name.clone();
                     let pool = pool.clone();
                     Box::pin(async move {
+                        // 1. AdminUser 鉴权
+                        let (mut parts, body) = req.into_parts();
+                        match crate::shared::auth::AdminUser::from_request_parts(
+                            &mut parts,
+                            &app_state,
+                        )
+                        .await
+                        {
+                            Err(e) => return e.into_response(),
+                            Ok(_) => {}
+                        }
+                        req = axum::extract::Request::from_parts(parts, body);
+
+                        // 2. 检查插件启用
                         let enabled = crate::modules::plugin::status::get_enabled_ids(&pool)
                             .await
                             .unwrap_or_default();
                         if !enabled.contains(&plugin_name) {
-                            return (StatusCode::NOT_FOUND, "Plugin disabled").into_response();
+                            return (axum::http::StatusCode::NOT_FOUND, "Plugin disabled")
+                                .into_response();
                         }
                         next.run(req).await
                     })

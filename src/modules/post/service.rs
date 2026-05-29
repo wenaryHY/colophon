@@ -516,6 +516,18 @@ pub async fn upload_custom_page(
         ));
     }
 
+    // Check for unsafe HTML tags
+    if let Ok(raw) = tokio::fs::read_to_string(&index_path).await {
+        let cleaned = ammonia::clean(&raw);
+        if cleaned != raw {
+            tracing::warn!(
+                module = "post",
+                slug = slug,
+                "custom page contains unsafe HTML tags — they will be sanitized at render time"
+            );
+        }
+    }
+
     // Return relative path from upload_dir
     let relative = format!("pages/{}", slug);
     Ok(relative)
