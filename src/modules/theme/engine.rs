@@ -1,5 +1,7 @@
 use minijinja::{AutoEscape, Environment, Value};
+use std::collections::HashMap;
 use std::path::Path;
+use std::sync::{Arc, RwLock};
 
 use super::context::TemplateContext;
 use crate::modules::plugin::manager::PluginManager;
@@ -12,49 +14,126 @@ use crate::shared::error::AppResult;
 /// All other data has been pre-fetched into `ctx`.
 /// No async DB queries happen inside synchronous MiniJinja closures,
 /// eliminating the `block_in_place` deadlock risk.
+///
+/// Caching: The base Environment (loader + static filters + theme_assets_url)
+/// is cached per active_theme slug in `env_cache`. On each request, the cached
+/// base is cloned and per-request data (globals, data functions, plugin hooks)
+/// is added. This avoids rebuilding the template loader on every request.
 pub fn build_template_engine(
     ctx: &TemplateContext,
     theme_dir: &Path,
     plugin_manager: &PluginManager,
+    env_cache: &Arc<RwLock<HashMap<String, Environment<'static>>>>,
 ) -> AppResult<Environment<'static>> {
-    let template_dir = theme_dir.join(&ctx.active_theme).join("templates");
+    // 尝试从缓存获取基础 Environment
+    let base_env = {
+        let cache = env_cache.read().map_err(|e| {
+            crate::shared::error::AppError::Anyhow(anyhow::anyhow!(
+                "template env cache read lock poisoned: {}",
+                e
+            ))
+        })?;
+        cache.get(&ctx.active_theme).cloned()
+    };
 
-    let mut env = Environment::new();
-    env.set_auto_escape_callback(|name| {
-        if name.ends_with(".html") || name.ends_with(".htm") || name.ends_with(".xml") {
-            AutoEscape::Html
-        } else {
-            AutoEscape::None
-        }
-    });
-
-    // ── 1A: Dynamic template loader (with path traversal protection) ─
-    let loader_path = std::fs::canonicalize(&template_dir).unwrap_or_else(|_| template_dir.clone());
-    env.set_loader(move |name| {
-        let raw_path = loader_path.join(name);
-        // Security: canonicalize the path and ensure it stays within the template directory
-        match std::fs::canonicalize(&raw_path) {
-            Ok(canonical) => {
-                if !canonical.starts_with(&loader_path) {
-                    return Err(minijinja::Error::new(
-                        minijinja::ErrorKind::InvalidOperation,
-                        "path traversal detected".to_string(),
-                    ));
-                }
-                match std::fs::read_to_string(&canonical) {
-                    Ok(content) => Ok(Some(content)),
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-                    Err(e) => Err(minijinja::Error::new(
-                        minijinja::ErrorKind::InvalidOperation,
-                        format!("IO error reading template: {}", e),
-                    )),
-                }
+    let mut env = if let Some(cached) = base_env {
+        cached
+    } else {
+        // 构建新的基础 Environment：loader + autoescape + static filters + theme_assets_url
+        let template_dir = theme_dir.join(&ctx.active_theme).join("templates");
+        let mut new_env = Environment::new();
+        new_env.set_auto_escape_callback(|name| {
+            if name.ends_with(".html") || name.ends_with(".htm") || name.ends_with(".xml") {
+                AutoEscape::Html
+            } else {
+                AutoEscape::None
             }
-            Err(_) => Ok(None), // file not found or other error
-        }
-    });
+        });
 
-    // ── Globals ──────────────────────────────────────────────────────
+        // Dynamic template loader with path traversal protection
+        let loader_path =
+            std::fs::canonicalize(&template_dir).unwrap_or_else(|_| template_dir.clone());
+        new_env.set_loader(move |name| {
+            let raw_path = loader_path.join(name);
+            match std::fs::canonicalize(&raw_path) {
+                Ok(canonical) => {
+                    if !canonical.starts_with(&loader_path) {
+                        return Err(minijinja::Error::new(
+                            minijinja::ErrorKind::InvalidOperation,
+                            "path traversal detected".to_string(),
+                        ));
+                    }
+                    match std::fs::read_to_string(&canonical) {
+                        Ok(content) => Ok(Some(content)),
+                        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+                        Err(e) => Err(minijinja::Error::new(
+                            minijinja::ErrorKind::InvalidOperation,
+                            format!("IO error reading template: {}", e),
+                        )),
+                    }
+                }
+                Err(_) => Ok(None),
+            }
+        });
+
+        // theme_assets_url helper (per-theme, cached)
+        let slug = ctx.active_theme.clone();
+        new_env.add_function(
+            "theme_assets_url",
+            move |path: String| -> Result<Value, minijinja::Error> {
+                Ok(Value::from(format!("/static/themes/{}/{}", slug, path)))
+            },
+        );
+
+        // Static filters (content-independent, cached)
+        new_env.add_filter(
+            "tojson",
+            |value: Value| -> Result<String, minijinja::Error> {
+                serde_json::to_string(&value).map_err(|err| {
+                    minijinja::Error::new(
+                        minijinja::ErrorKind::InvalidOperation,
+                        err.to_string(),
+                    )
+                })
+            },
+        );
+        new_env.add_filter(
+            "tojson_script",
+            |value: Value| -> Result<String, minijinja::Error> {
+                serde_json::to_string(&value)
+                    .map(|json| {
+                        json.replace('<', "\\u003c")
+                            .replace('>', "\\u003e")
+                            .replace('&', "\\u0026")
+                            .replace('\u{2028}', "\\u2028")
+                            .replace('\u{2029}', "\\u2029")
+                    })
+                    .map_err(|err| {
+                        minijinja::Error::new(
+                            minijinja::ErrorKind::InvalidOperation,
+                            err.to_string(),
+                        )
+                    })
+            },
+        );
+
+        // 缓存基础 Environment
+        {
+            let mut cache = env_cache.write().map_err(|e| {
+                crate::shared::error::AppError::Anyhow(anyhow::anyhow!(
+                    "template env cache write lock poisoned: {}",
+                    e
+                ))
+            })?;
+            let cached_env = new_env.clone();
+            cache.insert(ctx.active_theme.clone(), cached_env);
+        }
+
+        new_env
+    };
+
+    // ── 每请求变化的数据 ──────────────────────────────────────────────
+    // Globals (from context, may change between requests)
     env.add_global("site_title", Value::from(&ctx.site_title));
     env.add_global("site_description", Value::from(&ctx.site_description));
     env.add_global("site_url", Value::from(&ctx.site_url));
@@ -64,42 +143,7 @@ pub fn build_template_engine(
         env.add_global("theme_config", Value::from_serialize(cfg));
     }
 
-    // ── 3B: theme_assets_url helper ──────────────────────────────────
-    let slug = ctx.active_theme.clone();
-    env.add_function(
-        "theme_assets_url",
-        move |path: String| -> Result<Value, minijinja::Error> {
-            Ok(Value::from(format!("/static/themes/{}/{}", slug, path)))
-        },
-    );
-
-    env.add_filter(
-        "tojson",
-        |value: Value| -> Result<String, minijinja::Error> {
-            serde_json::to_string(&value)
-                .map_err(|err| {
-                    minijinja::Error::new(minijinja::ErrorKind::InvalidOperation, err.to_string())
-                })
-        },
-    );
-    env.add_filter(
-        "tojson_script",
-        |value: Value| -> Result<String, minijinja::Error> {
-            serde_json::to_string(&value)
-                .map(|json| {
-                    json.replace('<', "\\u003c")
-                        .replace('>', "\\u003e")
-                        .replace('&', "\\u0026")
-                        .replace('\u{2028}', "\\u2028")
-                        .replace('\u{2029}', "\\u2029")
-                })
-                .map_err(|err| {
-                    minijinja::Error::new(minijinja::ErrorKind::InvalidOperation, err.to_string())
-                })
-        },
-    );
-
-    // ── 2B: Context Functions (pre-fetched data, no block_in_place) ──
+    // Data functions (from context, per-request data)
     let posts = ctx.recent_posts.clone();
     env.add_function(
         "get_recent_posts",
@@ -125,6 +169,7 @@ pub fn build_template_engine(
         },
     );
 
+    // Plugin hooks (per-request)
     plugin_manager.extend_template_env(&mut env)?;
 
     let head_html = plugin_manager.render_asset_html("head");

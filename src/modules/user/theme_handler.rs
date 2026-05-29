@@ -61,7 +61,7 @@ pub async fn render_profile_page(
         .ok_or(AppError::Unauthorized)?;
 
     let ctx = TemplateContext::load(&state).await?;
-    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, state.plugin_manager.as_ref())?;
+    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, state.plugin_manager.as_ref(), &state.template_env_cache)?;
     let tmpl = env
         .get_template("profile.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -112,7 +112,7 @@ pub async fn render_login_page(
     );
 
     let ctx = TemplateContext::load(&state).await?;
-    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, state.plugin_manager.as_ref())?;
+    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, state.plugin_manager.as_ref(), &state.template_env_cache)?;
     let tmpl = env
         .get_template("login.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -163,7 +163,7 @@ pub async fn render_register_page(
     );
 
     let ctx = TemplateContext::load(&state).await?;
-    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, state.plugin_manager.as_ref())?;
+    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, state.plugin_manager.as_ref(), &state.template_env_cache)?;
     let tmpl = env
         .get_template("register.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;

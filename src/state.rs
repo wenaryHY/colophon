@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use minijinja::Environment;
 use sqlx::SqlitePool;
 use tokio::sync::{broadcast, Mutex, RwLock};
 
@@ -35,6 +37,10 @@ pub struct AppState {
     pub login_rate_limiter: Arc<Mutex<LoginRateLimiter>>,
     /// Cached template context with TTL-based invalidation.
     pub template_cache: Arc<TemplateContextCache>,
+    /// Cached MiniJinja Environment per active_theme slug (synchronous access).
+    /// Stores the "base" Environment (loader + static filters + theme_assets_url)
+    /// without per-request data. Cloned and extended on each request.
+    pub template_env_cache: Arc<std::sync::RwLock<HashMap<String, Environment<'static>>>>,
     pub plugin_manager: Arc<PluginManager>,
 }
 
@@ -62,6 +68,7 @@ impl AppState {
             setup_stage: Arc::new(RwLock::new(setup_stage)),
             login_rate_limiter: Arc::new(Mutex::new(LoginRateLimiter::new())),
             template_cache: Arc::new(TemplateContextCache::with_default_ttl()),
+            template_env_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
             plugin_manager,
         })
     }
