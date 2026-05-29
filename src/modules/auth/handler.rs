@@ -90,11 +90,16 @@ pub async fn logout(
         serde_json::json!({ "logged_out": true }),
     ));
     let clear_refresh = build_clear_refresh_cookie();
+    let clear_session = build_clear_session_cookie();
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(
         axum::http::header::SET_COOKIE,
         axum::http::HeaderValue::from_str(&clear_refresh).unwrap(),
+    );
+    resp_headers.append(
+        axum::http::header::SET_COOKIE,
+        axum::http::HeaderValue::from_str(&clear_session).unwrap(),
     );
     Ok((resp_headers, json).into_response())
 }
@@ -223,4 +228,9 @@ fn build_refresh_cookie(token: &str) -> String {
 /// 清除 refresh_token cookie
 fn build_clear_refresh_cookie() -> String {
     "inkforge_refresh=; Path=/api/v1/auth/refresh; Max-Age=0; HttpOnly; SameSite=Strict".to_string()
+}
+
+/// 清除 session cookie（access_token）
+fn build_clear_session_cookie() -> String {
+    "inkforge_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict".to_string()
 }
