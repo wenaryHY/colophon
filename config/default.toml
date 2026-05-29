@@ -7,7 +7,7 @@ url = "sqlite://inkforge.db?mode=rwc"
 
 [auth]
 secret = "inkforge-change-me-in-production"
-expires_in_seconds = 604800
+expires_in_seconds = 900
 
 [storage]
 upload_dir = "uploads"

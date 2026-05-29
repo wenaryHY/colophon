@@ -35,7 +35,7 @@ pub async fn initialize(
 
 fn build_session_cookie(token: &str) -> String {
     format!(
-        "inkforge_session={}; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax",
+        "inkforge_session={}; Path=/; Max-Age=900; HttpOnly; SameSite=Lax",
         token
     )
 }

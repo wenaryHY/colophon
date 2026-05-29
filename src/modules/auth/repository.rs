@@ -66,3 +66,47 @@ pub async fn touch_last_login(pool: &SqlitePool, user_id: &str) -> Result<(), sq
         .await?;
     Ok(())
 }
+
+// ── Refresh token operations ──
+
+pub async fn save_refresh_token(
+    pool: &SqlitePool,
+    id: &str,
+    user_id: &str,
+    token_hash: &str,
+    expires_at: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES (?, ?, ?, ?)",
+    )
+    .bind(id)
+    .bind(user_id)
+    .bind(token_hash)
+    .bind(expires_at)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn find_valid_refresh_token(
+    pool: &SqlitePool,
+    token_hash: &str,
+) -> Result<Option<(String, String)>, sqlx::Error> {
+    sqlx::query_as::<_, (String, String)>(
+        "SELECT user_id, expires_at FROM refresh_tokens WHERE token_hash = ? AND revoked = 0 AND expires_at > datetime('now') LIMIT 1",
+    )
+    .bind(token_hash)
+    .fetch_optional(pool)
+    .await
+}
+
+pub async fn revoke_refresh_token(
+    pool: &SqlitePool,
+    token_hash: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("UPDATE refresh_tokens SET revoked = 1 WHERE token_hash = ?")
+        .bind(token_hash)
+        .execute(pool)
+        .await?;
+    Ok(())
+}

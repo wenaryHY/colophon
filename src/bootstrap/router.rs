@@ -123,6 +123,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
     let auth_v1 = Router::new()
         .route("/api/v1/auth/register", post(modules::auth::handler::register))
         .route("/api/v1/auth/logout", post(modules::auth::handler::logout))
+        .route("/api/v1/auth/refresh", post(modules::auth::handler::refresh_token))
         .merge(
             Router::new()
                 .route("/api/v1/auth/login", post(modules::auth::handler::login))

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     modules::{auth::dto::RegisterRequest, setting::repository as setting_repository},
     shared::{
-        auth::{hash_password, issue_token, verify_password},
+        auth::{hash_password, issue_token, verify_password, generate_refresh_token, hash_token},
         error::{AppError, AppResult},
     },
     state::AppState,
@@ -14,7 +14,7 @@ use super::{
     repository,
 };
 
-pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<TokenPayload> {
+pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<(TokenPayload, String)> {
     ensure_public_registration_available(&state, &body).await?;
     validate_register_request(&body)?;
     ensure_identity_available(&state, &body).await?;
@@ -41,10 +41,18 @@ pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<
     let token = issue_token(
         &state.config.auth.secret,
         state.config.auth.expires_in_seconds,
-        user_id,
+        user_id.clone(),
         username.clone(),
         role.to_string(),
     )?;
+
+    let refresh_token = generate_refresh_token();
+    let token_hash = hash_token(&refresh_token);
+    let refresh_id = uuid::Uuid::new_v4().to_string();
+    let expires_at = (chrono::Utc::now() + chrono::Duration::days(7)).to_rfc3339();
+    repository::save_refresh_token(&state.pool, &refresh_id, &user_id, &token_hash, &expires_at)
+        .await?;
+
     tracing::info!(
         module = "auth",
         event = "register_success",
@@ -52,10 +60,10 @@ pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<
         role = %role,
         "registration succeeded"
     );
-    Ok(TokenPayload { token })
+    Ok((TokenPayload { token }, refresh_token))
 }
 
-pub async fn login(state: Arc<AppState>, body: LoginRequest) -> AppResult<TokenPayload> {
+pub async fn login(state: Arc<AppState>, body: LoginRequest) -> AppResult<(TokenPayload, String)> {
     ensure_setup_completed(&state).await?;
     tracing::debug!(
         module = "auth",
@@ -110,11 +118,19 @@ pub async fn login(state: Arc<AppState>, body: LoginRequest) -> AppResult<TokenP
     let token = issue_token(
         &state.config.auth.secret,
         state.config.auth.expires_in_seconds,
-        user.id,
-        user.username,
-        user.role,
+        user.id.clone(),
+        user.username.clone(),
+        user.role.clone(),
     )?;
-    Ok(TokenPayload { token })
+
+    let refresh_token = generate_refresh_token();
+    let token_hash = hash_token(&refresh_token);
+    let refresh_id = uuid::Uuid::new_v4().to_string();
+    let expires_at = (chrono::Utc::now() + chrono::Duration::days(7)).to_rfc3339();
+    repository::save_refresh_token(&state.pool, &refresh_id, &user.id, &token_hash, &expires_at)
+        .await?;
+
+    Ok((TokenPayload { token }, refresh_token))
 }
 
 async fn ensure_public_registration_available(

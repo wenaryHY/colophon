@@ -1,5 +1,6 @@
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::shared::error::AppError;
 
@@ -44,4 +45,17 @@ pub fn decode_token(token: &str, secret: &str) -> Result<Claims, AppError> {
     )
     .map(|data| data.claims)
     .map_err(|_| AppError::Unauthorized)
+}
+
+/// 生成 64 字符 hex 随机 refresh token
+pub fn generate_refresh_token() -> String {
+    let random_bytes: [u8; 32] = rand::random();
+    hex::encode(random_bytes)
+}
+
+/// 对 token 做 SHA-256 哈希后 hex 编码，用于安全存储
+pub fn hash_token(token: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(token.as_bytes());
+    hex::encode(hasher.finalize())
 }

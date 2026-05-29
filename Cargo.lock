@@ -2941,6 +2941,7 @@ dependencies = [
  "minijinja",
  "once_cell",
  "pulldown-cmark",
+ "rand 0.8.5",
  "rand_core 0.6.4",
  "reqwest 0.12.28",
  "semver",

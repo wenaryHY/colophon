@@ -65,7 +65,7 @@ impl AppConfig {
             .set_default("server.port", 2000)?
             .set_default("database.url", "sqlite://inkforge.db?mode=rwc")?
             .set_default("auth.secret", "change-me-in-production-please")?
-            .set_default("auth.expires_in_seconds", 60 * 60 * 24 * 7)?
+            .set_default("auth.expires_in_seconds", 900)?
             .set_default("auth.allow_insecure_default_secret", false)?
             .set_default("storage.upload_dir", "uploads")?
             .set_default("storage.max_upload_size_mb", 10)?
