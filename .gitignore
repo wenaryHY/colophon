@@ -42,6 +42,8 @@ CODEBUDDY.md
 docs/superpowers/
 themes/default/static/css/TASK_*.md
 TASK_*.md
+analyze/
+target-codex*
 
 # Dev artifacts
 test-*.js
