@@ -62,7 +62,7 @@ function AdminLayout() {
         activePage={activePage}
         onNavigate={(page) => navigate(pageToRoute[page] || '/posts')}
       />
-      <main className="flex-1 overflow-y-auto" style={{ padding: '24px 32px', background: 'var(--bg-base)' }}>
+      <main className="flex-1 overflow-y-auto" style={{ padding: '20px 24px', background: 'var(--bg-base)' }}>
         <Suspense fallback={<PostsSkeleton />}>
           <Outlet />
         </Suspense>

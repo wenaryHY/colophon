@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   apiData,
@@ -123,21 +123,22 @@ export default function Settings() {
     staleTime: 60_000,
   });
 
-  const { } = useQuery({
+  const { data: settings = [] } = useQuery({
     queryKey: ['settings'],
-    queryFn: async () => {
-      const settingItems = await apiData<Setting[]>(`${API_PREFIX}/admin/settings`);
-      const nextKv: Record<string, string> = {};
-      settingItems.forEach((item) => { nextKv[item.key] = item.value; });
-      setKv((prev) => {
-        // 只在第一次加载时设置初始值
-        if (Object.keys(prev).length === 0) return nextKv;
-        return prev;
-      });
-      return settingItems;
-    },
+    queryFn: () => apiData<Setting[]>(`${API_PREFIX}/admin/settings`),
     staleTime: 60_000,
   });
+
+  // 从 query data 同步 kv 初始值（用 ref 确保只初始化一次）
+  const kvInitRef = useRef(false);
+  useEffect(() => {
+    if (!kvInitRef.current && settings.length > 0) {
+      const nextKv: Record<string, string> = {};
+      settings.forEach((item) => { nextKv[item.key] = item.value; });
+      setKv(nextKv);
+      kvInitRef.current = true;
+    }
+  }, [settings]);
 
   // 加载备份
   const { data: backups = [], refetch: refetchBackups } = useQuery({

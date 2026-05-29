@@ -1,4 +1,27 @@
 ﻿(function () {
+  function getPageLang() {
+    var langAttr = (document.documentElement.lang || '');
+    return langAttr.indexOf('zh') === 0 ? 'zh' : 'en';
+  }
+
+  var MSG = {
+    zh: {
+      commentSubmitted: '评论已提交审核。',
+      submitError: '无法提交评论。',
+      newCommentAppeared: '有一条新评论已发布。',
+    },
+    en: {
+      commentSubmitted: 'Comment submitted for review.',
+      submitError: 'Unable to submit comment.',
+      newCommentAppeared: 'A new approved comment just appeared.',
+    },
+  };
+
+  function t(key) {
+    var lang = getPageLang();
+    return (MSG[lang] && MSG[lang][key]) || MSG.en[key] || key;
+  }
+
   function logDebug(event, details) {
     console.debug('[InkForge][comments][debug]', event, details || {});
   }
@@ -78,7 +101,7 @@
         },
       });
 
-      showToast('Comment submitted for review.', 'success');
+      showToast(t('commentSubmitted'), 'success');
       logDebug('submit_success', { slug });
       form.reset();
     } catch (error) {
@@ -94,7 +117,7 @@
         message: error.message,
         status: error.status,
       });
-      showToast(error.message || 'Unable to submit comment.', 'error');
+      showToast(error.message || t('submitError'), 'error');
     }
   }
 
@@ -146,7 +169,7 @@
               countEl.textContent = String(current + 1);
             }
 
-            showToast('A new approved comment just appeared.', 'info');
+            showToast(t('newCommentAppeared'), 'info');
             logDebug('ws_comment_approved', { postId });
           }
         } catch (parseError) {

@@ -262,7 +262,7 @@ export default function PostEditor() {
       </div>
 
       {/* ── 编辑器主体 ── */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 260px', gap: '20px', minHeight: 0 }}>
         {/* 左侧：标题 + 编辑器 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
           <Input

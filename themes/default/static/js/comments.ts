@@ -4,6 +4,29 @@
 
 type ToastType = 'success' | 'error' | 'info';
 
+/** 读取当前页面语言，从 <html lang> 属性获取 */
+function getPageLang(): 'zh' | 'en' {
+  const langAttr = document.documentElement.lang || '';
+  return langAttr.startsWith('zh') ? 'zh' : 'en';
+}
+
+const MSG: Record<string, Record<string, string>> = {
+  zh: {
+    commentSubmitted: '评论已提交审核。',
+    submitError: '无法提交评论。',
+    newCommentAppeared: '有一条新评论已发布。',
+  },
+  en: {
+    commentSubmitted: 'Comment submitted for review.',
+    submitError: 'Unable to submit comment.',
+    newCommentAppeared: 'A new approved comment just appeared.',
+  },
+};
+
+function t(key: string): string {
+  return MSG[getPageLang()]?.[key] || MSG.en[key] || key;
+}
+
 function logDebug(event: string, details?: Record<string, unknown>): void {
   console.debug('[InkForge][comments][debug]', event, details || {});
 }
@@ -101,7 +124,7 @@ async function submitComment(event: Event): Promise<void> {
       },
     });
 
-    showToast('Comment submitted for review.', 'success');
+    showToast(t('commentSubmitted'), 'success');
     logDebug('submit_success', { slug });
     form.reset();
   } catch (error) {
@@ -118,7 +141,7 @@ async function submitComment(event: Event): Promise<void> {
       message: requestError.message,
       status: requestError.status,
     });
-    showToast(requestError.message || 'Unable to submit comment.', 'error');
+    showToast(requestError.message || t('submitError'), 'error');
   }
 }
 
@@ -177,7 +200,7 @@ function initCommentWebSocket(): void {
             countEl.textContent = String(current + 1);
           }
 
-          showToast('A new approved comment just appeared.', 'info');
+          showToast(t('newCommentAppeared'), 'info');
           logDebug('ws_comment_approved', { postId });
         }
       } catch (error) {
