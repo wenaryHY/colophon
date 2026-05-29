@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiData, API, API_PREFIX } from '../lib/api';
 import { esc } from '../lib/utils';
+import { SlotRenderer } from '../lib/slots';
 import type { AdminPost, Category, Tag } from '../types';
 
 import { Button } from '../components/Button';
@@ -479,6 +480,8 @@ export default function PostEditor() {
                 )) : <span style={{ fontSize: '12px', color: 'var(--md-outline)' }}>{t('noTagsAvailable')}</span>}
               </div>
             )}
+
+            <SlotRenderer target="post_editor.sidebar" context={id ? { post_id: id } : undefined} />
           </div>
         </div>
       </div>

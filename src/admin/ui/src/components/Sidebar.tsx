@@ -1,5 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
+import { useSlots } from '../lib/slots';
 import {
   IconFileText, IconFolderOpen, IconTag, IconMessageSquare,
   IconUpload, IconSettings, IconUser, IconLogOut, IconPalette, IconTrash2,
@@ -48,6 +49,8 @@ interface SidebarProps {
 export function Sidebar({ activePage, onNavigate }: SidebarProps) {
   const { user, logout } = useAuth();
   const { lang, setLang, t } = useI18n();
+  const { slots } = useSlots();
+  const menuSlots = slots.filter(s => s.target === 'sidebar.menu_item');
 
   return (
     <aside
@@ -289,6 +292,40 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           </svg>
           <span>{t('visitSite')}</span>
         </a>
+        {/* 插件菜单项 */}
+        {menuSlots.map(s => (
+          <a
+            key={s.plugin_name}
+            href={s.entry}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-full)',
+              textDecoration: 'none',
+              color: 'var(--md-on-surface-variant)',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              marginBottom: '4px',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'var(--sidebar-hover)';
+              e.currentTarget.style.color = 'var(--md-primary)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--md-on-surface-variant)';
+            }}
+          >
+            {s.label}
+          </a>
+        ))}
         {/* 退出按钮 — 文字链接风格 */}
         <button
           onClick={() => void logout()}

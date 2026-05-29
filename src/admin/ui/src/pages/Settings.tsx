@@ -8,6 +8,7 @@ import {
   listBackups,
   mergeRestoreBackup,
 } from '../lib/api';
+import { SlotRenderer } from '../lib/slots';
 import type { BackupListResponse, Setting, ThemeSummary } from '../types';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
@@ -558,6 +559,8 @@ export default function Settings() {
           </div>
         </div>
       </SettingSection>
+
+      <SlotRenderer target="settings.sub_section" />
     </>
   );
 }

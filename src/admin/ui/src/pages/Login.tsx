@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiData, API_PREFIX } from '../lib/api';
+import { SlotRenderer } from '../lib/slots';
 import type { SetupStatusResponse } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -364,6 +365,10 @@ export default function Login() {
               </button>
             </form>
           ) : null}
+        </div>
+
+        <div style={{ padding: '0 28px' }}>
+          <SlotRenderer target="login.form_below" />
         </div>
 
         {/* 底部链接 */}

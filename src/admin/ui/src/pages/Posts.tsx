@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiData, API_PREFIX, paginationPages } from '../lib/api';
 import { esc } from '../lib/utils';
+import { SlotRenderer } from '../lib/slots';
 import type { AdminPost, Category, PaginatedResponse, Setting } from '../types';
 import { PageHeader } from '../components/PageHeader';
 import { Card } from '../components/Card';
@@ -222,6 +223,8 @@ export default function Posts() {
         actions={<Button onClick={() => navigate(contentTypeTab === 'post' ? '/posts/new' : '/posts/new?type=page')}><IconPlus /> {contentTypeTab === 'post' ? t('newPost') : t('newPage', '新建页面')}</Button>}
       />
 
+      <SlotRenderer target="dashboard.widget" />
+
       {/* 内容类型 Tab — MD3 Segmented Button */}
       <div style={{
         display: 'inline-flex', gap: '0', marginBottom: '16px',
@@ -286,6 +289,8 @@ export default function Posts() {
           {t('deletedItems')}
         </button>
       </div>
+
+      <SlotRenderer target="post_list.action_bar" />
 
       <Card style={{ overflow: 'hidden' }}>
         {/* 批量操作栏 */}

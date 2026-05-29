@@ -68,3 +68,35 @@ pub async fn update_settings(
         "updated": true,
     }))))
 }
+
+pub async fn list_slots(
+    State(state): State<Arc<AppState>>,
+) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
+    let slots: Vec<serde_json::Value> = state
+        .plugin_manager
+        .discovered_manifests()
+        .into_iter()
+        .flat_map(|m| {
+            let plugin_id = m.plugin.id.clone();
+            let admin_root = m.resources
+                .as_ref()
+                .and_then(|r| r.admin_root.as_deref())
+                .unwrap_or("admin/")
+                .to_string();
+            m.slots.unwrap_or_default().into_iter().map(move |s| {
+                serde_json::json!({
+                    "target": s.target,
+                    "label": s.label,
+                    "entry": format!("/static/plugins/{}/{}{}", plugin_id, admin_root, s.entry),
+                    "width": s.width,
+                    "height": s.height,
+                    "plugin_name": plugin_id,
+                })
+            })
+        })
+        .collect();
+
+    Ok(Json(ApiResponse::success(serde_json::json!({
+        "slots": slots,
+    }))))
+}

@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { Sidebar } from './components/Sidebar';
 import { PostsSkeleton } from './components/Skeleton';
+import { SlotsContext, type SlotInfo } from './lib/slots';
 import Login from './pages/Login';
 import Posts from './pages/Posts';
 import PostEditor from './pages/PostEditor';
@@ -78,9 +80,21 @@ function AdminGate() {
   return <AdminLayout />;
 }
 
+function SlotsProvider({ children }: { children: React.ReactNode }) {
+  const [slots, setSlots] = useState<SlotInfo[]>([]);
+  useEffect(() => {
+    fetch('/api/v1/admin/plugins/slots', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setSlots(d.data?.slots || []))
+      .catch(() => {});
+  }, []);
+  return <SlotsContext.Provider value={{ slots }}>{children}</SlotsContext.Provider>;
+}
+
 export default function App() {
   return (
     <BrowserRouter basename="/admin">
+      <SlotsProvider>
       <Routes>
         <Route path="/setup" element={<Setup />} />
         <Route path="/" element={<AdminGate />}>
@@ -101,6 +115,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </SlotsProvider>
     </BrowserRouter>
   );
 }

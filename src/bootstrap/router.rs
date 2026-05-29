@@ -260,6 +260,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/v1/admin/plugins/:name/settings",
             get(crate::modules::plugin::handler::get_settings)
                 .put(crate::modules::plugin::handler::update_settings))
+        .route("/api/v1/admin/plugins/slots", get(crate::modules::plugin::handler::list_slots))
         .merge(state.plugin_manager.collect_routes());
 
     Router::new()
