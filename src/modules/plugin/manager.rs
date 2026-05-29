@@ -2,7 +2,10 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use axum::Router;
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use minijinja::Environment;
+use sqlx::SqlitePool;
 
 use crate::shared::error::AppResult;
 use crate::state::AppState;
@@ -99,11 +102,30 @@ impl PluginManager {
         Ok(())
     }
 
-    pub fn collect_routes(&self) -> Router<Arc<AppState>> {
+    pub fn collect_routes(&self, pool: SqlitePool) -> Router<Arc<AppState>> {
         let mut router = Router::new();
         for plugin in &self.plugins {
+            let plugin_name = plugin.name().to_string();
             let plugin_routes = plugin.api_routes();
-            router = router.merge(plugin_routes);
+            let pool = pool.clone();
+            let wrapped = plugin_routes.layer(axum::middleware::from_fn(
+                move |req: axum::extract::Request,
+                      next: axum::middleware::Next|
+                      -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>> {
+                    let plugin_name = plugin_name.clone();
+                    let pool = pool.clone();
+                    Box::pin(async move {
+                        let enabled = crate::modules::plugin::status::get_enabled_ids(&pool)
+                            .await
+                            .unwrap_or_default();
+                        if !enabled.contains(&plugin_name) {
+                            return (StatusCode::NOT_FOUND, "Plugin disabled").into_response();
+                        }
+                        next.run(req).await
+                    })
+                },
+            ));
+            router = router.merge(wrapped);
         }
         router
     }

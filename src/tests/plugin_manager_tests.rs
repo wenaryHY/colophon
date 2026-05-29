@@ -4,6 +4,7 @@ mod plugin_manager_tests {
     use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
     use minijinja::Environment;
     use serial_test::serial;
+    use sqlx::SqlitePool;
     use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::Arc;
 
@@ -12,6 +13,11 @@ mod plugin_manager_tests {
     use crate::modules::plugin::Plugin;
     use crate::shared::error::AppResult;
     use crate::state::AppState;
+
+    /// 创建一个内存 SQLite 池用于测试 collect_routes
+    async fn create_test_pool() -> SqlitePool {
+        SqlitePool::connect("sqlite::memory:").await.unwrap()
+    }
 
     struct MockPlugin {
         name: String,
@@ -78,8 +84,8 @@ mod plugin_manager_tests {
         let manager = PluginManager::load().await;
         assert!(!manager.is_empty());
 
-        let router = manager.collect_routes();
-        let _ = router;
+        let pool = create_test_pool().await;
+        let _router = manager.collect_routes(pool);
     }
 
     #[serial]
@@ -107,7 +113,8 @@ mod plugin_manager_tests {
         registry::register(Box::new(plugin)).await;
 
         let manager = PluginManager::load().await;
-        let router = manager.collect_routes();
+        let pool = create_test_pool().await;
+        let router = manager.collect_routes(pool);
         let debug_str = format!("{:?}", router);
         assert!(
             debug_str.contains("mock"),

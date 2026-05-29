@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use axum::{
@@ -23,6 +23,15 @@ pub async fn get_settings(
     State(state): State<Arc<AppState>>,
     Path(plugin_name): Path<String>,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
+    let enabled_ids = status::get_enabled_ids(&state.pool).await?;
+    if !enabled_ids.contains(&plugin_name) {
+        return Ok(Json(ApiResponse::success(serde_json::json!({
+            "plugin_name": plugin_name,
+            "settings": [],
+            "values": {},
+        }))));
+    }
+
     let values = settings::get_all(&state.pool, &plugin_name).await?;
 
     let setting_defs = state
@@ -45,6 +54,14 @@ pub async fn update_settings(
     Path(plugin_name): Path<String>,
     Json(body): Json<UpdateSettingsRequest>,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
+    let enabled_ids = status::get_enabled_ids(&state.pool).await?;
+    if !enabled_ids.contains(&plugin_name) {
+        return Ok(Json(ApiResponse::success(serde_json::json!({
+            "updated": false,
+            "reason": "plugin_disabled",
+        }))));
+    }
+
     let setting_defs: HashMap<String, super::manifest::SettingDef> = state
         .plugin_manager
         .discovered_manifests()
@@ -74,10 +91,13 @@ pub async fn update_settings(
 pub async fn list_slots(
     State(state): State<Arc<AppState>>,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
+    let enabled_ids = status::get_enabled_ids(&state.pool).await?;
+    let enabled_set: HashSet<String> = enabled_ids.into_iter().collect();
     let slots: Vec<serde_json::Value> = state
         .plugin_manager
         .discovered_manifests()
         .into_iter()
+        .filter(|m| enabled_set.contains(&m.plugin.id))
         .flat_map(|m| {
             let plugin_id = m.plugin.id.clone();
             let admin_root = m.resources
@@ -108,7 +128,7 @@ pub async fn list_plugins(
     _admin: AdminUser,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
     let manifests = state.plugin_manager.discovered_manifests();
-    let enabled_ids: Vec<String> = state.plugin_manager.plugin_names();
+    let enabled_ids: Vec<String> = status::get_enabled_ids(&state.pool).await?;
 
     let plugins: Vec<serde_json::Value> = manifests.into_iter().map(|m| {
         serde_json::json!({
@@ -136,6 +156,10 @@ pub async fn toggle_plugin(
     let new_enabled = !currently_enabled;
 
     status::set_enabled(&state.pool, &plugin_name, new_enabled).await?;
+
+    if !new_enabled {
+        state.plugin_manager.hook_registry().unregister_all(&plugin_name).await;
+    }
 
     tracing::info!(
         module = "plugin",

@@ -421,10 +421,20 @@ pub async fn serve_upload_static(
 }
 
 pub async fn serve_plugin_static(
+    State(state): State<Arc<AppState>>,
     Path((plugin_slug, file_path)): Path<(String, String)>,
 ) -> impl IntoResponse {
     if file_path.contains("..") || file_path.contains('\\') || file_path.starts_with('/') {
         return (StatusCode::FORBIDDEN, "403 Forbidden").into_response();
+    }
+
+    // 检查插件是否启用
+    let enabled = match crate::modules::plugin::status::get_enabled_ids(&state.pool).await {
+        Ok(ids) => ids,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
+    };
+    if !enabled.contains(&plugin_slug) {
+        return (StatusCode::NOT_FOUND, "404 Not Found").into_response();
     }
 
     let plugins_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("plugins");

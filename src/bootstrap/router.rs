@@ -263,7 +263,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/v1/admin/plugins/slots", get(crate::modules::plugin::handler::list_slots))
         .route("/api/v1/admin/plugins", get(crate::modules::plugin::handler::list_plugins))
         .route("/api/v1/admin/plugins/:name/toggle", post(crate::modules::plugin::handler::toggle_plugin))
-        .merge(state.plugin_manager.collect_routes());
+        .merge(state.plugin_manager.collect_routes(state.pool.clone()));
 
     Router::new()
         .route("/", get(render_home_entry))
