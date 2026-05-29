@@ -35,3 +35,15 @@ Thumbs.db
 # Kiro
 .workbuddy/
 .codebuddy/
+
+# AI Agent traces
+.kiro/
+CODEBUDDY.md
+docs/superpowers/
+themes/default/static/css/TASK_*.md
+TASK_*.md
+
+# Dev artifacts
+test-*.js
+target_tmp_verify/
+cargo_check_output.txt
