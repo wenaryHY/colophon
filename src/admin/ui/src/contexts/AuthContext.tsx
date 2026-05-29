@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { apiData, API_PREFIX } from '../lib/api';
+import { apiData, setAccessToken, clearAccessToken, API_PREFIX } from '../lib/api';
 import type { CurrentUser } from '../types';
 import { useI18n } from '../i18n';
 import { saveLanguage } from '../i18n/detector';
@@ -9,6 +9,12 @@ interface RegisterData {
   email: string;
   password: string;
   display_name?: string;
+}
+
+/** 登录/注册响应中返回的用户摘要（id/username/role），完整用户信息通过 refreshUser() 获取 */
+interface LoginResponse {
+  user: { id: string; username: string; role: string };
+  access_token: string;
 }
 
 interface AuthContextValue {
@@ -34,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const authChecked = useRef(false);
 
   const clearAuth = useCallback(() => {
+    clearAccessToken();
     setTokenState('');
     setUser(null);
     try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch { /* ignore quota / priv errors */ }
@@ -85,10 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (loginValue: string, password: string) => {
     try {
-      await apiData<{ token: string }>(`${API_PREFIX}/auth/login`, {
+      const data = await apiData<LoginResponse>(`${API_PREFIX}/auth/login`, {
         method: 'POST',
         body: JSON.stringify({ login: loginValue, password }),
       });
+      setAccessToken(data.access_token);
       await refreshUser();
       return { success: true };
     } catch (error) {
@@ -99,10 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (data: RegisterData) => {
     try {
-      await apiData<{ token: string }>(`${API_PREFIX}/auth/register`, {
+      const result = await apiData<LoginResponse>(`${API_PREFIX}/auth/register`, {
         method: 'POST',
         body: JSON.stringify(data),
       });
+      setAccessToken(result.access_token);
       await refreshUser();
       return { success: true };
     } catch (error) {

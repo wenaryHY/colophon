@@ -75,14 +75,16 @@ pub async fn save_refresh_token(
     user_id: &str,
     token_hash: &str,
     expires_at: &str,
+    family_id: &str,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
-        "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, family_id) VALUES (?, ?, ?, ?, ?)",
     )
     .bind(id)
     .bind(user_id)
     .bind(token_hash)
     .bind(expires_at)
+    .bind(family_id)
     .execute(pool)
     .await?;
     Ok(())
@@ -91,9 +93,9 @@ pub async fn save_refresh_token(
 pub async fn find_valid_refresh_token(
     pool: &SqlitePool,
     token_hash: &str,
-) -> Result<Option<(String, String)>, sqlx::Error> {
-    sqlx::query_as::<_, (String, String)>(
-        "SELECT user_id, expires_at FROM refresh_tokens WHERE token_hash = ? AND revoked = 0 AND expires_at > datetime('now') LIMIT 1",
+) -> Result<Option<(String, String, Option<String>, Option<String>)>, sqlx::Error> {
+    sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(
+        "SELECT user_id, expires_at, family_id, used_at FROM refresh_tokens WHERE token_hash = ? AND revoked = 0 AND expires_at > datetime('now') LIMIT 1",
     )
     .bind(token_hash)
     .fetch_optional(pool)
@@ -106,6 +108,28 @@ pub async fn revoke_refresh_token(
 ) -> Result<(), sqlx::Error> {
     sqlx::query("UPDATE refresh_tokens SET revoked = 1 WHERE token_hash = ?")
         .bind(token_hash)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn mark_token_used(
+    pool: &SqlitePool,
+    token_hash: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("UPDATE refresh_tokens SET used_at = datetime('now') WHERE token_hash = ?")
+        .bind(token_hash)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn revoke_family(
+    pool: &SqlitePool,
+    family_id: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("UPDATE refresh_tokens SET revoked = 1 WHERE family_id = ?")
+        .bind(family_id)
         .execute(pool)
         .await?;
     Ok(())

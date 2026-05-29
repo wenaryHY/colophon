@@ -14,7 +14,17 @@ pub struct LoginRequest {
     pub password: String,
 }
 
+/// 登录/注册响应中返回的用户摘要信息
 #[derive(Debug, Serialize)]
-pub struct TokenPayload {
-    pub token: String,
+pub struct AuthUserInfo {
+    pub id: String,
+    pub username: String,
+    pub role: String,
+}
+
+/// 登录/注册响应体：用户信息 + access_token
+#[derive(Debug, Serialize)]
+pub struct LoginResponseData {
+    pub user: AuthUserInfo,
+    pub access_token: String,
 }

@@ -10,11 +10,11 @@ use crate::{
 };
 
 use super::{
-    dto::{LoginRequest, TokenPayload},
+    dto::{AuthUserInfo, LoginRequest, LoginResponseData},
     repository,
 };
 
-pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<(TokenPayload, String)> {
+pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<(LoginResponseData, String)> {
     ensure_public_registration_available(&state, &body).await?;
     validate_register_request(&body)?;
     ensure_identity_available(&state, &body).await?;
@@ -38,7 +38,7 @@ pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<
     )
     .await?;
 
-    let token = issue_token(
+    let access_token = issue_token(
         &state.config.auth.secret,
         state.config.auth.expires_in_seconds,
         user_id.clone(),
@@ -49,8 +49,9 @@ pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<
     let refresh_token = generate_refresh_token();
     let token_hash = hash_token(&refresh_token);
     let refresh_id = uuid::Uuid::new_v4().to_string();
+    let family_id = uuid::Uuid::new_v4().to_string();
     let expires_at = (chrono::Utc::now() + chrono::Duration::days(7)).to_rfc3339();
-    repository::save_refresh_token(&state.pool, &refresh_id, &user_id, &token_hash, &expires_at)
+    repository::save_refresh_token(&state.pool, &refresh_id, &user_id, &token_hash, &expires_at, &family_id)
         .await?;
 
     tracing::info!(
@@ -60,10 +61,20 @@ pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<
         role = %role,
         "registration succeeded"
     );
-    Ok((TokenPayload { token }, refresh_token))
+    Ok((
+        LoginResponseData {
+            user: AuthUserInfo {
+                id: user_id,
+                username,
+                role: role.to_string(),
+            },
+            access_token,
+        },
+        refresh_token,
+    ))
 }
 
-pub async fn login(state: Arc<AppState>, body: LoginRequest) -> AppResult<(TokenPayload, String)> {
+pub async fn login(state: Arc<AppState>, body: LoginRequest) -> AppResult<(LoginResponseData, String)> {
     ensure_setup_completed(&state).await?;
     tracing::debug!(
         module = "auth",
@@ -115,7 +126,7 @@ pub async fn login(state: Arc<AppState>, body: LoginRequest) -> AppResult<(Token
         role = %user.role,
         "login succeeded"
     );
-    let token = issue_token(
+    let access_token = issue_token(
         &state.config.auth.secret,
         state.config.auth.expires_in_seconds,
         user.id.clone(),
@@ -126,11 +137,22 @@ pub async fn login(state: Arc<AppState>, body: LoginRequest) -> AppResult<(Token
     let refresh_token = generate_refresh_token();
     let token_hash = hash_token(&refresh_token);
     let refresh_id = uuid::Uuid::new_v4().to_string();
+    let family_id = uuid::Uuid::new_v4().to_string();
     let expires_at = (chrono::Utc::now() + chrono::Duration::days(7)).to_rfc3339();
-    repository::save_refresh_token(&state.pool, &refresh_id, &user.id, &token_hash, &expires_at)
+    repository::save_refresh_token(&state.pool, &refresh_id, &user.id, &token_hash, &expires_at, &family_id)
         .await?;
 
-    Ok((TokenPayload { token }, refresh_token))
+    Ok((
+        LoginResponseData {
+            user: AuthUserInfo {
+                id: user.id,
+                username: user.username,
+                role: user.role,
+            },
+            access_token,
+        },
+        refresh_token,
+    ))
 }
 
 async fn ensure_public_registration_available(

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::{extract::State, http::HeaderMap, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
+use uuid::Uuid;
 
 use crate::{
     infra::jwt,
@@ -31,16 +32,13 @@ pub async fn register(
         has_display_name = body.display_name.as_deref().map(|value| !value.trim().is_empty()).unwrap_or(false),
         "received registration request"
     );
-    let (payload, refresh_token) = service::register(state, body).await?;
-    let access_cookie = build_session_cookie("inkforge_session", &payload.token, ACCESS_TOKEN_MAX_AGE);
-    let refresh_cookie = build_session_cookie("inkforge_refresh", &refresh_token, REFRESH_TOKEN_MAX_AGE);
-    let access_header = axum::http::HeaderValue::from_str(&access_cookie).unwrap();
+    let (login_data, refresh_token) = service::register(state, body).await?;
+    let refresh_cookie = build_refresh_cookie(&refresh_token);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
-    let json = Json(ApiResponse::success(payload));
+    let json = Json(ApiResponse::success(login_data));
 
     let mut resp_headers = axum::http::HeaderMap::new();
-    resp_headers.insert(axum::http::header::SET_COOKIE, access_header);
-    resp_headers.append(axum::http::header::SET_COOKIE, refresh_header);
+    resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
     Ok((resp_headers, json).into_response())
 }
 
@@ -58,16 +56,13 @@ pub async fn login(
         login = %body.login,
         "received login request"
     );
-    let (payload, refresh_token) = service::login(state, body).await?;
-    let access_cookie = build_session_cookie("inkforge_session", &payload.token, ACCESS_TOKEN_MAX_AGE);
-    let refresh_cookie = build_session_cookie("inkforge_refresh", &refresh_token, REFRESH_TOKEN_MAX_AGE);
-    let access_header = axum::http::HeaderValue::from_str(&access_cookie).unwrap();
+    let (login_data, refresh_token) = service::login(state, body).await?;
+    let refresh_cookie = build_refresh_cookie(&refresh_token);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
-    let json = Json(ApiResponse::success(payload));
+    let json = Json(ApiResponse::success(login_data));
 
     let mut resp_headers = axum::http::HeaderMap::new();
-    resp_headers.insert(axum::http::header::SET_COOKIE, access_header);
-    resp_headers.append(axum::http::header::SET_COOKIE, refresh_header);
+    resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
     Ok((resp_headers, json).into_response())
 }
 
@@ -88,24 +83,18 @@ pub async fn logout(
     // 撤销 refresh token（如果存在）
     if let Some(cookie) = jar.get("inkforge_refresh") {
         let token_hash = jwt::hash_token(cookie.value());
-        // revoke 失败不阻塞登出流程
         let _ = repository::revoke_refresh_token(&state.pool, &token_hash).await;
     }
 
     let json = Json(ApiResponse::success(
         serde_json::json!({ "logged_out": true }),
     ));
-    let clear_session = "inkforge_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax";
-    let clear_refresh = "inkforge_refresh=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax";
+    let clear_refresh = build_clear_refresh_cookie();
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(
         axum::http::header::SET_COOKIE,
-        axum::http::HeaderValue::from_static(clear_session),
-    );
-    resp_headers.append(
-        axum::http::header::SET_COOKIE,
-        axum::http::HeaderValue::from_static(clear_refresh),
+        axum::http::HeaderValue::from_str(&clear_refresh).unwrap(),
     );
     Ok((resp_headers, json).into_response())
 }
@@ -137,7 +126,7 @@ pub async fn refresh_token(
         })?;
 
     let token_hash = jwt::hash_token(&token);
-    let (user_id, _expires_at) = repository::find_valid_refresh_token(&state.pool, &token_hash)
+    let (user_id, _expires_at, family_id, used_at) = repository::find_valid_refresh_token(&state.pool, &token_hash)
         .await?
         .ok_or_else(|| {
             tracing::warn!(
@@ -148,6 +137,32 @@ pub async fn refresh_token(
             crate::shared::error::AppError::Unauthorized
         })?;
 
+    // 并发保护：如果 token 已被使用（前一次 refresh 已标记），直接拒绝
+    if used_at.is_some() {
+        tracing::warn!(
+            module = "auth",
+            event = "refresh_token_reused",
+            user_id = %user_id,
+            "refresh token already used — possible replay or concurrent refresh"
+        );
+        return Err(crate::shared::error::AppError::Unauthorized);
+    }
+
+    // 标记旧 token 已使用
+    repository::mark_token_used(&state.pool, &token_hash).await?;
+
+    // 生成新的 refresh_token（同一 family）
+    let new_token = jwt::generate_refresh_token();
+    let new_hash = jwt::hash_token(&new_token);
+    let new_id = Uuid::new_v4().to_string();
+    let family = family_id.unwrap_or_else(|| new_id.clone());
+    let expires_at = (chrono::Utc::now() + chrono::Duration::days(7)).to_rfc3339();
+
+    repository::save_refresh_token(
+        &state.pool, &new_id, &user_id, &new_hash, &expires_at, &family,
+    ).await?;
+
+    // 签发新 access_token
     let user = crate::modules::user::repository::find_current(&state.pool, &user_id)
         .await?
         .ok_or_else(|| {
@@ -168,37 +183,44 @@ pub async fn refresh_token(
         user.role.clone(),
     )?;
 
-    let access_cookie = build_session_cookie("inkforge_session", &access_token, ACCESS_TOKEN_MAX_AGE);
-
     tracing::info!(
         module = "auth",
         event = "refresh_token_success",
         user_id = %user.id,
         username = %user.username,
-        "access token refreshed"
+        "access token refreshed (rotation)"
     );
 
-    let resp_header =
-        axum::http::HeaderValue::from_str(&access_cookie).unwrap();
-    let mut resp_headers = axum::http::HeaderMap::new();
-    resp_headers.insert(axum::http::header::SET_COOKIE, resp_header);
+    // 设置新 refresh_token cookie + 返回 access_token JSON
+    let refresh_cookie = build_refresh_cookie(&new_token);
+    let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
+    let json = Json(ApiResponse::success(serde_json::json!({
+        "access_token": access_token,
+    })));
 
-    Ok((
-        resp_headers,
-        Json(ApiResponse::success(serde_json::json!({ "ok": true }))),
-    )
-        .into_response())
+    let mut resp_headers = axum::http::HeaderMap::new();
+    resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
+    Ok((resp_headers, json).into_response())
 }
 
 // ── Cookie helpers ──
 
-/// access_token 15min
-const ACCESS_TOKEN_MAX_AGE: u32 = 900;
 /// refresh_token 7 天
 const REFRESH_TOKEN_MAX_AGE: u32 = 604800;
 
-fn build_session_cookie(name: &str, token: &str, max_age: u32) -> String {
+/// 构建 refresh_token 的 HttpOnly Secure SameSite=Strict cookie
+fn build_refresh_cookie(token: &str) -> String {
+    let secure = if cfg!(debug_assertions) {
+        ""
+    } else {
+        "; Secure"
+    };
     format!(
-        "{name}={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax"
+        "inkforge_refresh={token}; Path=/api/v1/auth/refresh; Max-Age={REFRESH_TOKEN_MAX_AGE}; HttpOnly; SameSite=Strict{secure}"
     )
+}
+
+/// 清除 refresh_token cookie
+fn build_clear_refresh_cookie() -> String {
+    "inkforge_refresh=; Path=/api/v1/auth/refresh; Max-Age=0; HttpOnly; SameSite=Strict".to_string()
 }
