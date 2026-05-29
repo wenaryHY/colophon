@@ -57,6 +57,7 @@ export default function PostEditor() {
       setPost(p);
       setTitle(p.title || '');
       setContent(p.content_md || '');
+      setContentHtml(p.content_html || '');
       setExcerpt(p.excerpt || '');
       setStatus(p.status === 'published' ? 'published' : 'draft');
       setCategoryId(p.category_id || '');
