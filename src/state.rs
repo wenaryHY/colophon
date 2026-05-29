@@ -73,6 +73,12 @@ impl AppState {
         })
     }
 
+    /// 统一失效所有模板相关缓存（切换主题或修改设置时调用）
+    pub async fn invalidate_all_caches(&self) {
+        self.template_cache.invalidate().await;
+        self.template_env_cache.write().unwrap().clear();
+    }
+
     pub fn backup_root_dir() -> anyhow::Result<PathBuf> {
         AppConfig::resolve_path("backups")
     }

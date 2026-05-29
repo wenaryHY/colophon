@@ -221,7 +221,6 @@ export default function Settings() {
         ['site_title', kv.site_title || ''],
         ['site_description', kv.site_description || ''],
         ['site_url', kv.site_url || ''],
-        ['admin_url', kv.admin_url || ''],
         ['allow_register', kv.allow_register || 'true'],
         ['allow_comment', kv.allow_comment || 'true'],
         ['comment_require_login', kv.comment_require_login || 'true'],
@@ -272,8 +271,8 @@ export default function Settings() {
         <FormRow label="站点 URL" hint="博客的完整访问地址，必须是纯 origin，例如 https://example.com">
           <Input value={kv.site_url || ''} onChange={(e) => update('site_url', e.target.value)} placeholder="https://example.com" />
         </FormRow>
-        <FormRow label="后台 URL" hint="后台完整入口地址，当前阶段必须以 /admin 结尾，例如 https://example.com/admin">
-          <Input value={kv.admin_url || ''} onChange={(e) => update('admin_url', e.target.value)} placeholder="https://example.com/admin" />
+        <FormRow label="后台 URL" hint="admin_url 由 site_url 自动推导，修改 site_url 即可同步更新">
+          <Input value={kv.admin_url || ''} disabled placeholder="https://example.com/admin" />
         </FormRow>
       </SettingSection>
 

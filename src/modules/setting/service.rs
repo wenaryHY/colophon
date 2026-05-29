@@ -51,16 +51,9 @@ pub async fn update_setting(
             *state.admin_url.write().await = admin_url;
         }
         "admin_url" => {
-            let _ = normalize_admin_url(&body.value)?;
-            let site_url = repository::get_string(&state.pool, "site_url", "").await?;
-            if site_url.trim().is_empty() {
-                return Err(AppError::BadRequest(
-                    "site_url must be configured before admin_url".into(),
-                ));
-            }
-            let admin_url = canonical_admin_url_from_site_url(&site_url)?;
-            repository::upsert(&state.pool, "admin_url", &admin_url).await?;
-            *state.admin_url.write().await = admin_url;
+            return Err(AppError::BadRequest(
+                "admin_url is derived from site_url. Update site_url instead.".into(),
+            ));
         }
         _ => {
             let value = normalize_setting_value(&body.key, &body.value)?;
@@ -68,7 +61,7 @@ pub async fn update_setting(
         }
     }
 
-    state.template_cache.invalidate().await;
+    state.invalidate_all_caches().await;
     Ok(serde_json::json!({ "updated": true }))
 }
 
