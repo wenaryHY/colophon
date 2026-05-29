@@ -32,7 +32,7 @@ fn markdown_to_html(markdown: &str) -> String {
     let parser = Parser::new_ext(markdown, options);
     let mut html_out = String::new();
     html::push_html(&mut html_out, parser);
-    ammonia::clean(&html_out)
+    sanitize_html(&html_out)
 }
 
 fn sanitize_html(html: &str) -> String {
@@ -40,7 +40,7 @@ fn sanitize_html(html: &str) -> String {
     builder.add_tags(&["span", "mark"]);
     builder.add_tag_attributes("span", &["style"]);
     builder.add_tag_attributes("mark", &["style"]);
-    ammonia::clean(html)
+    builder.clean(html).to_string()
 }
 
 fn normalize_status(value: Option<&str>) -> AppResult<String> {

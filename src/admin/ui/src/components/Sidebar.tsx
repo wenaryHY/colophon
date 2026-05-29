@@ -18,6 +18,20 @@ interface NavGroupConfig {
   items: NavItemConfig[];
 }
 
+// hover 预加载页面 chunk
+const prefetchPages: Record<string, () => void> = {
+  posts: () => import('../pages/Posts'),
+  categories: () => import('../pages/Categories'),
+  tags: () => import('../pages/Tags'),
+  comments: () => import('../pages/CommentsV2'),
+  settings: () => import('../pages/Settings'),
+  upload: () => import('../pages/Upload'),
+  themes: () => import('../pages/Themes'),
+  trash: () => import('../pages/RecycleBin'),
+  'media-categories': () => import('../pages/MediaCategories'),
+  plugins: () => import('../pages/PluginManager'),
+};
+
 // 导航配置（key 用于匹配路由，labelKey 用于翻译）
 const navConfig: NavGroupConfig[] = [
   {
@@ -164,6 +178,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
                   }}
                   onMouseEnter={e => {
                     if (!isActive) {
+                      prefetchPages[item.key]?.();
                       e.currentTarget.style.background = 'var(--sidebar-hover)';
                       e.currentTarget.style.color = 'var(--sidebar-text-hover)';
                     }
