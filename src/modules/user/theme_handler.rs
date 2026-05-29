@@ -62,7 +62,7 @@ pub async fn render_profile_page(
 
     let ctx = TemplateContext::load(&state).await?;
     let plugin_guard = state.plugin_manager.read().await;
-    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache)?;
+    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache).await?;
     let tmpl = env
         .get_template("profile.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -114,7 +114,7 @@ pub async fn render_login_page(
 
     let ctx = TemplateContext::load(&state).await?;
     let plugin_guard = state.plugin_manager.read().await;
-    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache)?;
+    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache).await?;
     let tmpl = env
         .get_template("login.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -166,7 +166,7 @@ pub async fn render_register_page(
 
     let ctx = TemplateContext::load(&state).await?;
     let plugin_guard = state.plugin_manager.read().await;
-    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache)?;
+    let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache).await?;
     let tmpl = env
         .get_template("register.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;

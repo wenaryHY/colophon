@@ -44,6 +44,12 @@ pub async fn serve() -> anyhow::Result<()> {
     sqlx::query("PRAGMA foreign_keys = ON")
         .execute(&pool)
         .await?;
+    sqlx::query("PRAGMA journal_mode=WAL")
+        .execute(&pool)
+        .await?;
+    sqlx::query("PRAGMA synchronous=NORMAL")
+        .execute(&pool)
+        .await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 
     // 创建 WebSocket broadcast channel，容量 256

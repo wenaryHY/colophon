@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
@@ -27,8 +27,15 @@ interface Props {
   onChange: (value: string) => void;
 }
 
+const PRESET_COLORS = [
+  '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc',
+  '#980000', '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#00ffff',
+  '#4a86e8', '#0000ff', '#9900ff', '#ff00ff',
+];
+
 export function TiptapPanel({ value, onChange }: Props) {
   const isExternalUpdateRef = useRef(false);
+  const [colorOpen, setColorOpen] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -126,7 +133,32 @@ export function TiptapPanel({ value, onChange }: Props) {
           if (url) editor.chain().focus().setLink({ href: url }).run();
           else editor.chain().focus().unsetLink().run();
         }} className={`toolbar-btn ${editor.isActive('link') ? 'is-active' : ''}`}>🔗</button>
-        <input type="color" onChange={(e) => editor.chain().focus().setColor(e.target.value).run()} style={{ width: 24, height: 24, padding: 0, border: 'none', cursor: 'pointer' }} title="文字颜色" />
+        <span style={{ position: 'relative' }}>
+          <button
+            className={`toolbar-btn ${editor.isActive('textStyle') ? 'is-active' : ''}`}
+            onClick={() => setColorOpen(!colorOpen)}
+            title="文字颜色"
+          >A</button>
+          {colorOpen && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, zIndex: 100,
+              background: 'var(--md-surface)', padding: 8, borderRadius: 8,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', flexWrap: 'wrap', gap: 4, width: 180
+            }}>
+              <button className="toolbar-btn" onClick={() => { editor.chain().focus().unsetColor().run(); setColorOpen(false); }} style={{ width: '100%', textAlign: 'left', fontSize: 12 }}>默认</button>
+              {PRESET_COLORS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => { editor.chain().focus().setColor(c).run(); setColorOpen(false); }}
+                  style={{ width: 24, height: 24, background: c, borderRadius: 4, border: c === '#000000' ? '1px solid #ccc' : 'none', cursor: 'pointer' }}
+                />
+              ))}
+              <div style={{ width: '100%', marginTop: 4 }}>
+                <input type="color" onChange={(e) => { editor.chain().focus().setColor(e.target.value).run(); setColorOpen(false); }} style={{ width: '100%', height: 28, cursor: 'pointer' }} />
+              </div>
+            </div>
+          )}
+        </span>
       </div>
 
       {/* 编辑器内容区 */}

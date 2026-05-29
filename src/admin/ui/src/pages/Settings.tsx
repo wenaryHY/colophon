@@ -201,34 +201,21 @@ export default function Settings() {
 
   const saveSettingsMutation = useMutation({
     mutationFn: async () => {
-      const items: Array<[string, string]> = [
-        ['site_title', kv.site_title || ''],
-        ['site_description', kv.site_description || ''],
-        ['site_url', kv.site_url || ''],
-        ['allow_register', String(kv.allow_register ?? true)],
-        ['allow_comment', String(kv.allow_comment ?? true)],
-        ['comment_require_login', String(kv.comment_require_login ?? true)],
-        ['comment_moderation_mode', kv.comment_moderation_mode || 'all'],
-        ['comment_max_length', String(kv.comment_max_length || 2000)],
-        ['theme_default_mode', kv.theme_default_mode || 'system'],
-      ];
+      const payload: Record<string, string> = {};
+      if (kv.site_title) payload.site_title = kv.site_title;
+      if (kv.site_description) payload.site_description = kv.site_description;
+      if (kv.site_url) payload.site_url = kv.site_url;
+      payload.allow_register = String(kv.allow_register ?? true);
+      payload.allow_comment = String(kv.allow_comment ?? true);
+      payload.comment_require_login = String(kv.comment_require_login ?? true);
+      payload.comment_moderation_mode = kv.comment_moderation_mode || 'all';
+      payload.comment_max_length = String(kv.comment_max_length || 2000);
+      payload.theme_default_mode = kv.theme_default_mode || 'system';
 
-      const results = await Promise.allSettled(
-        items.map(([key, value]) =>
-          apiData(`${API_PREFIX}/admin/settings`, {
-            method: 'PATCH',
-            body: JSON.stringify({ key, value }),
-          })
-        )
-      );
-
-      const failures = results
-        .map((r, i) => r.status === 'rejected' ? items[i][0] : null)
-        .filter(Boolean);
-
-      if (failures.length > 0) {
-        throw new Error(`设置保存失败: ${failures.join(', ')}`);
-      }
+      await apiData(`${API_PREFIX}/admin/settings/batch`, {
+        method: 'PATCH',
+        body: JSON.stringify({ settings: payload }),
+      });
 
       if (kv.active_theme) {
         await apiData(`${API_PREFIX}/admin/themes/${kv.active_theme}/activate`, { method: 'POST' });

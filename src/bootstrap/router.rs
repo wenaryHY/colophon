@@ -227,6 +227,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             get(modules::setting::handler::list_settings)
                 .patch(modules::setting::handler::update_setting),
         )
+        .route("/api/v1/admin/settings/batch", patch(modules::setting::handler::update_settings_batch))
         .route("/api/v1/admin/backup", post(modules::backup::handler::create_backup))
         .route("/api/v1/admin/backup/list", get(modules::backup::handler::list_backups))
         .route("/api/v1/admin/backup/restore", post(modules::backup::handler::restore_backup))

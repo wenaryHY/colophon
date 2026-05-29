@@ -1,7 +1,8 @@
 use minijinja::{AutoEscape, Environment, Value};
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use super::context::TemplateContext;
 use crate::modules::plugin::manager::PluginManager;
@@ -19,7 +20,7 @@ use crate::shared::error::AppResult;
 /// is cached per active_theme slug in `env_cache`. On each request, the cached
 /// base is cloned and per-request data (globals, data functions, plugin hooks)
 /// is added. This avoids rebuilding the template loader on every request.
-pub fn build_template_engine(
+pub async fn build_template_engine(
     ctx: &TemplateContext,
     theme_dir: &Path,
     plugin_manager: &PluginManager,
@@ -27,12 +28,7 @@ pub fn build_template_engine(
 ) -> AppResult<Environment<'static>> {
     // 尝试从缓存获取基础 Environment
     let base_env = {
-        let cache = env_cache.read().map_err(|e| {
-            crate::shared::error::AppError::Anyhow(anyhow::anyhow!(
-                "template env cache read lock poisoned: {}",
-                e
-            ))
-        })?;
+        let cache = env_cache.read().await;
         cache.get(&ctx.active_theme).cloned()
     };
 
@@ -119,12 +115,7 @@ pub fn build_template_engine(
 
         // 缓存基础 Environment
         {
-            let mut cache = env_cache.write().map_err(|e| {
-                crate::shared::error::AppError::Anyhow(anyhow::anyhow!(
-                    "template env cache write lock poisoned: {}",
-                    e
-                ))
-            })?;
+            let mut cache = env_cache.write().await;
             let cached_env = new_env.clone();
             cache.insert(ctx.active_theme.clone(), cached_env);
         }

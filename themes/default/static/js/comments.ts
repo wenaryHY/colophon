@@ -111,14 +111,23 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
+let isSubmitting = false;
+
 async function submitComment(event: Event): Promise<void> {
   event.preventDefault();
+  if (isSubmitting) return;
+
   const form = event.target as HTMLFormElement;
-  const data = new FormData(form);
-  const slug = window.__POST_DATA__?.slug || '';
-  logDebug('submit_start', { slug });
+  const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+
+  isSubmitting = true;
+  if (submitBtn) submitBtn.disabled = true;
 
   try {
+    const data = new FormData(form);
+    const slug = window.__POST_DATA__?.slug || '';
+    logDebug('submit_start', { slug });
+
     const result = await window.InkForgeApi.apiRequest(`/api/v1/posts/${slug}/comments`, {
       method: 'POST',
       body: {
@@ -148,6 +157,9 @@ async function submitComment(event: Event): Promise<void> {
       status: requestError.status,
     });
     showToast(requestError.message || t('submitError'), 'error');
+  } finally {
+    isSubmitting = false;
+    if (submitBtn) submitBtn.disabled = false;
   }
 }
 

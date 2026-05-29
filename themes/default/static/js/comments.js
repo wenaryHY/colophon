@@ -88,14 +88,23 @@
       .replace(/"/g, '&quot;');
   }
 
+  var isSubmitting = false;
+
   async function submitComment(event) {
     event.preventDefault();
+    if (isSubmitting) return;
+
     const form = event.target;
-    const data = new FormData(form);
-    const slug = window.__POST_DATA__?.slug || '';
-    logDebug('submit_start', { slug });
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    isSubmitting = true;
+    if (submitBtn) submitBtn.disabled = true;
 
     try {
+      const data = new FormData(form);
+      const slug = window.__POST_DATA__?.slug || '';
+      logDebug('submit_start', { slug });
+
       const result = await window.InkForgeApi.apiRequest(`/api/v1/posts/${slug}/comments`, {
         method: 'POST',
         body: {
@@ -124,6 +133,9 @@
         status: error.status,
       });
       showToast(error.message || t('submitError'), 'error');
+    } finally {
+      isSubmitting = false;
+      if (submitBtn) submitBtn.disabled = false;
     }
   }
 

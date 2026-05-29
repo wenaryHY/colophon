@@ -40,7 +40,7 @@ pub struct AppState {
     /// Cached MiniJinja Environment per active_theme slug (synchronous access).
     /// Stores the "base" Environment (loader + static filters + theme_assets_url)
     /// without per-request data. Cloned and extended on each request.
-    pub template_env_cache: Arc<std::sync::RwLock<HashMap<String, Environment<'static>>>>,
+    pub template_env_cache: Arc<RwLock<HashMap<String, Environment<'static>>>>,
     pub plugin_manager: Arc<tokio::sync::RwLock<PluginManager>>,
 }
 
@@ -68,7 +68,7 @@ impl AppState {
             setup_stage: Arc::new(RwLock::new(setup_stage)),
             login_rate_limiter: Arc::new(Mutex::new(LoginRateLimiter::new())),
             template_cache: Arc::new(TemplateContextCache::with_default_ttl()),
-            template_env_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
+            template_env_cache: Arc::new(RwLock::new(HashMap::new())),
             plugin_manager,
         })
     }
@@ -76,7 +76,7 @@ impl AppState {
     /// 统一失效所有模板相关缓存（切换主题或修改设置时调用）
     pub async fn invalidate_all_caches(&self) {
         self.template_cache.invalidate().await;
-        self.template_env_cache.write().unwrap().clear();
+        self.template_env_cache.write().await.clear();
     }
 
     pub fn backup_root_dir() -> anyhow::Result<PathBuf> {
