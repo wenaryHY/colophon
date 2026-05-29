@@ -66,6 +66,7 @@ pub struct AdminPost {
 #[derive(Debug, Clone, FromRow)]
 pub struct CommentTargetPost {
     pub id: String,
+    pub title: String,
     pub status: String,
     pub visibility: String,
     pub allow_comment: i64,

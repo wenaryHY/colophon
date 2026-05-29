@@ -4,6 +4,9 @@ use pulldown_cmark::{html, Options, Parser};
 use slug::slugify;
 
 use crate::{
+    modules::plugin::hook::{
+        HookContext, HookData, PostAfterPublishData, PostAfterSaveData, PostBeforeSaveData,
+    },
     shared::{
         auth::AuthUser,
         error::{AppError, AppResult},
@@ -174,7 +177,8 @@ pub async fn create_post(
         return Err(AppError::BadRequest("title is required".into()));
     }
 
-    let content_type = normalize_content_type(body.content_type.as_deref())?;
+    let mut title = body.title.trim().to_string();
+    let mut content_type = normalize_content_type(body.content_type.as_deref())?;
     let is_page = content_type == "page";
     let page_render_mode = normalize_page_render_mode(body.page_render_mode.as_deref(), is_page);
 
@@ -185,29 +189,66 @@ pub async fn create_post(
         .filter(|s| !s.is_empty())
         .unwrap_or_default();
 
-    let slug = body
+    let mut slug = body
         .slug
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| slugify(&body.title));
+
+    let status = normalize_status(body.status.as_deref())?;
+    let visibility = normalize_visibility(body.visibility.as_deref())?;
+    let mut content_html = markdown_to_html(&content_md);
+    let mut excerpt = body.excerpt.clone();
+    let mut category_id = body.category_id.clone();
+    let mut tags = body.tag_ids.clone().unwrap_or_default();
+    let has_original_tags = body.tag_ids.is_some();
+
+    // =============== Hook: post.before_save (Filter) ===============
+    let hook_registry = state.plugin_manager.hook_registry();
+    let mut save_ctx = HookContext {
+        hook_name: "post.before_save".into(),
+        data: HookData::PostBeforeSave(PostBeforeSaveData {
+            title: title.clone(),
+            content_html: content_html.clone(),
+            excerpt: excerpt.clone(),
+            slug: slug.clone(),
+            tags: tags.clone(),
+            category_id: category_id.clone(),
+            content_type: content_type.clone(),
+            request_ip: None,
+            user_agent: None,
+        }),
+    };
+    hook_registry
+        .dispatch_filter("post.before_save", &mut save_ctx)
+        .await?;
+
+    // Extract potentially modified fields from the filter
+    if let HookData::PostBeforeSave(ref data) = save_ctx.data {
+        title = data.title.clone();
+        content_html = data.content_html.clone();
+        excerpt = data.excerpt.clone();
+        slug = data.slug.clone();
+        tags = data.tags.clone();
+        category_id = data.category_id.clone();
+        content_type = data.content_type.clone();
+    }
+
     if repository::slug_exists(&state.pool, &slug, None).await? {
         return Err(AppError::Conflict("post slug already exists".into()));
     }
 
-    let status = normalize_status(body.status.as_deref())?;
-    let visibility = normalize_visibility(body.visibility.as_deref())?;
-    let content_html = markdown_to_html(&content_md);
     let id = repository::insert_post(
         &state.pool,
         &auth.id,
-        body.title.trim(),
+        &title,
         &slug,
-        body.excerpt.as_deref(),
+        excerpt.as_deref(),
         &content_md,
         &content_html,
         body.cover_media_id.as_deref(),
         &status,
         &visibility,
-        body.category_id.as_deref(),
+        category_id.as_deref(),
         body.allow_comment.unwrap_or(content_type == "post"),
         body.pinned.unwrap_or(false),
         &content_type,
@@ -217,10 +258,45 @@ pub async fn create_post(
     .await?;
 
     // Pages don't have tags
-    if content_type == "post" {
-        if let Some(tag_ids) = body.tag_ids {
-            repository::replace_tags(&state.pool, &id, &tag_ids).await?;
-        }
+    if content_type == "post" && (has_original_tags || !tags.is_empty()) {
+        repository::replace_tags(&state.pool, &id, &tags).await?;
+    }
+
+    // =============== Hook: post.after_save (Action) ===============
+    let post = repository::get_admin_post(&state.pool, &id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    let old_status = "".to_string();
+    let after_save_ctx = HookContext {
+        hook_name: "post.after_save".into(),
+        data: HookData::PostAfterSave(PostAfterSaveData {
+            post_id: id.clone(),
+            title: post.title.clone(),
+            slug: post.slug.clone(),
+            is_new: true,
+            status: post.status.clone(),
+            old_status: Some(old_status.clone()),
+        }),
+    };
+    hook_registry
+        .dispatch_action("post.after_save", after_save_ctx)
+        .await;
+
+    // =============== Hook: post.after_publish (Action) ===============
+    if post.status == "published" {
+        let publish_ctx = HookContext {
+            hook_name: "post.after_publish".into(),
+            data: HookData::PostAfterPublish(PostAfterPublishData {
+                post_id: id.clone(),
+                title: post.title.clone(),
+                slug: post.slug.clone(),
+                old_status: old_status,
+                new_status: "published".to_string(),
+            }),
+        };
+        hook_registry
+            .dispatch_action("post.after_publish", publish_ctx)
+            .await;
     }
 
     get_admin_post(state, &id).await
@@ -236,7 +312,9 @@ pub async fn update_post(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    let content_type = normalize_content_type(
+    let old_status = current.status.clone();
+
+    let mut content_type = normalize_content_type(
         body.content_type
             .as_deref()
             .or(Some(&current.content_type)),
@@ -259,18 +337,51 @@ pub async fn update_post(
     // If content_md is provided, update it (and re-render content_html).
     // If not provided, keep existing values.
     let content_md = body.content_md.unwrap_or(current.content_md.clone());
-    let content_html = markdown_to_html(&content_md);
+    let mut content_html = markdown_to_html(&content_md);
 
-    let title = body.title.unwrap_or(current.title.clone());
-    let slug = body.slug.unwrap_or(current.slug.clone());
-    let excerpt = body.excerpt.or(current.excerpt.clone());
+    let mut title = body.title.unwrap_or(current.title.clone());
+    let mut slug = body.slug.unwrap_or(current.slug.clone());
+    let mut excerpt = body.excerpt.or(current.excerpt.clone());
     let cover_media_id = body.cover_media_id.or(current.cover_media_id.clone());
     let status = normalize_status(body.status.as_deref().or(Some(&current.status)))?;
     let visibility =
         normalize_visibility(body.visibility.as_deref().or(Some(&current.visibility)))?;
-    let category_id = body.category_id.or(current.category_id.clone());
+    let mut category_id = body.category_id.or(current.category_id.clone());
     let allow_comment = body.allow_comment.unwrap_or(current.allow_comment == 1);
     let pinned = body.pinned.unwrap_or(current.pinned == 1);
+    let mut tags = body.tag_ids.clone().unwrap_or_default();
+    let has_original_tags = body.tag_ids.is_some();
+
+    // =============== Hook: post.before_save (Filter) ===============
+    let hook_registry = state.plugin_manager.hook_registry();
+    let mut save_ctx = HookContext {
+        hook_name: "post.before_save".into(),
+        data: HookData::PostBeforeSave(PostBeforeSaveData {
+            title: title.clone(),
+            content_html: content_html.clone(),
+            excerpt: excerpt.clone(),
+            slug: slug.clone(),
+            tags: tags.clone(),
+            category_id: category_id.clone(),
+            content_type: content_type.clone(),
+            request_ip: None,
+            user_agent: None,
+        }),
+    };
+    hook_registry
+        .dispatch_filter("post.before_save", &mut save_ctx)
+        .await?;
+
+    // Extract potentially modified fields from the filter
+    if let HookData::PostBeforeSave(ref data) = save_ctx.data {
+        title = data.title.clone();
+        content_html = data.content_html.clone();
+        excerpt = data.excerpt.clone();
+        slug = data.slug.clone();
+        tags = data.tags.clone();
+        category_id = data.category_id.clone();
+        content_type = data.content_type.clone();
+    }
 
     if repository::slug_exists(&state.pool, &slug, Some(id)).await? {
         return Err(AppError::Conflict("post slug already exists".into()));
@@ -298,10 +409,44 @@ pub async fn update_post(
     .await?;
 
     // Pages don't have tags; only update tags for posts
-    if content_type == "post" {
-        if let Some(tag_ids) = body.tag_ids {
-            repository::replace_tags(&state.pool, id, &tag_ids).await?;
-        }
+    if content_type == "post" && (has_original_tags || !tags.is_empty()) {
+        repository::replace_tags(&state.pool, id, &tags).await?;
+    }
+
+    // =============== Hook: post.after_save (Action) ===============
+    let post = repository::get_admin_post(&state.pool, id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    let after_save_ctx = HookContext {
+        hook_name: "post.after_save".into(),
+        data: HookData::PostAfterSave(PostAfterSaveData {
+            post_id: id.to_string(),
+            title: post.title.clone(),
+            slug: post.slug.clone(),
+            is_new: false,
+            status: post.status.clone(),
+            old_status: Some(old_status.clone()),
+        }),
+    };
+    hook_registry
+        .dispatch_action("post.after_save", after_save_ctx)
+        .await;
+
+    // =============== Hook: post.after_publish (Action) ===============
+    if post.status == "published" && old_status != "published" {
+        let publish_ctx = HookContext {
+            hook_name: "post.after_publish".into(),
+            data: HookData::PostAfterPublish(PostAfterPublishData {
+                post_id: id.to_string(),
+                title: post.title.clone(),
+                slug: post.slug.clone(),
+                old_status,
+                new_status: "published".to_string(),
+            }),
+        };
+        hook_registry
+            .dispatch_action("post.after_publish", publish_ctx)
+            .await;
     }
 
     get_admin_post(state, id).await

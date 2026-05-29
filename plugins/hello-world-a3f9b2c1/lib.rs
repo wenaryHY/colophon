@@ -61,4 +61,35 @@ impl Plugin for HelloWorldPlugin {
     fn frontend_assets(&self) -> Vec<PluginAsset> {
         vec![PluginAsset::css(self.name(), "hello.css", AssetPlacement::Head)]
     }
+
+    fn hooks(&self) -> Vec<crate::modules::plugin::hook::Hook> {
+        use crate::modules::plugin::hook::{Hook, HookContext, HookHandler};
+        use crate::shared::error::AppResult;
+        use async_trait::async_trait;
+        use std::sync::Arc;
+
+        struct LogPublishHook;
+
+        #[async_trait]
+        impl HookHandler for LogPublishHook {
+            async fn run(&self, ctx: &mut HookContext) -> AppResult<()> {
+                if let crate::modules::plugin::hook::HookData::PostAfterPublish(ref data) = ctx.data {
+                    tracing::info!(
+                        module = "plugin",
+                        plugin = "hello-world",
+                        post_id = data.post_id,
+                        title = data.title,
+                        slug = data.slug,
+                        "post published: {title}",
+                        title = data.title,
+                    );
+                }
+                Ok(())
+            }
+        }
+
+        vec![
+            Hook::new_action("post.after_publish", 10, self.name(), Arc::new(LogPublishHook)),
+        ]
+    }
 }

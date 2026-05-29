@@ -255,7 +255,7 @@ pub async fn find_comment_target(
     slug: &str,
 ) -> Result<Option<CommentTargetPost>, sqlx::Error> {
     sqlx::query_as::<_, CommentTargetPost>(
-        "SELECT id, status, visibility, allow_comment FROM posts WHERE slug = ? AND deleted_at IS NULL LIMIT 1",
+        "SELECT id, title, status, visibility, allow_comment FROM posts WHERE slug = ? AND deleted_at IS NULL LIMIT 1",
     )
     .bind(slug)
     .fetch_optional(pool)

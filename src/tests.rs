@@ -161,3 +161,4 @@ mod theme_provider_tests;
 mod plugin_manager_tests;
 mod plugin_manifest_tests;
 mod plugin_id_strategy_tests;
+mod plugin_hook_tests;

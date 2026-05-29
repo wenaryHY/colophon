@@ -12,6 +12,8 @@ use crate::{
     ws::ServerEvent,
 };
 
+use crate::modules::plugin::hook::{HookContext, HookData, CommentBeforeCreateData};
+
 use super::{
     domain::{AdminCommentItem, CommentItem},
     dto::{CommentQuery, CreateCommentRequest},
@@ -121,11 +123,33 @@ pub async fn create_comment(
         "creating comment"
     );
 
+    // comment.before_create filter hook：允许插件在写 DB 前修改评论内容
+    let mut content = body.content.trim().to_string();
+    let hook_registry = state.plugin_manager.hook_registry();
+    let mut comment_ctx = HookContext {
+        hook_name: "comment.before_create".into(),
+        data: HookData::CommentBeforeCreate(CommentBeforeCreateData {
+            content: content.clone(),
+            author_name: auth.username.clone(),
+            author_email: None,
+            post_id: post.id.clone(),
+            post_title: post.title.clone(),
+            request_ip: None,
+        }),
+    };
+    hook_registry
+        .dispatch_filter("comment.before_create", &mut comment_ctx)
+        .await?;
+    // 从 comment_ctx.data 中提取可能被 Filter 修改的 content
+    if let HookData::CommentBeforeCreate(modified) = comment_ctx.data {
+        content = modified.content;
+    }
+
     let (comment_id, created_at) = repository::insert_comment(
         &state.pool,
         &post.id,
         &auth.id,
-        body.content.trim(),
+        &content,
         body.parent_id.as_deref(),
         status,
     )
@@ -136,7 +160,7 @@ pub async fn create_comment(
         id: comment_id.clone(),
         post_id: post.id.clone(),
         author_name: auth.username.clone(),
-        content: body.content.trim().to_string(),
+        content: content.clone(),
         status: status.to_string(),
         created_at,
     };

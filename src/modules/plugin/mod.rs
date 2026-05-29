@@ -7,6 +7,8 @@ use crate::shared::error::AppResult;
 use crate::state::AppState;
 
 pub mod asset;
+pub mod hook;
+pub mod hook_registry;
 pub mod registry;
 pub mod manager;
 pub mod manifest;
@@ -36,6 +38,10 @@ pub trait Plugin: Send + Sync {
     }
 
     fn frontend_assets(&self) -> Vec<crate::modules::plugin::asset::PluginAsset> {
+        vec![]
+    }
+
+    fn hooks(&self) -> Vec<crate::modules::plugin::hook::Hook> {
         vec![]
     }
 }

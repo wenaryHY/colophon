@@ -8,12 +8,14 @@ use crate::shared::error::AppResult;
 use crate::state::AppState;
 
 use super::asset::PluginAsset;
+use super::hook_registry::HookRegistry;
 use super::loader::DiscoveredPlugin;
 use super::registry;
 use super::Plugin;
 
 pub struct PluginManager {
     plugins: Vec<Box<dyn Plugin>>,
+    hook_registry: Arc<HookRegistry>,
 }
 
 impl PluginManager {
@@ -25,7 +27,10 @@ impl PluginManager {
             "PluginManager loaded {} plugin(s)",
             plugins.len()
         );
-        Self { plugins }
+        Self {
+            plugins,
+            hook_registry: Arc::new(HookRegistry::new()),
+        }
     }
 
     pub async fn load_with(discovered: Vec<DiscoveredPlugin>) -> Self {
@@ -46,11 +51,18 @@ impl PluginManager {
             plugins.len(),
             discovered.len()
         );
-        Self { plugins }
+        Self {
+            plugins,
+            hook_registry: Arc::new(HookRegistry::new()),
+        }
     }
 
     pub async fn init_all(&self, state: &Arc<AppState>) -> AppResult<()> {
         for plugin in &self.plugins {
+            let hooks = plugin.hooks();
+            if !hooks.is_empty() {
+                self.hook_registry.register(plugin.name(), hooks).await;
+            }
             tracing::info!(
                 module = "plugin",
                 plugin = plugin.name(),
@@ -60,6 +72,10 @@ impl PluginManager {
             plugin.init(state).await?;
         }
         Ok(())
+    }
+
+    pub fn hook_registry(&self) -> &Arc<HookRegistry> {
+        &self.hook_registry
     }
 
     pub async fn shutdown_all(&self) -> AppResult<()> {

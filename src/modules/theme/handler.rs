@@ -16,6 +16,7 @@ use crate::{
     state::AppState,
 };
 
+use crate::modules::plugin::hook::{HookContext, HookData, PostBeforeRenderData};
 use super::{context::TemplateContext, domain::ThemeSummary, engine, service::ThemeService};
 
 pub async fn active_theme(
@@ -265,6 +266,26 @@ pub async fn render_post(
 
     let ctx = TemplateContext::load(&state).await?;
 
+    let hook_registry = state.plugin_manager.hook_registry();
+    let mut render_ctx = HookContext {
+        hook_name: "post.before_render".into(),
+        data: HookData::PostBeforeRender(PostBeforeRenderData {
+            post_id: p.id.clone(),
+            title: p.title.clone(),
+            slug: p.slug.clone(),
+            content_html: p.content_html.clone(),
+            extra: std::collections::HashMap::new(),
+        }),
+    };
+    hook_registry
+        .dispatch_filter_best_effort("post.before_render", &mut render_ctx)
+        .await;
+    let plugin_extra = if let HookData::PostBeforeRender(ref data) = render_ctx.data {
+        data.extra.clone()
+    } else {
+        std::collections::HashMap::new()
+    };
+
     let seo_meta = crate::modules::seo::meta::build_post_meta_with_content_type(
         &ctx.site_title,
         &ctx.site_url,
@@ -291,7 +312,8 @@ pub async fn render_post(
             post => p,
             seo_meta => seo_meta,
             comments => comments,
-            current_user => auth
+            current_user => auth,
+            plugins => plugin_extra,
         })
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
 
