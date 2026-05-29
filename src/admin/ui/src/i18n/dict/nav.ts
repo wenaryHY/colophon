@@ -17,6 +17,7 @@ export const navDict = {
     settings: '设置',
 
     // 用户
+    visitSite: '访问站点',
     logout: '退出登录',
     admin: '管理员',
     member: '成员',
@@ -38,6 +39,7 @@ export const navDict = {
     settings: 'Settings',
 
     // User
+    visitSite: 'Visit Site',
     logout: 'Logout',
     admin: 'Admin',
     member: 'Member',

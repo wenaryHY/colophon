@@ -251,6 +251,44 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
             </div>
           </div>
         </div>
+        <a
+          href={window.location.origin + '/'}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-full)',
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--md-on-surface-variant)',
+            fontSize: '13px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            textDecoration: 'none',
+            transition: 'all 0.15s ease',
+            textAlign: 'left',
+            marginBottom: '4px',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'var(--sidebar-hover)';
+            e.currentTarget.style.color = 'var(--md-primary)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = 'var(--md-on-surface-variant)';
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          <span>{t('visitSite')}</span>
+        </a>
         {/* 退出按钮 — 文字链接风格 */}
         <button
           onClick={() => void logout()}
