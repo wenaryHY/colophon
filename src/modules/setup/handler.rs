@@ -34,8 +34,8 @@ pub async fn initialize(
 }
 
 fn build_session_cookie(token: &str) -> String {
+    let secure = if cfg!(debug_assertions) { "" } else { "; Secure" };
     format!(
-        "inkforge_session={}; Path=/; Max-Age=900; HttpOnly; SameSite=Lax",
-        token
+        "inkforge_session={token}; Path=/; Max-Age=900; HttpOnly; SameSite=Strict{secure}"
     )
 }

@@ -22,6 +22,7 @@ pub struct UpdateSettingsRequest {
 
 pub async fn get_settings(
     State(state): State<Arc<AppState>>,
+    _admin: AdminUser,
     Path(plugin_name): Path<String>,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
     let enabled_ids = status::get_enabled_ids(&state.pool).await?;
@@ -54,6 +55,7 @@ pub async fn get_settings(
 
 pub async fn update_settings(
     State(state): State<Arc<AppState>>,
+    _admin: AdminUser,
     Path(plugin_name): Path<String>,
     Json(body): Json<UpdateSettingsRequest>,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
@@ -95,6 +97,7 @@ pub async fn update_settings(
 
 pub async fn list_slots(
     State(state): State<Arc<AppState>>,
+    _admin: AdminUser,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
     let enabled_ids = status::get_enabled_ids(&state.pool).await?;
     let enabled_set: HashSet<String> = enabled_ids.into_iter().collect();

@@ -151,6 +151,8 @@ pub async fn create_comment(
         content = modified.content;
     }
 
+    let content = ammonia::clean(&content);
+
     let (comment_id, created_at) = repository::insert_comment(
         &state.pool,
         &post.id,

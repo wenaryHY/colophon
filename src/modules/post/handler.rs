@@ -166,7 +166,12 @@ pub async fn render_custom_page(
                 return Err(AppError::NotFound);
             }
             let content = tokio::fs::read_to_string(&index_path).await?;
-            Ok(axum::response::Html(content).into_response())
+            let mut response = axum::response::Html(content).into_response();
+            crate::shared::security::mark_response_security_profile(
+                &mut response,
+                crate::shared::security::SECURITY_PROFILE_THEME_HTML,
+            );
+            Ok(response)
         }
         _ => {
             // "editor" mode — render via theme template using content_html
