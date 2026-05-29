@@ -283,7 +283,7 @@ a{color:var(--accent);text-decoration:none}
       <h3 class="comment-form-title">发表评论</h3>
       {% if current_user %}
         <p class="comment-form-hint" style="margin-bottom: 12px; color: var(--text-color);">当前登录用户：<strong>{{ current_user.username }}</strong></p>
-        <form class="comment-form" id="commentForm" onsubmit="submitComment(event)">
+        <form class="comment-form" id="commentForm">
           <textarea name="content" placeholder="写下你的评论... *" required></textarea>
           <p class="comment-form-hint">评论提交后需管理员审核才会公开显示。</p>
           <button type="submit" class="comment-form-submit">提交评论</button>
