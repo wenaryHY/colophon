@@ -211,6 +211,8 @@ pub async fn render_custom_page(
                         category_name => "",
                         author_display_name => "",
                     },
+                    comments => Vec::<serde_json::Value>::new(),
+                    current_user => None::<serde_json::Value>,
                 })
                 .map_err(|e| AppError::Anyhow(anyhow::anyhow!("render error: {}", e)))?;
 
