@@ -186,10 +186,30 @@ pub async fn render_custom_page(
             let html = tmpl
                 .render(minijinja::context! {
                     site_title => &ctx.site_title,
+                    seo_meta => minijinja::context! {
+                        title => format!("{} - {}", page.title, &ctx.site_title),
+                        description => "",
+                        keywords => "",
+                        canonical_url => format!("{}/pages/{}", &ctx.site_url, slug),
+                        og_title => page.title.clone(),
+                        og_description => "",
+                        og_url => format!("{}/pages/{}", &ctx.site_url, slug),
+                        og_type => "article",
+                        og_image => "",
+                        twitter_card => "summary",
+                        twitter_title => page.title.clone(),
+                        twitter_description => "",
+                        twitter_image => "",
+                    },
                     post => minijinja::context! {
                         title => page.title,
                         content_html => page.content_html,
                         slug => slug,
+                        id => page.id,
+                        published_at => "",
+                        created_at => "",
+                        category_name => "",
+                        author_display_name => "",
                     },
                 })
                 .map_err(|e| AppError::Anyhow(anyhow::anyhow!("render error: {}", e)))?;
