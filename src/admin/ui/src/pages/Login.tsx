@@ -56,7 +56,7 @@ export default function Login() {
     try {
       const result = await login(loginValue, loginPassword);
       if (result.success) {
-        setTimeout(() => window.location.reload(), 100);
+        setTimeout(() => navigate('/posts'), 100);
       } else {
         toast(result.message || '登录失败', 'error');
       }
