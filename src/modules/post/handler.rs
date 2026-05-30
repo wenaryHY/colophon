@@ -166,7 +166,9 @@ pub async fn render_custom_page(
                 return Err(AppError::NotFound);
             }
             let content = tokio::fs::read_to_string(&index_path).await?;
-            let cleaned = ammonia::clean(&content);
+            let mut builder = ammonia::Builder::default();
+            builder.add_tags(&["style", "head", "meta", "link", "title"]);
+            let cleaned = builder.clean(&content).to_string();
             let mut response = axum::response::Html(cleaned).into_response();
             crate::shared::security::mark_response_security_profile(
                 &mut response,
