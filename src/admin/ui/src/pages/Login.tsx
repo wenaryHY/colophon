@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiData, API_PREFIX } from '../lib/api';
 import { SlotRenderer } from '../lib/slots';
@@ -6,6 +6,7 @@ import type { SetupStatusResponse } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
+import { useNavigate } from 'react-router-dom';
 
 type Tab = 'login' | 'register';
 
@@ -32,6 +33,14 @@ export default function Login() {
   });
 
   const registerAvailable = setupStatus?.allow_register ?? false;
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (setupStatus && !setupStatus.installed) {
+      navigate('/setup');
+    }
+  }, [setupStatus, navigate]);
 
   const tabs = useMemo<Tab[]>(
     () => (registerAvailable ? ['login', 'register'] : ['login']),
