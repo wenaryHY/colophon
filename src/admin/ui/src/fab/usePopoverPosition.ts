@@ -24,7 +24,7 @@ const SCREEN_MARGIN = 16;
  * @param popoverWidth - 浮窗宽度
  * @param popoverHeight - 浮窗高度
  */
-export function usePopoverPosition(
+export function calculatePopoverPositionRelativeToFabButtonRect(
   fabRect: DOMRect | null,
   popoverWidth: number = POPOVER_DEFAULT_WIDTH,
   popoverHeight: number = POPOVER_DEFAULT_HEIGHT,

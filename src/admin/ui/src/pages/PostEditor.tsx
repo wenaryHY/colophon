@@ -78,6 +78,11 @@ export default function PostEditor() {
     return () => preview.unregisterScene();
   }, [contentType, preview.registerScene]);
 
+  // 内容变化时触发预览刷新
+  useEffect(() => {
+    preview.refresh();
+  }, [content, preview.refresh]);
+
   // 字数统计
   const wordCountInfo = countWords(content);
 

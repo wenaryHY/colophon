@@ -44,8 +44,9 @@ export interface SceneConfig {
     theme_slug: string;
     theme_config?: string;
   };
-  /** 内容变化回调（可选，用于实时更新） */
-  onChange?: (callback: () => void) => void;
+  /** 内容变化回调（可选，用于实时更新）。
+   *  回调应返回取消订阅函数（可选） */
+  onChange?: (callback: () => void) => (() => void) | void;
 }
 
 /** 预览上下文值（包含状态与操作方法） */
@@ -77,6 +78,8 @@ export interface PreviewContextType extends PreviewState {
 const DEVICE_STORAGE_KEY = 'inkforge_preview_device';
 /** localStorage 键名 - 缩放比例 */
 const ZOOM_STORAGE_KEY = 'inkforge_preview_zoom';
+/** sessionStorage 键：预览参数传递给新标签页 */
+export const SESSION_STORAGE_KEY_FOR_PREVIEW_PARAMETERS_PASSED_TO_NEW_TAB = 'inkforge-preview-params';
 /** 默认缩放比例 */
 const DEFAULT_ZOOM = 1.0;
 /** 最小缩放比例 */
@@ -212,14 +215,17 @@ export function PreviewProvider({ children }: { children: ReactNode }) {
       setSceneId(id);
       sceneConfigRef.current = config;
 
-      // 注册 onChange 回调，用于触发刷新
-      config.onChange?.(() => {
-        setRefreshKey((k) => k + 1);
-      });
+      // 注册 onChange 回调，保存其返回的清理函数
+      let onChangeCleanup: (() => void) | undefined;
+      if (config.onChange) {
+        onChangeCleanup = config.onChange(() => {
+          setRefreshKey((k) => k + 1);
+        }) ?? undefined;
+      }
 
-      // 向场景提供取消注册的回调
+      // 向场景提供取消注册的回调（含 onChange 清理）
       onSceneUnregisterRef.current = () => {
-        // 预留钩子
+        onChangeCleanup?.();
       };
     },
     [],
@@ -253,7 +259,7 @@ export function PreviewProvider({ children }: { children: ReactNode }) {
       theme_config: themeParams?.theme_config || '',
     };
 
-    sessionStorage.setItem('inkforge-preview-params', JSON.stringify(previewData));
+    sessionStorage.setItem(SESSION_STORAGE_KEY_FOR_PREVIEW_PARAMETERS_PASSED_TO_NEW_TAB, JSON.stringify(previewData));
     window.open('/preview', '_blank');
   }, []);
 

@@ -131,6 +131,25 @@ export function FabContainer() {
   const [isMobile, setIsMobile] = useState(isMobileView());
   const [showPopover, setShowPopover] = useState(false);
 
+  // ==================== FAB 位置追踪 ====================
+  const [fabRect, setFabRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (dragRef.current) {
+      setFabRect(dragRef.current.getBoundingClientRect());
+    }
+  }, [position]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (dragRef.current) {
+        setFabRect(dragRef.current.getBoundingClientRect());
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // ==================== Ref ====================
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -138,7 +157,7 @@ export function FabContainer() {
   const {
     position,
     isDragging,
-    hasMoved,
+    hasMovedRef,
     dragRef,
     handlers,
   } = useDraggable({
@@ -161,10 +180,10 @@ export function FabContainer() {
 
   const handlePreviewClick = useCallback(() => {
     if (!hasScene) return;
-    if (!isDragging && !hasMoved) {
+    if (!isDragging && !hasMovedRef.current) {
       setShowPopover((prev) => !prev);
     }
-  }, [isDragging, hasMoved, hasScene]);
+  }, [isDragging, hasScene]);
 
   // ==================== 计算定位 ====================
 
@@ -208,6 +227,7 @@ export function FabContainer() {
           mode="fab-popover"
           visible={showPopover}
           onClose={() => setShowPopover(false)}
+          fabRect={fabRect}
         />
       )}
     </>

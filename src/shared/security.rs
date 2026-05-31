@@ -15,9 +15,12 @@ const MAX_LOGIN_ATTEMPTS: u32 = 8;
 pub const SECURITY_PROFILE_HEADER: &str = "x-inkforge-security-profile";
 pub const SECURITY_PROFILE_THEME_HTML: &str = "theme-html";
 pub const SECURITY_PROFILE_CUSTOM_HTML: &str = "custom-html";
+pub const SECURITY_PROFILE_PREVIEW: &str = "preview";
 
 const THEME_HTML_CSP: &str = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; frame-src 'none'";
 const CUSTOM_HTML_CSP: &str = "default-src 'self' data: blob:; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:";
+/// 预览页面 CSP — 比主题页面更严格，禁止内联脚本
+pub const PREVIEW_CSP: &str = "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'none'; frame-src 'none';";
 
 #[derive(Debug, Default)]
 pub struct LoginRateLimiter {
@@ -117,6 +120,7 @@ fn csp_for_profile(profile: &str) -> Option<&'static str> {
     match profile {
         SECURITY_PROFILE_THEME_HTML => Some(THEME_HTML_CSP),
         SECURITY_PROFILE_CUSTOM_HTML => Some(CUSTOM_HTML_CSP),
+        SECURITY_PROFILE_PREVIEW => Some(PREVIEW_CSP),
         _ => None,
     }
 }

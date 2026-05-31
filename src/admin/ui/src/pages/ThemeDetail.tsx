@@ -64,6 +64,13 @@ export default function ThemeDetail() {
     return () => preview.unregisterScene();
   }, [detail, preview.registerScene]);
 
+  // formData 变化时触发预览刷新
+  useEffect(() => {
+    if (detail) {
+      preview.refresh();
+    }
+  }, [currentFormData, detail, preview.refresh]);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!slug) return;

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use axum::{
     extract::{Form, Multipart, Path, State},
@@ -495,7 +495,7 @@ pub async fn preview_content(
     State(_state): State<Arc<AppState>>,
     _admin: AdminUser,
     Form(req): Form<super::dto::PreviewContentRequest>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Response, AppError> {
     let content = req.content.trim().to_string();
     if content.is_empty() {
         return Err(AppError::BadRequest("content must not be empty".into()));
@@ -505,7 +505,12 @@ pub async fn preview_content(
     }
 
     let html = crate::modules::post::service::markdown_to_html(&content);
-    Ok(Html(html))
+    let mut response = Html(html).into_response();
+    crate::shared::security::mark_response_security_profile(
+        &mut response,
+        crate::shared::security::SECURITY_PROFILE_PREVIEW,
+    );
+    Ok(response)
 }
 
 /// 主题渲染预览：Markdown→HTML→MiniJinja 渲染为完整的主题页面
@@ -513,7 +518,7 @@ pub async fn preview_theme(
     State(state): State<Arc<AppState>>,
     _admin: AdminUser,
     Form(req): Form<super::dto::PreviewThemeRequest>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Response, AppError> {
     let content = req.content.trim().to_string();
     if content.is_empty() {
         return Err(AppError::BadRequest("content must not be empty".into()));
@@ -536,13 +541,16 @@ pub async fn preview_theme(
 
     // 覆写主题 slug（如果指定）
     if let Some(ref slug) = req.theme_slug {
+        validateThemeSlugIsInstalledAndSafeForPreviewRendering(slug, &state.theme_dir)?;
         ctx.active_theme = slug.clone();
     }
 
     // 覆写主题配置（如果指定）
     if let Some(ref cfg_str) = req.theme_config {
         if let Ok(cfg) = serde_json::from_str::<ThemeConfig>(cfg_str) {
-            ctx.theme_config = Some(cfg);
+            // SAFETY: 对所有字符串值进行 HTML 转义，防止模板中 | safe 导致 XSS
+            let sanitized = sanitizeThemeConfigStringValuesForPreventTemplateInjection(&cfg);
+            ctx.theme_config = Some(sanitized);
         }
     }
 
@@ -588,12 +596,58 @@ pub async fn preview_theme(
     })
     .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
 
-    Ok(Html(rendered))
+    let mut response = Html(rendered).into_response();
+    crate::shared::security::mark_response_security_profile(
+        &mut response,
+        crate::shared::security::SECURITY_PROFILE_PREVIEW,
+    );
+    Ok(response)
+}
+
+/// 验证主题 slug 是否为合法且已安装的主题标识符
+#[allow(non_snake_case)]
+fn validateThemeSlugIsInstalledAndSafeForPreviewRendering(slug: &str, theme_dir: &std::path::Path) -> Result<(), AppError> {
+    if slug.contains("..") || slug.contains('/') || slug.contains('\\') {
+        return Err(AppError::BadRequest("invalid theme_slug".into()));
+    }
+    let manifest_path = theme_dir.join(slug).join("theme.toml");
+    if !manifest_path.exists() || !manifest_path.is_file() {
+        return Err(AppError::BadRequest(format!(
+            "theme '{}' not found or not installed",
+            slug
+        )));
+    }
+    Ok(())
+}
+
+/// 递归转义 ThemeConfig 中所有字符串值的 HTML 特殊字符，防止模板注入
+#[allow(non_snake_case)]
+fn sanitizeThemeConfigStringValuesForPreventTemplateInjection(
+    config: &HashMap<String, serde_json::Value>
+) -> HashMap<String, serde_json::Value> {
+    config.iter().map(|(k, v)| {
+        let sanitized = match v {
+            serde_json::Value::String(s) => {
+                serde_json::Value::String(escapeHtmlSpecialCharacters(s))
+            }
+            other => other.clone(),
+        };
+        (k.clone(), sanitized)
+    }).collect()
+}
+
+#[allow(non_snake_case)]
+fn escapeHtmlSpecialCharacters(s: &str) -> String {
+    s.replace('&', "&amp;")
+     .replace('<', "&lt;")
+     .replace('>', "&gt;")
+     .replace('"', "&quot;")
+     .replace('\'', "&#x27;")
 }
 
 /// 新标签页预览页面（空壳 HTML + 内嵌 JS）
 pub async fn preview_page(
-
+    _admin: AdminUser,
 ) -> Result<Html<String>, AppError> {
     let html = r#"<!DOCTYPE html>
 <html lang="zh-CN">
@@ -665,7 +719,12 @@ pub async fn preview_page(
             document.getElementById('loading').style.display = 'none';
             const error = document.getElementById('error');
             error.style.display = 'block';
-            error.innerHTML = '<h3>加载失败</h3><p>' + (err.message || 'Unknown error') + '</p><p style="margin-top:12px;font-size:13px;color:#999">请返回编辑器重新打开预览</p>';
+            const heading = document.createElement('h3');
+            heading.textContent = '加载失败';
+            const para = document.createElement('p');
+            para.textContent = err.message || 'Unknown error';
+            error.appendChild(heading);
+            error.appendChild(para);
         }
     })();
     </script>

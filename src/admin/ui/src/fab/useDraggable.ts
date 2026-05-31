@@ -33,8 +33,10 @@ export interface UseDraggableReturn {
   isDragging: boolean;
   /** 绑定到拖拽元素的 ref */
   dragRef: React.RefObject<HTMLDivElement | null>;
-  /** 当前操作是否发生了移动（用于区分拖拽和点击） */
+  /** 当前操作是否发生了移动（用于区分拖拽和点击）—— 非响应式，仅读取最近一次 render 的快照 */
   hasMoved: boolean;
+  /** 是否发生了移动的可变 ref，供回调中读取最新值，避免 useCallback 闭包陈旧 */
+  hasMovedRef: React.RefObject<boolean>;
   /** 需要绑定到元素的事件处理器 */
   handlers: {
     onPointerDown: (e: React.PointerEvent) => void;
@@ -366,6 +368,7 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
     position,
     isDragging,
     hasMoved: hasMovedRef.current,
+    hasMovedRef,
     dragRef,
     handlers: {
       onPointerDown,

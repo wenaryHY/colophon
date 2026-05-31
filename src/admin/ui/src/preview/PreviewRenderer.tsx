@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { usePreview } from './PreviewContext';
+import { usePreview, SESSION_STORAGE_KEY_FOR_PREVIEW_PARAMETERS_PASSED_TO_NEW_TAB } from './PreviewContext';
 import { Modal } from '../components/Modal';
+import { calculatePopoverPositionRelativeToFabButtonRect } from '../fab/usePopoverPosition';
 
 // ==================== 类型定义 ====================
 
@@ -30,16 +31,14 @@ interface PreviewRendererProps {
   onClose?: () => void;
   /** 预览容器样式 */
   className?: string;
+  /** FAB 按钮的屏幕坐标（fab-popover 模式用于定位浮窗） */
+  fabRect?: DOMRect | null;
 }
 
 // ==================== 常量 ====================
 
 /** 防抖延迟（ms） */
 const DEBOUNCE_DELAY = 300;
-
-/** FAB 浮窗默认尺寸 */
-const FAB_POPOVER_DEFAULT_WIDTH = 420;
-const FAB_POPOVER_DEFAULT_HEIGHT = 560;
 
 // ==================== Hook: 防抖 fetch 预览 ====================
 
@@ -159,6 +158,7 @@ export function PreviewRenderer({
   visible,
   onClose,
   className,
+  fabRect,
 }: PreviewRendererProps) {
   const { getRequestParams, getThemeParams, openInNewTab, refreshKey } = usePreview();
 
@@ -201,6 +201,8 @@ export function PreviewRenderer({
 
   useEffect(() => {
     if (mode !== 'new-tab' || !visible) return;
+    // 清理可能残留的旧预览参数，确保新标签页读取到最新数据
+    sessionStorage.removeItem(SESSION_STORAGE_KEY_FOR_PREVIEW_PARAMETERS_PASSED_TO_NEW_TAB);
     openInNewTabRef.current();
     onCloseRef.current?.();
   }, [mode, visible]);
@@ -220,15 +222,30 @@ export function PreviewRenderer({
   // ==================== fab-popover 模式 ====================
 
   if (mode === 'fab-popover') {
+    // 移动端自适应尺寸
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const popoverWidth = isMobile ? 'calc(100vw - 32px)' : 420;
+    const popoverHeight = isMobile ? 'calc(100vh - 120px)' : 500;
+
+    // 位置计算使用数值
+    const popoverWidthNum = isMobile ? window.innerWidth - 32 : 420;
+    const popoverHeightNum = isMobile ? window.innerHeight - 120 : 500;
+
+    const popoverPos = calculatePopoverPositionRelativeToFabButtonRect(
+      fabRect ?? null,
+      popoverWidthNum,
+      popoverHeightNum,
+    );
+
     return createPortal(
       <div
         className={className}
         style={{
           position: 'fixed',
-          bottom: 100,
-          right: 24,
-          width: FAB_POPOVER_DEFAULT_WIDTH,
-          height: FAB_POPOVER_DEFAULT_HEIGHT,
+          left: popoverPos.x,
+          top: popoverPos.y,
+          width: popoverWidth,
+          height: popoverHeight,
           borderRadius: 'var(--radius-lg)',
           overflow: 'hidden',
           border: '1px solid var(--md-outline-variant)',
