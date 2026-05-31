@@ -346,13 +346,21 @@ pub async fn update_post(
 
     // Both sides are preserved independently.
     // If content_md is provided, update it.
-    // content_html is only updated if explicitly provided; otherwise keep the existing value.
-    // If not provided, keep existing values.
+    // If content_md changed and content_html is not explicitly provided (or unchanged),
+    // regenerate content_html from the new content_md.
+    let content_md_changed =
+        body.content_md.as_ref().map_or(false, |md| md != &current.content_md);
     let content_md = body.content_md.unwrap_or(current.content_md.clone());
     let mut content_html = body.content_html
         .filter(|h| !h.trim().is_empty())
         .map(|h| sanitize_html(&h))
-        .unwrap_or_else(|| current.content_html.clone());
+        .unwrap_or_else(|| {
+            if content_md_changed {
+                markdown_to_html(&content_md)
+            } else {
+                current.content_html.clone()
+            }
+        });
 
     let mut title = body.title.unwrap_or(current.title.clone());
     let mut slug = body.slug.unwrap_or(current.slug.clone());
