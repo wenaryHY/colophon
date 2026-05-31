@@ -280,6 +280,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
 
     Router::new()
         .route("/", get(render_home_entry))
+        .route("/preview", get(modules::theme::handler::preview_page))
         .route("/posts/:slug", get(modules::theme::handler::render_post))
         .route("/pages/:slug", get(modules::post::handler::render_custom_page))
         .route("/profile", get(modules::user::theme_handler::render_profile_page))

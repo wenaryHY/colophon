@@ -590,3 +590,86 @@ pub async fn preview_theme(
 
     Ok(Html(rendered))
 }
+
+/// 新标签页预览页面（空壳 HTML + 内嵌 JS）
+pub async fn preview_page(
+
+) -> Result<Html<String>, AppError> {
+    let html = r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InkForge 预览</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #f5f5f5; display: flex; justify-content: center; min-height: 100vh; }
+        .loading { text-align: center; padding: 100px 20px; color: #999; }
+        .loading .spinner { width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top-color: #333; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error { text-align: center; padding: 100px 20px; color: #c62828; display: none; }
+        .preview-container { width: 100%; background: #fff; min-height: 100vh; display: none; }
+        iframe { width: 100%; height: 100vh; border: none; }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>正在加载预览...</p>
+    </div>
+    <div class="error" id="error"></div>
+    <div class="preview-container" id="preview"></div>
+
+    <script>
+    (async function() {
+        try {
+            // 从 sessionStorage 读取预览参数
+            const raw = sessionStorage.getItem('inkforge-preview-params');
+            if (!raw) throw new Error('No preview params found');
+            const params = JSON.parse(raw);
+
+            // 根据模式请求不同端点
+            let url, method, body;
+            if (params.mode === 'theme') {
+                url = '/api/v1/preview/theme';
+                body = new URLSearchParams();
+                body.append('content', params.content);
+                body.append('content_type', params.content_type || 'post');
+                if (params.theme_slug) body.append('theme_slug', params.theme_slug);
+                if (params.theme_config) body.append('theme_config', params.theme_config);
+            } else {
+                url = '/api/v1/preview/content';
+                body = new URLSearchParams();
+                body.append('content', params.content);
+                body.append('content_type', params.content_type || 'post');
+            }
+
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+                credentials: 'include',
+            });
+
+            if (!resp.ok) {
+                const text = await resp.text();
+                throw new Error(text || 'HTTP ' + resp.status);
+            }
+
+            const html = await resp.text();
+            document.getElementById('loading').style.display = 'none';
+            const preview = document.getElementById('preview');
+            preview.style.display = 'block';
+            preview.innerHTML = html;
+        } catch (err) {
+            document.getElementById('loading').style.display = 'none';
+            const error = document.getElementById('error');
+            error.style.display = 'block';
+            error.innerHTML = '<h3>加载失败</h3><p>' + (err.message || 'Unknown error') + '</p><p style="margin-top:12px;font-size:13px;color:#999">请返回编辑器重新打开预览</p>';
+        }
+    })();
+    </script>
+</body>
+</html>"#;
+    Ok(Html(html.to_string()))
+}

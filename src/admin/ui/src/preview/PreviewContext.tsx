@@ -68,7 +68,7 @@ export interface PreviewContextType extends PreviewState {
   /** 刷新预览 */
   refresh: () => void;
   /** 在新标签页中打开预览 */
-  openInNewTab: () => void;
+  openInNewTab: (mode?: 'content' | 'theme') => void;
 }
 
 // ==================== 常量 ====================
@@ -241,20 +241,21 @@ export function PreviewProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /** 在新标签页中打开预览 */
-  const openInNewTab = useCallback(() => {
-    const requestParams = getRequestParams();
-    const themeParams = getThemeParams();
+  const openInNewTab = useCallback((mode: 'content' | 'theme' = 'content') => {
+    const params = sceneConfigRef.current?.getRequestParams();
+    const themeParams = sceneConfigRef.current?.getThemeParams?.();
 
     const previewData = {
-      requestParams,
-      themeParams,
-      device,
-      zoom,
+      mode,
+      content: params?.content || '',
+      content_type: params?.content_type || 'post',
+      theme_slug: themeParams?.theme_slug || '',
+      theme_config: themeParams?.theme_config || '',
     };
 
-    sessionStorage.setItem('inkforge-preview-data', JSON.stringify(previewData));
+    sessionStorage.setItem('inkforge-preview-params', JSON.stringify(previewData));
     window.open('/preview', '_blank');
-  }, [getRequestParams, getThemeParams, device, zoom]);
+  }, []);
 
   // ---- Context 值 ----
   const value = useMemo<PreviewContextType>(

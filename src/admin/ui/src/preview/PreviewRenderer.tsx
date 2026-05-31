@@ -14,6 +14,12 @@ interface PreviewRequestParams {
   content_type: string;
 }
 
+/** 主题预览请求参数 */
+interface ThemePreviewParams {
+  theme_slug: string;
+  theme_config?: string;
+}
+
 /** 预览渲染器属性 */
 interface PreviewRendererProps {
   /** 渲染模式 */
@@ -40,16 +46,30 @@ const FAB_POPOVER_DEFAULT_HEIGHT = 560;
 /**
  * 向后端 API 发起预览请求，返回渲染后的 HTML
  * 内置 300ms 防抖，避免频繁请求
- * @param params - 预览请求参数
+ * 根据 mode 切换请求端点：content → /api/v1/preview/content，theme → /api/v1/preview/theme
+ * @param mode - 预览模式（内容渲染 / 主题渲染）
+ * @param params - 内容预览请求参数
+ * @param themeParams - 主题预览请求参数
  * @param refreshKey - 刷新计数，变化时强制重新 fetch
  */
-function usePreviewFetch(params: PreviewRequestParams | null, refreshKey: number) {
+function usePreviewFetch(
+  mode: 'content' | 'theme',
+  params: PreviewRequestParams | null,
+  themeParams: ThemePreviewParams | null,
+  refreshKey: number,
+) {
   const [html, setHtml] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!params || !params.content) {
+    // 根据 mode 判断是否有有效参数
+    const hasValidParams =
+      mode === 'content'
+        ? !!(params && params.content)
+        : !!(themeParams && themeParams.theme_slug);
+
+    if (!hasValidParams) {
       setHtml('');
       setLoading(false);
       setError(null);
@@ -65,10 +85,23 @@ function usePreviewFetch(params: PreviewRequestParams | null, refreshKey: number
       setError(null);
       try {
         const formData = new URLSearchParams();
-        formData.append('content', params.content);
-        formData.append('content_type', params.content_type);
+        let endpoint: string;
 
-        const resp = await fetch('/api/v1/preview/content', {
+        if (mode === 'content' && params) {
+          formData.append('content', params.content);
+          formData.append('content_type', params.content_type);
+          endpoint = '/api/v1/preview/content';
+        } else if (mode === 'theme' && themeParams) {
+          formData.append('theme_slug', themeParams.theme_slug);
+          if (themeParams.theme_config) {
+            formData.append('theme_config', themeParams.theme_config);
+          }
+          endpoint = '/api/v1/preview/theme';
+        } else {
+          return;
+        }
+
+        const resp = await fetch(endpoint, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -93,7 +126,14 @@ function usePreviewFetch(params: PreviewRequestParams | null, refreshKey: number
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [params?.content, params?.content_type, refreshKey]);
+  }, [
+    mode,
+    params?.content,
+    params?.content_type,
+    themeParams?.theme_slug,
+    themeParams?.theme_config,
+    refreshKey,
+  ]);
 
   return { html, loading, error };
 }
@@ -120,21 +160,37 @@ export function PreviewRenderer({
   onClose,
   className,
 }: PreviewRendererProps) {
-  const { getRequestParams, openInNewTab, refreshKey } = usePreview();
+  const { getRequestParams, getThemeParams, openInNewTab, refreshKey } = usePreview();
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // 预览模式切换：内容渲染 / 主题渲染
+  const [previewMode, setPreviewMode] = useState<'content' | 'theme'>('content');
+
   // 获取当前场景的请求参数
   const requestParams = getRequestParams();
+  const themeParams = getThemeParams();
 
   // 通过后端 API 获取渲染后的 HTML
-  const { html, loading, error } = usePreviewFetch(requestParams, refreshKey);
+  const { html, loading, error } = usePreviewFetch(
+    previewMode,
+    requestParams,
+    themeParams,
+    refreshKey,
+  );
 
   // ==================== iframe 加载处理 ====================
 
   const handleIframeLoad = useCallback(() => {
     // iframe 加载完成，可在此做后续处理
   }, []);
+
+  // ==================== 新标签页打开 ====================
+
+  const handleOpenNewTab = useCallback(() => {
+    openInNewTab(previewMode);
+    onClose?.();
+  }, [previewMode, openInNewTab, onClose]);
 
   // ==================== new-tab 模式处理 ====================
 
@@ -200,10 +256,94 @@ export function PreviewRenderer({
               fontSize: '13px',
               fontWeight: 600,
               color: 'var(--md-on-surface-variant)',
+              flexShrink: 0,
             }}
           >
             预览
           </span>
+
+          {/* 工具栏：模式切换 + 新标签页 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* 模式切换按钮 */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                onClick={() => setPreviewMode('content')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '11px',
+                  fontWeight: previewMode === 'content' ? 600 : 400,
+                  background:
+                    previewMode === 'content'
+                      ? 'var(--md-primary)'
+                      : 'var(--md-surface-container)',
+                  color:
+                    previewMode === 'content'
+                      ? 'var(--md-on-primary)'
+                      : 'var(--md-on-surface-variant)',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                内容
+              </button>
+              <button
+                onClick={() => setPreviewMode('theme')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '11px',
+                  fontWeight: previewMode === 'theme' ? 600 : 400,
+                  background:
+                    previewMode === 'theme'
+                      ? 'var(--md-primary)'
+                      : 'var(--md-surface-container)',
+                  color:
+                    previewMode === 'theme'
+                      ? 'var(--md-on-primary)'
+                      : 'var(--md-on-surface-variant)',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                主题
+              </button>
+            </div>
+
+            {/* 新标签页打开按钮 */}
+            <button
+              onClick={handleOpenNewTab}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 10px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '11px',
+                border: 'none',
+                cursor: 'pointer',
+                background: 'var(--md-surface-container)',
+                color: 'var(--md-on-surface-variant)',
+                flexShrink: 0,
+              }}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+              新标签页
+            </button>
+          </div>
+
+          {/* 关闭按钮 */}
           <button
             onClick={onClose}
             style={{
@@ -219,6 +359,7 @@ export function PreviewRenderer({
               justifyContent: 'center',
               fontSize: '16px',
               transition: 'background 0.2s',
+              flexShrink: 0,
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'var(--md-surface-container-highest)';

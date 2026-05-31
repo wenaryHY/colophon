@@ -12,6 +12,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDraggable } from './useDraggable';
 import { IconEye } from '../components/Icons';
+import { PreviewRenderer } from '../preview/PreviewRenderer';
 
 // ==================== 类型定义 ====================
 
@@ -372,6 +373,7 @@ export function FabContainer({
   // ==================== 状态 ====================
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(isMobileView());
+  const [showPopover, setShowPopover] = useState(false);
 
   // ==================== Ref ====================
   const containerRef = useRef<HTMLDivElement>(null);
@@ -449,6 +451,13 @@ export function FabContainer({
     }
   }, [isDragging, hasMoved]);
 
+  /** 切换预览浮窗，拖拽或发生移动时不触发 */
+  const handlePreviewClick = useCallback(() => {
+    if (!isDragging && !hasMoved) {
+      setShowPopover((prev) => !prev);
+    }
+  }, [isDragging, hasMoved]);
+
   /** 点击子项后关闭菜单并执行回调 */
   const handleActionClick = useCallback((action: FabAction) => {
     setIsOpen(false);
@@ -506,9 +515,17 @@ export function FabContainer({
           onPointerDown={draggable && !isMobile ? handlers.onPointerDown : () => {}}
           onPointerMove={draggable && !isMobile ? handlers.onPointerMove : () => {}}
           onPointerUp={draggable && !isMobile ? handlers.onPointerUp : () => {}}
-          onClick={toggleMenu}
+          onClick={handlePreviewClick}
         />
       </div>
+
+      {/* 预览浮窗 */}
+      {showPopover && (
+        <PreviewRenderer
+          mode="fab-popover"
+          visible={showPopover}
+          onClose={() => setShowPopover(false)}
+        />
+      )}
     </>
-  );
 }
