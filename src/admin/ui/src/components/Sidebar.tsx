@@ -98,18 +98,13 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
         onMouseEnter={e => (e.currentTarget.style.background = 'var(--sidebar-hover)')}
         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
       >
-        {/* Logo — primary 色圆形背景 + 白色图标 */}
+        {/* Logo — 使用实际 logo-icon.svg，自带完整色彩 */}
         <div style={{
-          width: '40px', height: '40px', borderRadius: 'var(--radius-full)',
-          background: 'var(--md-primary)',
+          width: '40px', height: '40px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L2 7l10 5 10-5-10-5z" fill="white" opacity="0.95"/>
-            <path d="M2 17l10 5 10-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.7"/>
-            <path d="M2 12l10 5 10-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
-          </svg>
+          <img src="/static/themes/default/logo-icon.svg" alt="InkForge" style={{ width: '36px', height: '36px' }} />
         </div>
         <div>
           <div style={{
