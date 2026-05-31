@@ -86,6 +86,10 @@ export default function PostEditor() {
           content_type: contentType,
         };
       },
+      // 主题预览参数，使用默认主题
+      getThemeParams: () => ({
+        theme_slug: 'default',
+      }),
     });
     return () => preview.unregisterScene();
   }, [contentType, preview.registerScene]);
