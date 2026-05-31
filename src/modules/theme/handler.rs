@@ -579,7 +579,11 @@ pub async fn preview_theme(
     ).await?;
 
     // 选择模板
-    let template_name = if content_type == "page" { "page.html" } else { "post.html" };
+    let template_name = if content_type == "page" && env.get_template("page.html").is_ok() {
+        "page.html"
+    } else {
+        "post.html"
+    };
     let tmpl = env.get_template(template_name)
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
 

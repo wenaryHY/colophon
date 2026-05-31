@@ -45,6 +45,8 @@ function isMobileView(): boolean {
 function MainButton({
   icon,
   isDragging,
+  isDraggableEnabled,
+  hasScene,
   opacity,
   onPointerDown,
   onPointerMove,
@@ -54,10 +56,12 @@ function MainButton({
 }: {
   icon: React.ReactNode;
   isDragging: boolean;
+  isDraggableEnabled: boolean;
+  hasScene: boolean;
   opacity: number;
-  onPointerDown: (e: React.PointerEvent) => void;
-  onPointerMove: (e: React.PointerEvent) => void;
-  onPointerUp: (e: React.PointerEvent) => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
+  onPointerMove?: (e: React.PointerEvent) => void;
+  onPointerUp?: (e: React.PointerEvent) => void;
   dragRef: React.RefObject<HTMLDivElement | null>;
   onClick: () => void;
 }) {
@@ -97,7 +101,9 @@ function MainButton({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: isDragging ? 'grabbing' : 'pointer',
+        cursor: isDraggableEnabled
+          ? (isDragging ? 'grabbing' : 'grab')
+          : (hasScene ? 'pointer' : 'default'),
         boxShadow: isDragging
           ? '0 8px 24px rgba(249, 115, 22, 0.4)'
           : 'var(--elevation-3)',
@@ -144,6 +150,9 @@ export function FabContainer() {
   // ==================== 状态 ====================
   const [isMobile, setIsMobile] = useState(isMobileView());
   const [showPopover, setShowPopover] = useState(false);
+
+  // ==================== 拖拽开关（配置 & 响应式） ====================
+  const isDraggableEnabled = config.draggable && !isMobile;
 
   // ==================== Ref ====================
   const containerRef = useRef<HTMLDivElement>(null);
@@ -234,11 +243,8 @@ export function FabContainer() {
 
   // ==================== 渲染 ====================
 
-  // 已隐藏则不渲染
-  if (hidden) return null;
-
-  // 未启用则返回最小化 FAB（仅无场景时仍可交互）
-  const isInteractive = config.enabled || !hasScene;
+  // 已隐藏或配置中禁用则完全不渲染
+  if (hidden || !config.enabled) return null;
 
   return (
     <>
@@ -247,18 +253,20 @@ export function FabContainer() {
         <MainButton
           icon={<IconEye size={24} />}
           isDragging={isDragging}
+          isDraggableEnabled={isDraggableEnabled}
+          hasScene={hasScene}
           opacity={hasScene ? 1 : 0.4}
           dragRef={dragRef}
           onPointerDown={
-            !isMobile && config.draggable ? handlers.onPointerDown : () => {}
+            isDraggableEnabled ? handlers.onPointerDown : undefined
           }
           onPointerMove={
-            !isMobile && config.draggable ? handlers.onPointerMove : () => {}
+            isDraggableEnabled ? handlers.onPointerMove : undefined
           }
           onPointerUp={
-            !isMobile && config.draggable ? handlers.onPointerUp : () => {}
+            isDraggableEnabled ? handlers.onPointerUp : undefined
           }
-          onClick={isInteractive ? handleFabClick : () => {}}
+          onClick={handleFabClick}
         />
       </div>
 
