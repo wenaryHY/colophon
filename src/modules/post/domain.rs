@@ -21,6 +21,7 @@ pub struct PublicPostSummary {
     pub updated_at: String,
     pub author_display_name: String,
     pub category_name: Option<String>,
+    pub category_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]

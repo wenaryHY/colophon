@@ -22,7 +22,8 @@ pub async fn list_recent_public_posts(
             p.created_at,
             p.updated_at,
             u.display_name AS author_display_name,
-            c.name AS category_name
+            c.name AS category_name,
+            c.id AS category_id
          FROM posts p
          JOIN users u ON u.id = p.author_id
          LEFT JOIN categories c ON c.id = p.category_id
@@ -60,7 +61,7 @@ pub async fn search_posts(
     let fts_keyword = keyword.to_string();
     let fts_results = sqlx::query_as::<_, PublicPostSummary>(
         "SELECT p.id, p.title, p.slug, p.excerpt, p.content_type, p.published_at, p.created_at, p.updated_at,
-                u.display_name AS author_display_name, c.name AS category_name
+                u.display_name AS author_display_name, c.name AS category_name, c.id AS category_id
          FROM posts p
          JOIN users u ON u.id = p.author_id
          LEFT JOIN categories c ON c.id = p.category_id
@@ -92,7 +93,7 @@ pub async fn search_posts(
     let like_keyword = format!("%{}%", keyword);
     sqlx::query_as::<_, PublicPostSummary>(
         "SELECT p.id, p.title, p.slug, p.excerpt, p.content_type, p.published_at, p.created_at, p.updated_at,
-                u.display_name AS author_display_name, c.name AS category_name
+                u.display_name AS author_display_name, c.name AS category_name, c.id AS category_id
          FROM posts p
          JOIN users u ON u.id = p.author_id
          LEFT JOIN categories c ON c.id = p.category_id
@@ -189,7 +190,8 @@ pub async fn list_public_posts(
                 p.created_at,
                 p.updated_at,
                 u.display_name AS author_display_name,
-                c.name AS category_name
+                c.name AS category_name,
+                c.id AS category_id
              FROM posts p
              JOIN users u ON u.id = p.author_id
              LEFT JOIN categories c ON c.id = p.category_id
@@ -218,7 +220,8 @@ pub async fn list_public_posts(
                 p.created_at,
                 p.updated_at,
                 u.display_name AS author_display_name,
-                c.name AS category_name
+                c.name AS category_name,
+                c.id AS category_id
              FROM posts p
              JOIN users u ON u.id = p.author_id
              LEFT JOIN categories c ON c.id = p.category_id
