@@ -9,6 +9,7 @@ import { setupDict } from './setup';
 import { editorDict } from './editor';
 import { mediaDict } from './media';
 import { pluginsDict } from './plugins';
+import { fabDict } from './fab';
 
 // 合并所有字典
 export const dictionary = {
@@ -23,6 +24,7 @@ export const dictionary = {
     ...editorDict.zh,
     ...mediaDict.zh,
     ...pluginsDict.zh,
+    ...fabDict.zh,
   },
   en: {
     ...commonDict.en,
@@ -35,6 +37,7 @@ export const dictionary = {
     ...editorDict.en,
     ...mediaDict.en,
     ...pluginsDict.en,
+    ...fabDict.en,
   },
 };
 

@@ -3,7 +3,7 @@ import { useI18n } from '../i18n';
 import { useSlots } from '../lib/slots';
 import {
   IconFileText, IconFolderOpen, IconTag, IconMessageSquare,
-  IconUpload, IconSettings, IconUser, IconLogOut, IconPalette, IconTrash2, IconPackage,
+  IconUpload, IconSettings, IconUser, IconLogOut, IconPalette, IconTrash2, IconPackage, IconZap,
 } from './Icons';
 
 // 导航配置类型
@@ -25,6 +25,7 @@ const prefetchPages: Record<string, () => void> = {
   tags: () => import('../pages/Tags'),
   comments: () => import('../pages/CommentsV2'),
   settings: () => import('../pages/Settings'),
+  'fab-settings': () => import('../pages/FabSettings'),
   upload: () => import('../pages/Upload'),
   themes: () => import('../pages/Themes'),
   trash: () => import('../pages/RecycleBin'),
@@ -52,6 +53,7 @@ const navConfig: NavGroupConfig[] = [
       { key: 'plugins', icon: IconPackage, labelKey: 'plugins' },
       { key: 'trash', icon: IconTrash2, labelKey: 'trash' },
       { key: 'settings', icon: IconSettings, labelKey: 'settings' },
+      { key: 'fab-settings', icon: IconZap, labelKey: 'fabSettings' },
     ],
   },
 ];

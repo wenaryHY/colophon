@@ -2,6 +2,7 @@
  * 预览模块 - 统一导出
  */
 export { PreviewProvider, usePreview } from './PreviewContext';
+export { PreviewRenderer } from './PreviewRenderer';
 export type {
   ContentType,
   DeviceType,
@@ -9,3 +10,4 @@ export type {
   SceneConfig,
   PreviewContextType,
 } from './PreviewContext';
+export type { PreviewRendererProps } from './PreviewRenderer';

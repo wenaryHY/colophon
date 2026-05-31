@@ -23,6 +23,7 @@ const ThemeDetail = lazy(() => import('./pages/ThemeDetail'));
 const RecycleBin = lazy(() => import('./pages/RecycleBin'));
 const PluginSettings = lazy(() => import('./pages/PluginSettings'));
 const PluginManager = lazy(() => import('./pages/PluginManager'));
+const FabSettings = lazy(() => import('./pages/FabSettings'));
 
 const pageToRoute: Record<string, string> = {
   posts: '/posts',
@@ -30,6 +31,7 @@ const pageToRoute: Record<string, string> = {
   tags: '/tags',
   comments: '/comments',
   settings: '/settings',
+  'fab-settings': '/fab-settings',
   upload: '/upload',
   'media-categories': '/media-categories',
   themes: '/themes',
@@ -45,6 +47,7 @@ function getActivePage(pathname: string): string {
   if (pathname.startsWith('/tags')) return 'tags';
   if (pathname.startsWith('/comments')) return 'comments';
   if (pathname.startsWith('/settings')) return 'settings';
+  if (pathname.startsWith('/fab-settings')) return 'fab-settings';
   if (pathname.startsWith('/upload')) return 'upload';
   if (pathname.startsWith('/media-categories')) return 'media-categories';
   if (pathname.startsWith('/trash')) return 'trash';
@@ -115,6 +118,7 @@ export default function App() {
           <Route path="tags" element={<Tags />} />
           <Route path="comments" element={<Comments />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="fab-settings" element={<FabSettings />} />
           <Route path="upload" element={<Upload />} />
           <Route path="media-categories" element={<MediaCategories />} />
           <Route path="themes" element={<Themes />} />

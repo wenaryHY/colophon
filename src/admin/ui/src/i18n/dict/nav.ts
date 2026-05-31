@@ -15,6 +15,7 @@ export const navDict = {
     themes: '主题管理',
     trash: '回收站',
     settings: '设置',
+    fabSettings: 'FAB 设置',
     plugins: '插件',
     pluginSettings: '插件设置',
 
@@ -42,6 +43,7 @@ export const navDict = {
     themes: 'Themes',
     trash: 'Trash',
     settings: 'Settings',
+    fabSettings: 'FAB Settings',
     plugins: 'Plugins',
     pluginSettings: 'Plugin Settings',
 
