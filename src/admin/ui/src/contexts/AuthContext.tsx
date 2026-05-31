@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { apiData, setAccessToken, clearAccessToken, API_PREFIX } from '../lib/api';
+import { apiData, setAccessToken, clearAccessToken, setOnAuthExpired, API_PREFIX } from '../lib/api';
 import type { CurrentUser } from '../types';
 import { useI18n } from '../i18n';
 import { saveLanguage } from '../i18n/detector';
@@ -77,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let active = true;
+    setOnAuthExpired(clearAuth);
     refreshUser()
       .catch(() => {
         if (active) clearAuth();
@@ -86,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     return () => {
       active = false;
+      setOnAuthExpired(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

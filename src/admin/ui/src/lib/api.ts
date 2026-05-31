@@ -27,6 +27,14 @@ export function clearAccessToken() {
   accessToken = null;
 }
 
+// ── 401 过期回调 ──
+
+let onAuthExpired: (() => void) | null = null;
+
+export function setOnAuthExpired(fn: (() => void) | null) {
+  onAuthExpired = fn;
+}
+
 // ── 401 自动刷新 ──
 
 let refreshPromise: Promise<string | null> | null = null;
@@ -57,6 +65,7 @@ async function tryRefreshToken(): Promise<boolean> {
     return true;
   }
   clearAccessToken();
+  onAuthExpired?.();
   return false;
 }
 

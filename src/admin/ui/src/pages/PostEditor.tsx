@@ -16,6 +16,7 @@ import {
 } from '../components/Icons';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
+import { useAutoSaveDraft, type DraftData } from '../hooks/useAutoSaveDraft';
 
 type PageEditMode = 'editor' | 'custom_html';
 
@@ -45,12 +46,20 @@ export default function PostEditor() {
   const [contentType, setContentType] = useState<'post' | 'page'>('post');
   const [pageEditMode, setPageEditMode] = useState<PageEditMode>('editor');
   const [customHtmlFile, setCustomHtmlFile] = useState<File | null>(null);
+  const [draftRecovery, setDraftRecovery] = useState<DraftData | null>(null);
 
   // 渲染模式选择弹窗
   const [renderModeChoice, setRenderModeChoice] = useState<RenderModeChoice | null>(null);
 
+  // 草稿自动保存
+  const { restore: restoreDraft, clear: clearDraft } = useAutoSaveDraft(
+    id,
+    { title, content, contentHtml, excerpt, categoryId, tagIds: selectedTagIds },
+    !!title || !!content
+  );
+
   // 加载文章详情（编辑模式）
-  const { data: postData, isLoading: postLoading } = useQuery({
+  const { data: postData, isLoading: postLoading, isError: postError } = useQuery({
     queryKey: ['post', id],
     queryFn: () => apiData<AdminPost>(`${API_PREFIX}/admin/posts/${id}`),
     enabled: isEdit,
@@ -69,6 +78,11 @@ export default function PostEditor() {
     setSelectedTagIds(postData.tags?.map((tag) => tag.id) || []);
     setContentType(postData.content_type || 'post');
     setPageEditMode(postData.page_render_mode === 'custom_html' ? 'custom_html' : 'editor');
+    // 检查本地草稿：如果草稿时间比服务器数据更新，提示恢复
+    const draft = restoreDraft();
+    if (draft && (!postData.updated_at || draft.savedAt > new Date(postData.updated_at).getTime())) {
+      setDraftRecovery(draft);
+    }
   }, [postData]);
 
   // 加载分类
@@ -176,6 +190,7 @@ export default function PostEditor() {
       toast(t('saveSuccess'), 'success');
       getQueryClient().invalidateQueries({ queryKey: ['posts'] });
       if (id) getQueryClient().invalidateQueries({ queryKey: ['post', id] });
+      clearDraft();
       navigate('/posts');
     } catch (error) {
       toast(error instanceof Error ? error.message : t('saveFailed'), 'error');
@@ -192,8 +207,43 @@ export default function PostEditor() {
     );
   }
 
+  if (postError) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center' }}>
+        <h3>加载失败</h3>
+        <p style={{ color: 'var(--md-on-surface-variant)' }}>无法加载文章数据，请刷新重试</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* 草稿恢复提示 */}
+      {draftRecovery && (
+        <div style={{
+          padding: '12px 24px', marginBottom: '8px', borderRadius: 'var(--radius-lg)',
+          background: 'var(--md-primary-container)',
+          color: 'var(--md-on-primary-container)', display: 'flex',
+          alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
+        }}>
+          <span style={{ fontSize: '14px' }}>检测到未保存的草稿（{new Date(draftRecovery.savedAt).toLocaleString()}），是否恢复？</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="md3-btn" onClick={() => {
+              setTitle(draftRecovery.title);
+              setContent(draftRecovery.content);
+              setContentHtml(draftRecovery.contentHtml);
+              setExcerpt(draftRecovery.excerpt);
+              setCategoryId(draftRecovery.categoryId);
+              setSelectedTagIds(draftRecovery.tagIds);
+              setDraftRecovery(null);
+            }}>恢复</button>
+            <button className="md3-btn" onClick={() => {
+              clearDraft();
+              setDraftRecovery(null);
+            }}>丢弃</button>
+          </div>
+        </div>
+      )}
       {/* ── 顶部栏 ── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
