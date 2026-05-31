@@ -19,54 +19,117 @@ interface PreviewRendererProps {
   className?: string;
 }
 
-/** iframe 消息格式 */
-interface PreviewMessage {
-  type: 'CONTENT_UPDATE' | 'THEME_UPDATE' | 'REFRESH';
-  payload: {
-    content?: string;
-    contentType?: string;
-    theme?: string;
-    themeConfig?: Record<string, unknown>;
-  };
-}
-
-// ==================== 常量 ====================
-
-/** 预览 API 基础路径 */
-const PREVIEW_API_BASE = '/api/v1/preview';
-
-/** iframe sandbox 权限限制 */
-const IFRAME_SANDBOX = 'allow-scripts allow-same-origin';
-
-/** 消息同步防抖延迟（毫秒） */
-const MESSAGE_DEBOUNCE_DELAY = 150;
-
 // ==================== 工具函数 ====================
 
 /**
- * 构建预览 URL
- * @param theme 主题 slug
- * @param themeConfig 主题配置
- * @returns 完整的预览 URL
+ * 构建预览页面的完整 HTML（用于 iframe srcdoc）
  */
-function buildPreviewUrl(theme: string, themeConfig: Record<string, unknown>): string {
-  const params = new URLSearchParams();
-  params.set('theme', theme);
-  if (Object.keys(themeConfig).length > 0) {
-    try {
-      params.set('config', JSON.stringify(themeConfig));
-    } catch {
-      // 序列化失败时忽略配置参数
+function buildPreviewHtml(
+  content: string,
+  contentType: string,
+  _theme: string,
+  _themeConfig: Record<string, unknown>,
+): string {
+  // 基础样式
+  const baseStyles = `
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      line-height: 1.8;
+      padding: 24px;
+      max-width: 800px;
+      margin: 0 auto;
+      color: #333;
+      background: #fff;
     }
+    h1, h2, h3 { margin-top: 1.5em; margin-bottom: 0.5em; }
+    p { margin-bottom: 1em; }
+    img { max-width: 100%; height: auto; }
+    pre { background: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto; }
+    code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+    blockquote { border-left: 3px solid #ddd; padding-left: 16px; margin-left: 0; color: #666; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+    .preview-empty { text-align: center; color: #999; padding: 40px; font-size: 16px; }
+  `;
+
+  // 渲染内容
+  let bodyContent = '';
+  if (!content) {
+    bodyContent = '<div class="preview-empty">暂无内容</div>';
+  } else if (contentType === 'html') {
+    bodyContent = content;
+  } else if (contentType === 'markdown') {
+    bodyContent = simpleMarkdownToHtml(content);
+  } else {
+    bodyContent = `<pre>${escapeHtml(content)}</pre>`;
   }
-  return `${PREVIEW_API_BASE}?${params.toString()}`;
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>预览</title>
+  <style>${baseStyles}</style>
+</head>
+<body>
+  ${bodyContent}
+  <script>
+    // 监听父页面消息，动态更新内容
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'CONTENT_UPDATE') {
+        document.body.innerHTML = e.data.payload.html || e.data.payload.content || '';
+      }
+    });
+  </script>
+</body>
+</html>`;
+}
+
+/** 简单的 Markdown 转 HTML */
+function simpleMarkdownToHtml(md: string): string {
+  let html = md;
+  // 标题
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // 粗体/斜体
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // 代码块
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+  // 行内代码
+  html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+  // 链接
+  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
+  // 图片
+  html = html.replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1">');
+  // 引用
+  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  // 段落
+  html = html.replace(/^(?!<[a-z]|$)(.+)$/gm, '<p>$1</p>');
+  // 空行
+  html = html.replace(/\n\n/g, '<br>');
+
+  return html;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 // ==================== 组件 ====================
 
 /**
  * 预览渲染器组件
- * 使用 iframe 隔离渲染预览内容，支持 inline / modal / new-tab 三种模式
+ * 使用 iframe srcdoc 在前端直接渲染预览内容，无需后端 API
+ * 支持 inline / modal / new-tab 三种模式
  *
  * @example
  * ```tsx
@@ -94,79 +157,27 @@ export function PreviewRenderer({
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 预览 URL（memoize 避免不必要的重渲染）
-  const previewUrl = useMemo(
-    () => buildPreviewUrl(theme, themeConfig),
-    [theme, themeConfig],
+  // 构建 srcdoc HTML
+  const srcDoc = useMemo(
+    () => buildPreviewHtml(content, contentType, theme, themeConfig),
+    [content, contentType, theme, themeConfig],
   );
 
-  // ==================== 消息发送 ====================
+  // ==================== postMessage 增量更新 ====================
 
-  /**
-   * 向 iframe 发送消息
-   * @param message 要发送的消息
-   */
-  const sendMessageToIframe = useCallback((message: PreviewMessage) => {
-    const iframe = iframeRef.current;
-    if (!iframe?.contentWindow) return;
-
-    try {
-      iframe.contentWindow.postMessage(message, window.location.origin);
-    } catch {
-      // postMessage 失败时静默处理（跨域或 iframe 未加载）
-    }
-  }, []);
-
-  // ==================== 内容同步 ====================
-
-  /**
-   * 同步内容到 iframe（带防抖）
-   */
-  const syncContent = useCallback(() => {
-    if (!iframeLoaded || !visible) return;
-
-    // 清除之前的防抖计时器
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    // 设置新的防抖计时器
-    debounceTimerRef.current = setTimeout(() => {
-      sendMessageToIframe({
+  // 内容变化时通过 postMessage 增量更新（避免整个 iframe 重载）
+  useEffect(() => {
+    if (iframeRef.current?.contentWindow && iframeLoaded) {
+      const html = contentType === 'markdown'
+        ? simpleMarkdownToHtml(content)
+        : content;
+      iframeRef.current.contentWindow.postMessage({
         type: 'CONTENT_UPDATE',
-        payload: {
-          content,
-          contentType,
-        },
-      });
-    }, MESSAGE_DEBOUNCE_DELAY);
-  }, [iframeLoaded, visible, content, contentType, sendMessageToIframe]);
-
-  // 监听内容变化并同步
-  useEffect(() => {
-    syncContent();
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, [syncContent]);
-
-  // ==================== 主题同步 ====================
-
-  useEffect(() => {
-    if (!iframeLoaded || !visible) return;
-
-    sendMessageToIframe({
-      type: 'THEME_UPDATE',
-      payload: {
-        theme,
-        themeConfig,
-      },
-    });
-  }, [iframeLoaded, visible, theme, themeConfig, sendMessageToIframe]);
+        payload: { html, content, contentType },
+      }, '*');
+    }
+  }, [content, contentType, iframeLoaded]);
 
   // ==================== iframe 加载处理 ====================
 
@@ -185,7 +196,7 @@ export function PreviewRenderer({
       theme,
       themeConfig,
     };
-    
+
     sessionStorage.setItem('inkforge-preview-data', JSON.stringify(previewData));
     window.open('/preview', '_blank');
 
@@ -265,12 +276,11 @@ export function PreviewRenderer({
             </div>
           )}
 
-          {/* 预览 iframe */}
+          {/* 预览 iframe（srcdoc 方式） */}
           <iframe
             ref={iframeRef}
-            src={previewUrl}
-            sandbox={IFRAME_SANDBOX}
-            loading="lazy"
+            srcDoc={srcDoc}
+            sandbox="allow-scripts"
             onLoad={handleIframeLoad}
             style={{
               width: '100%',
@@ -337,12 +347,11 @@ export function PreviewRenderer({
         </div>
       )}
 
-      {/* 预览 iframe */}
+      {/* 预览 iframe（srcdoc 方式） */}
       <iframe
         ref={iframeRef}
-        src={previewUrl}
-        sandbox={IFRAME_SANDBOX}
-        loading="lazy"
+        srcDoc={srcDoc}
+        sandbox="allow-scripts"
         onLoad={handleIframeLoad}
         style={{
           width: '100%',

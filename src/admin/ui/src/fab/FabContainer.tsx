@@ -62,8 +62,10 @@ const ACTION_STAGGER_DELAY = 100;
 /** 移动端断点（px） */
 const MOBILE_BREAKPOINT = 768;
 
-/** 默认初始位置（右下角） */
-const DEFAULT_POSITION = { x: window.innerWidth - 80, y: window.innerHeight - 80 };
+/** 惰性获取默认初始位置（右下角），避免模块顶层直接读取 window 尺寸导致闪现到 (0,0) */
+function getDefaultPosition() {
+  return { x: window.innerWidth - 80, y: window.innerHeight - 80 };
+}
 
 // ==================== 辅助函数 ====================
 
@@ -362,7 +364,7 @@ function Overlay({
  */
 export function FabContainer({
   actions,
-  defaultPosition = DEFAULT_POSITION,
+  defaultPosition = getDefaultPosition(),
   draggable = true,
   expandDirection = 'up',
   mainIcon,
@@ -378,6 +380,7 @@ export function FabContainer({
   const {
     position,
     isDragging,
+    hasMoved,
     dragRef,
     handlers,
   } = useDraggable({
@@ -439,10 +442,12 @@ export function FabContainer({
 
   // ==================== 事件处理 ====================
 
-  /** 切换菜单展开/收起 */
+  /** 切换菜单展开/收起，拖拽或发生移动时不触发 */
   const toggleMenu = useCallback(() => {
-    setIsOpen((prev) => !prev);
-  }, []);
+    if (!isDragging && !hasMoved) {
+      setIsOpen((prev) => !prev);
+    }
+  }, [isDragging, hasMoved]);
 
   /** 点击子项后关闭菜单并执行回调 */
   const handleActionClick = useCallback((action: FabAction) => {

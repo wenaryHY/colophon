@@ -1,5 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
+/** 移动阈值：超过此距离视为拖拽（像素） */
+const DRAG_THRESHOLD = 5;
+
 // ==================== 类型定义 ====================
 
 /** 可拖拽 Hook 的配置选项 */
@@ -30,6 +33,8 @@ export interface UseDraggableReturn {
   isDragging: boolean;
   /** 绑定到拖拽元素的 ref */
   dragRef: React.RefObject<HTMLDivElement | null>;
+  /** 当前操作是否发生了移动（用于区分拖拽和点击） */
+  hasMoved: boolean;
   /** 需要绑定到元素的事件处理器 */
   handlers: {
     onPointerDown: (e: React.PointerEvent) => void;
@@ -192,6 +197,7 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
 
   // ---- Ref ----
   const dragRef = useRef<HTMLDivElement>(null);
+  const hasMovedRef = useRef(false);
 
   // 使用 ref 存储拖拽过程中的中间状态，避免频繁 setState
   const dragStateRef = useRef({
@@ -201,6 +207,9 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
     /** 拖拽开始时元素的左上角位置 */
     initialX: 0,
     initialY: 0,
+    /** 拖拽起始时指针的绝对坐标 */
+    startClientX: 0,
+    startClientY: 0,
     /** 当前 rAF 是否已调度 */
     rafId: 0,
     /** 最新计算出的位置（供 rAF 回调使用） */
@@ -227,7 +236,10 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
       state.startY = e.clientY - rect.top;
       state.initialX = position.x;
       state.initialY = position.y;
+      state.startClientX = e.clientX;
+      state.startClientY = e.clientY;
 
+      hasMovedRef.current = false;
       setIsDragging(true);
       onDragStart?.();
 
@@ -250,6 +262,13 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
       if (!isDragging) return;
 
       const state = dragStateRef.current;
+
+      // 检测是否发生移动，用于区分拖拽和点击
+      const dx = Math.abs(e.clientX - state.startClientX);
+      const dy = Math.abs(e.clientY - state.startClientY);
+      if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+        hasMovedRef.current = true;
+      }
 
       // 计算新位置 = 指针当前位置 - 指针在元素内的偏移量
       let newX = e.clientX - state.startX;
@@ -316,7 +335,10 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
       savePosition(id, { x: finalX, y: finalY });
       setIsDragging(false);
 
-      onDragEnd?.({ x: finalX, y: finalY });
+      // 只在真正移动后才触发 onDragEnd 回调
+      if (hasMovedRef.current) {
+        onDragEnd?.({ x: finalX, y: finalY });
+      }
 
       e.preventDefault();
     },
@@ -336,6 +358,7 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
   return {
     position,
     isDragging,
+    hasMoved: hasMovedRef.current,
     dragRef,
     handlers: {
       onPointerDown,
