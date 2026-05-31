@@ -1,0 +1,34 @@
+[Unit]
+Description=InkForge CMS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=inkforge
+Group=inkforge
+WorkingDirectory=/opt/inkforge
+ExecStart=/opt/inkforge/inkforge
+Restart=always
+RestartSec=5
+
+Environment=RUST_LOG=inkforge=info
+Environment=INKFORGE__RUNTIME__MODE=production
+Environment=INKFORGE__SERVER__HOST=127.0.0.1
+Environment=INKFORGE__SERVER__PORT=2000
+Environment=INKFORGE__DATABASE__URL=sqlite:///var/lib/inkforge/inkforge.db?mode=rwc
+Environment=INKFORGE__STORAGE__UPLOAD_DIR=/var/lib/inkforge/uploads
+Environment=INKFORGE__PATHS__ADMIN_DIST_DIR=/opt/inkforge/src/admin/dist
+
+# Put INKFORGE__AUTH__SECRET in /etc/inkforge/inkforge.env with 0600 permissions.
+EnvironmentFile=-/etc/inkforge/inkforge.env
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/inkforge /var/backups/inkforge
+ReadOnlyPaths=/opt/inkforge /etc/inkforge
+
+[Install]
+WantedBy=multi-user.target

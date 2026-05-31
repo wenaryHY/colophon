@@ -10,7 +10,8 @@ services:
       - inkforge-uploads:/app/uploads
       - inkforge-backups:/app/backups
     environment:
-      INKFORGE__AUTH__SECRET: "${INKFORGE_AUTH_SECRET:-inkforge-change-me-in-production}"
+      INKFORGE__RUNTIME__MODE: "production"
+      INKFORGE__AUTH__SECRET: "${INKFORGE_AUTH_SECRET:?Set INKFORGE_AUTH_SECRET to a strong random value before starting InkForge}"
       # S3 备份（可选，设了就自动启用）
       LITESTREAM_S3_BUCKET: "${LITESTREAM_S3_BUCKET:-}"
       AWS_REGION: "${AWS_REGION:-}"

@@ -105,12 +105,16 @@ cargo build --release
 docker build -t inkforge .
 docker run -d \
   -p 3000:3000 \
+  -e INKFORGE__RUNTIME__MODE=production \
+  -e INKFORGE__AUTH__SECRET="$(openssl rand -hex 32)" \
   -v inkforge-uploads:/app/uploads \
   -v inkforge-backups:/app/backups \
   inkforge
 ```
 
 镜像内置 Litestream，可按 `config/litestream.yml` 配置对象存储复制；**应用内备份模块的 S3 后端目前仍未真正接线**，如需对象存储同步请优先按 Litestream 链路配置。
+
+裸机部署建议使用非 root systemd 服务、独立数据目录和最小发布包，详见 `docs/PRODUCTION_HARDENING.md`。
 
 ---
 
