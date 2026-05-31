@@ -288,7 +288,12 @@ async function doSearch() {
   const grid = document.getElementById('postsGrid');
   grid.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div><h3 class="empty-title">搜索中...</h3></div>`;
   document.getElementById('searchInfo').style.display = 'none';
-  if (!keyword) { _allPosts = _posts; renderPosts(_allPosts); return; }
+  if (!keyword) {
+    _allPosts = _posts;
+    const filtered = _currentCategory ? _posts.filter(p => p.category_id === _currentCategory) : _posts;
+    renderPosts(filtered);
+    return;
+  }
   try {
     const params = new URLSearchParams({ keyword });
     if (_currentCategory) params.set('category_id', _currentCategory);
