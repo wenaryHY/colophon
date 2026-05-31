@@ -49,3 +49,4 @@ target-codex*
 test-*.js
 target_tmp_verify/
 cargo_check_output.txt
+docs/private/
