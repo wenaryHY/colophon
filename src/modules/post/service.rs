@@ -351,16 +351,14 @@ pub async fn update_post(
     let content_md_changed =
         body.content_md.as_ref().map_or(false, |md| md != &current.content_md);
     let content_md = body.content_md.unwrap_or(current.content_md.clone());
-    let mut content_html = body.content_html
-        .filter(|h| !h.trim().is_empty())
-        .map(|h| sanitize_html(&h))
-        .unwrap_or_else(|| {
-            if content_md_changed {
-                markdown_to_html(&content_md)
-            } else {
-                current.content_html.clone()
-            }
-        });
+    let mut content_html = if content_md_changed {
+        markdown_to_html(&content_md)
+    } else {
+        body.content_html
+            .filter(|h| !h.trim().is_empty())
+            .map(|h| sanitize_html(&h))
+            .unwrap_or_else(|| current.content_html.clone())
+    };
 
     let mut title = body.title.unwrap_or(current.title.clone());
     let mut slug = body.slug.unwrap_or(current.slug.clone());
