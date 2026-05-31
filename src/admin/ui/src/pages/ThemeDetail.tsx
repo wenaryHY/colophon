@@ -5,14 +5,12 @@ import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Select } from '../components/Select';
-import { IconEye } from '../components/Icons';
 import { getThemeDetail, saveThemeConfig, activateTheme } from '../lib/api';
 import { getQueryClient } from '../lib/api';
 import type { ThemeConfigField } from '../types';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
-import { usePreview, PreviewRenderer } from '../preview';
-import { FabContainer } from '../fab';
+import { usePreview } from '../preview';
 
 const sectionStyle: React.CSSProperties = {
   background: 'var(--md-surface-container-lowest)',
@@ -29,7 +27,6 @@ export default function ThemeDetail() {
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
-  const [showPreview, setShowPreview] = useState(false);
 
   // 预览上下文
   const preview = usePreview();
@@ -199,24 +196,8 @@ export default function ThemeDetail() {
           )}
         </div>
 
-        {/* 实时预览面板 */}
-        <PreviewRenderer
-          mode="inline"
-          visible={showPreview}
-        />
       </div>
 
-      {/* FAB 浮动预览按钮 */}
-      <FabContainer
-        actions={[
-          {
-            id: 'preview',
-            icon: <IconEye size={20} />,
-            label: t('preview'),
-            onClick: () => setShowPreview(!showPreview),
-          },
-        ]}
-      />
     </div>
   );
 }

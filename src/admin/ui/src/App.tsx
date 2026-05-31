@@ -5,6 +5,7 @@ import { Sidebar } from './components/Sidebar';
 import { PostsSkeleton } from './components/Skeleton';
 import { SlotsContext, type SlotInfo } from './lib/slots';
 import { PreviewProvider } from './preview';
+import { FabContainer } from './fab';
 
 // 关键首屏页面保持 eager，Login 是非登录态的首屏、Setup 是首次安装
 import Login from './pages/Login';
@@ -71,6 +72,7 @@ function AdminLayout() {
           <Outlet />
         </Suspense>
       </main>
+      <FabContainer />
     </div>
   );
 }
