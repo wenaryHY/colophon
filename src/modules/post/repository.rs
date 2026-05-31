@@ -706,16 +706,12 @@ pub async fn delete_post(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error>
 /// Get page info for custom page rendering
 #[derive(Debug, Clone, FromRow)]
 pub struct PageCustomHtml {
-    #[allow(dead_code)]
     pub id: String,
-    #[allow(dead_code)]
     pub title: String,
     pub content_type: String,
     pub custom_html_path: Option<String>,
     pub page_render_mode: String,
-    #[allow(dead_code)]
     pub content_md: String,
-    #[allow(dead_code)]
     pub content_html: String,
     pub status: String,
     pub visibility: String,
