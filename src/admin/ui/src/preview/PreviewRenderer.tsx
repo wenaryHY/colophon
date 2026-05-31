@@ -539,7 +539,7 @@ function renderIframe({
       <iframe
         ref={iframeRef}
         srcDoc={html}
-        sandbox="allow-scripts allow-same-origin"
+        sandbox="allow-same-origin"
         onLoad={onLoad}
         style={{
           width: '100%',

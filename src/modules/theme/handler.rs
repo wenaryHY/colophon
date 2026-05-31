@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     extract::{Form, Multipart, Path, State},
@@ -490,6 +490,22 @@ pub async fn serve_plugin_static(
     }
 }
 
+/// 在 HTML 中注入 CSP meta 标签，用于 iframe srcdoc 场景
+/// HTTP CSP 响应头在 srcdoc 中不生效，必须通过 meta 标签传递
+#[allow(non_snake_case)]
+fn injectCspMetaTagIntoHtmlForSrcdocProtection(html: &str) -> String {
+    let csp_meta = format!(
+        "<meta http-equiv=\"Content-Security-Policy\" content=\"{}\">",
+        crate::shared::security::PREVIEW_CSP
+    );
+    if let Some(pos) = html.find("<html") {
+        let (before, after) = html.split_at(pos);
+        format!("{}{}{}", before, csp_meta, after)
+    } else {
+        format!("{}{}", csp_meta, html)
+    }
+}
+
 /// 裸 HTML 预览：纯 Markdown→HTML，不经过 MiniJinja 渲染
 pub async fn preview_content(
     State(_state): State<Arc<AppState>>,
@@ -503,9 +519,16 @@ pub async fn preview_content(
     if content.len() > 1_048_576 {
         return Err(AppError::BadRequest("content exceeds 1MB limit".into()));
     }
+    if !matches!(req.content_type.as_str(), "post" | "page") {
+        return Err(AppError::BadRequest(
+            "invalid content_type, must be 'post' or 'page'".into(),
+        ));
+    }
 
     let html = crate::modules::post::service::markdown_to_html(&content);
-    let mut response = Html(html).into_response();
+    // HTTP CSP 头在 iframe srcdoc 中不生效，通过 meta 标签注入 CSP
+    let secured_html = injectCspMetaTagIntoHtmlForSrcdocProtection(&html);
+    let mut response = Html(secured_html).into_response();
     crate::shared::security::mark_response_security_profile(
         &mut response,
         crate::shared::security::SECURITY_PROFILE_PREVIEW,
@@ -533,6 +556,9 @@ pub async fn preview_theme(
         )),
     };
 
+    // TODO(security): 添加预览端点的速率限制（每用户每分钟最多 30 次）
+    // 参考 src/shared/security.rs 中的 LoginRateLimiter 模式实现
+
     // Markdown → HTML
     let content_html = crate::modules::post::service::markdown_to_html(&content);
 
@@ -546,11 +572,21 @@ pub async fn preview_theme(
     }
 
     // 覆写主题配置（如果指定）
+    // 注意：theme_config 值在 MiniJinja 模板中自动转义。
+    // 主题作者不得对 theme_config 值使用 | safe 过滤器。
     if let Some(ref cfg_str) = req.theme_config {
-        if let Ok(cfg) = serde_json::from_str::<ThemeConfig>(cfg_str) {
-            // SAFETY: 对所有字符串值进行 HTML 转义，防止模板中 | safe 导致 XSS
-            let sanitized = sanitizeThemeConfigStringValuesForPreventTemplateInjection(&cfg);
-            ctx.theme_config = Some(sanitized);
+        match serde_json::from_str::<ThemeConfig>(cfg_str) {
+            Ok(cfg) => {
+                ctx.theme_config = Some(cfg);
+            }
+            Err(e) => {
+                tracing::warn!(
+                    module = "theme",
+                    event = "preview_theme_config_parse_failed",
+                    error = %e,
+                    "failed to parse theme_config, ignoring"
+                );
+            }
         }
     }
 
@@ -584,23 +620,56 @@ pub async fn preview_theme(
     } else {
         "post.html"
     };
-    let tmpl = env.get_template(template_name)
-        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
 
-    // 渲染
-    let rendered = tmpl.render(minijinja::context! {
-        post => fake_post,
-        seo_meta => "",
-        json_ld => "",
-        image => "",
-        comments => Vec::<()>::new(),
-        current_user => _admin.0,
-        plugins => serde_json::Value::Object(Default::default()),
-        post_excerpt => "",
-    })
-    .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
+    // 渲染（带超时保护，防止模板死循环）
+    // clone Environment 避免生命周期问题（内部 Arc 包装，开销很小）
+    let env_for_blocking = env.clone();
+    let template_name_owned = template_name.to_string();
+    let fake_current_user = crate::shared::auth::AuthUser {
+        id: "_preview_".into(),
+        username: "(Preview)".into(),
+        role: "admin".into(),
+    };
+    let rendered = match tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        tokio::task::spawn_blocking(move || {
+            let tmpl = env_for_blocking
+                .get_template(&template_name_owned)
+                .map_err(|e| anyhow::anyhow!("Template error: {}", e))?;
+            tmpl.render(minijinja::context! {
+                post => fake_post,
+                seo_meta => "",
+                json_ld => "",
+                image => "",
+                comments => Vec::<()>::new(),
+                current_user => fake_current_user,
+                plugins => serde_json::Value::Object(Default::default()),
+                post_excerpt => "",
+            })
+            .map_err(|e| anyhow::anyhow!("Render error: {}", e))
+        }),
+    )
+    .await
+    {
+        // timeout → JoinHandle → anyhow::Result
+        Ok(Ok(Ok(html))) => html,
+        Ok(Ok(Err(e))) => {
+            return Err(AppError::Anyhow(e));
+        }
+        Ok(Err(join_err)) => {
+            return Err(AppError::Anyhow(anyhow::anyhow!(
+                "Render spawn error: {}",
+                join_err
+            )));
+        }
+        Err(_elapsed) => {
+            return Err(AppError::Anyhow(anyhow::anyhow!("Preview render timeout")));
+        }
+    };
 
-    let mut response = Html(rendered).into_response();
+    // HTTP CSP 头在 iframe srcdoc 中不生效，通过 meta 标签注入 CSP
+    let secured_html = injectCspMetaTagIntoHtmlForSrcdocProtection(&rendered);
+    let mut response = Html(secured_html).into_response();
     crate::shared::security::mark_response_security_profile(
         &mut response,
         crate::shared::security::SECURITY_PROFILE_PREVIEW,
@@ -624,30 +693,6 @@ fn validateThemeSlugIsInstalledAndSafeForPreviewRendering(slug: &str, theme_dir:
     Ok(())
 }
 
-/// 递归转义 ThemeConfig 中所有字符串值的 HTML 特殊字符，防止模板注入
-#[allow(non_snake_case)]
-fn sanitizeThemeConfigStringValuesForPreventTemplateInjection(
-    config: &HashMap<String, serde_json::Value>
-) -> HashMap<String, serde_json::Value> {
-    config.iter().map(|(k, v)| {
-        let sanitized = match v {
-            serde_json::Value::String(s) => {
-                serde_json::Value::String(escapeHtmlSpecialCharacters(s))
-            }
-            other => other.clone(),
-        };
-        (k.clone(), sanitized)
-    }).collect()
-}
-
-#[allow(non_snake_case)]
-fn escapeHtmlSpecialCharacters(s: &str) -> String {
-    s.replace('&', "&amp;")
-     .replace('<', "&lt;")
-     .replace('>', "&gt;")
-     .replace('"', "&quot;")
-     .replace('\'', "&#x27;")
-}
 
 /// 新标签页预览页面（空壳 HTML + 内嵌 JS）
 pub async fn preview_page(
@@ -718,7 +763,11 @@ pub async fn preview_page(
             document.getElementById('loading').style.display = 'none';
             const preview = document.getElementById('preview');
             preview.style.display = 'block';
-            preview.innerHTML = html;
+            const iframe = document.createElement('iframe');
+            iframe.style.cssText = 'width:100%;height:100vh;border:none';
+            iframe.sandbox = 'allow-scripts';
+            iframe.srcdoc = html;
+            preview.appendChild(iframe);
         } catch (err) {
             document.getElementById('loading').style.display = 'none';
             const error = document.getElementById('error');

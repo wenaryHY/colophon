@@ -181,20 +181,13 @@ export function FabContainer() {
     }
   }, [position]);
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (dragRef.current) {
-        setFabRect(dragRef.current.getBoundingClientRect());
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // ==================== 响应式监听 ====================
+  // ==================== 响应式 & FAB 位置监听（合并 window.resize） ====================
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(isMobileView());
+      if (dragRef.current) {
+        setFabRect(dragRef.current.getBoundingClientRect());
+      }
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
