@@ -46,9 +46,6 @@ export default function PostEditor() {
   const [saving, setSaving] = useState(false);
   const [post, setPost] = useState<AdminPost | null>(null);
 
-  // 字数统计
-  const wordCountInfo = countWords(content);
-
   // 表单字段
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -61,6 +58,9 @@ export default function PostEditor() {
   const [pageEditMode, setPageEditMode] = useState<PageEditMode>('editor');
   const [customHtmlFile, setCustomHtmlFile] = useState<File | null>(null);
   const [draftRecovery, setDraftRecovery] = useState<DraftData | null>(null);
+
+  // 字数统计
+  const wordCountInfo = countWords(content);
 
   // 渲染模式选择弹窗
   const [renderModeChoice, setRenderModeChoice] = useState<RenderModeChoice | null>(null);
