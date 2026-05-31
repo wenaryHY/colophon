@@ -34,6 +34,9 @@ export const postsDict = {
 
     // 保存状态
     saved: '已保存',
+
+    // 实时预览
+    realtimePreview: '实时预览',
   },
   en: {
     // Page title
@@ -69,5 +72,8 @@ export const postsDict = {
 
     // Save status
     saved: 'Saved',
+
+    // Realtime preview
+    realtimePreview: 'Realtime Preview',
   },
 };

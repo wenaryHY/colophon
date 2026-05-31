@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Select } from '../components/Select';
+import { IconEye } from '../components/Icons';
 import { getThemeDetail, saveThemeConfig, activateTheme } from '../lib/api';
 import { getQueryClient } from '../lib/api';
 import type { ThemeConfigField } from '../types';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
+import { usePreview, PreviewRenderer } from '../preview';
+import { FabContainer } from '../fab';
 
 const sectionStyle: React.CSSProperties = {
   background: 'var(--md-surface-container-lowest)',
@@ -26,6 +29,10 @@ export default function ThemeDetail() {
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const [showPreview, setShowPreview] = useState(false);
+
+  // 预览上下文
+  const preview = usePreview();
 
   const { data: detail, isLoading } = useQuery({
     queryKey: ['theme-detail', slug],
@@ -36,6 +43,18 @@ export default function ThemeDetail() {
 
   // 当 detail 变化时初始化 formData
   const currentFormData = detail ? detail.config ?? {} : formData;
+
+  // 注册预览场景
+  useEffect(() => {
+    if (detail) {
+      preview.registerScene('theme-detail', {
+        getContent: () => JSON.stringify(currentFormData),
+        getContentType: () => 'json',
+        getTheme: () => slug ?? 'default',
+        getThemeConfig: () => currentFormData,
+      });
+    }
+  }, [detail, currentFormData, slug, preview.registerScene]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -90,7 +109,7 @@ export default function ThemeDetail() {
   const { manifest, schema } = detail;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
       <PageHeader
         title={manifest.name}
         subtitle={manifest.description}
@@ -110,60 +129,83 @@ export default function ThemeDetail() {
         }
       />
 
-      <section style={sectionStyle}>
-        <div style={{ padding: '20px 24px', background: 'var(--md-surface-container-low)' }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--md-on-surface)' }}>{t('themeInfo')}</div>
-        </div>
-        <div style={{ padding: '20px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>{t('identifierLabel')}</div>
-            <div style={{ fontSize: '14px', fontFamily: 'monospace', color: 'var(--md-on-surface)' }}>{manifest.slug}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>{t('versionLabel')}</div>
-            <div style={{ fontSize: '14px', color: 'var(--md-on-surface)' }}>v{manifest.version}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>{t('authorText')}</div>
-            <div style={{ fontSize: '14px', color: 'var(--md-on-surface)' }}>{manifest.author || t('unknown')}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>{t('minVersionText')}</div>
-            <div style={{ fontSize: '14px', color: 'var(--md-on-surface)' }}>{manifest.min_inkforge_version || t('undeclared')}</div>
-          </div>
-        </div>
-      </section>
+      <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0 }}>
+        {/* 左侧：主题信息 + 配置 */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
+          <section style={sectionStyle}>
+            <div style={{ padding: '20px 24px', background: 'var(--md-surface-container-low)' }}>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--md-on-surface)' }}>{t('themeInfo')}</div>
+            </div>
+            <div style={{ padding: '20px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+              <div>
+                <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>{t('identifierLabel')}</div>
+                <div style={{ fontSize: '14px', fontFamily: 'monospace', color: 'var(--md-on-surface)' }}>{manifest.slug}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>{t('versionLabel')}</div>
+                <div style={{ fontSize: '14px', color: 'var(--md-on-surface)' }}>v{manifest.version}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>{t('authorText')}</div>
+                <div style={{ fontSize: '14px', color: 'var(--md-on-surface)' }}>{manifest.author || t('unknown')}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>{t('minVersionText')}</div>
+                <div style={{ fontSize: '14px', color: 'var(--md-on-surface)' }}>{manifest.min_inkforge_version || t('undeclared')}</div>
+              </div>
+            </div>
+          </section>
 
-      {Object.keys(schema).length > 0 && (
-        <section style={sectionStyle}>
-          <div style={{ padding: '20px 24px', background: 'var(--md-surface-container-low)' }}>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--md-on-surface)' }}>{t('themeConfig')}</div>
-            <div style={{ fontSize: '12.5px', color: 'var(--md-outline)', marginTop: '4px' }}>
-              {t('themeConfigDesc')}
-            </div>
-          </div>
-          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {Object.entries(schema).map(([key, field]) => (
-              <ThemeConfigFieldInput
-                key={key}
-                field={field}
-                value={currentFormData[key]}
-                onChange={(val) => setFormData({ ...currentFormData, [key]: val })}
-                t={t}
-                format={format}
-              />
-            ))}
-            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-              <Button onClick={() => void handleSave()} loading={saving}>
-                {t('saveConfig')}
-              </Button>
-              <Button onClick={() => setFormData(detail.config)} variant="ghost">
-                {t('resetConfig')}
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
+          {Object.keys(schema).length > 0 && (
+            <section style={sectionStyle}>
+              <div style={{ padding: '20px 24px', background: 'var(--md-surface-container-low)' }}>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--md-on-surface)' }}>{t('themeConfig')}</div>
+                <div style={{ fontSize: '12.5px', color: 'var(--md-outline)', marginTop: '4px' }}>
+                  {t('themeConfigDesc')}
+                </div>
+              </div>
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {Object.entries(schema).map(([key, field]) => (
+                  <ThemeConfigFieldInput
+                    key={key}
+                    field={field}
+                    value={currentFormData[key]}
+                    onChange={(val) => setFormData({ ...currentFormData, [key]: val })}
+                    t={t}
+                    format={format}
+                  />
+                ))}
+                <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                  <Button onClick={() => void handleSave()} loading={saving}>
+                    {t('saveConfig')}
+                  </Button>
+                  <Button onClick={() => setFormData(detail.config)} variant="ghost">
+                    {t('resetConfig')}
+                  </Button>
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* 实时预览面板 */}
+        <PreviewRenderer
+          mode="inline"
+          visible={showPreview}
+        />
+      </div>
+
+      {/* FAB 浮动预览按钮 */}
+      <FabContainer
+        actions={[
+          {
+            id: 'preview',
+            icon: <IconEye size={20} />,
+            label: t('preview'),
+            onClick: () => setShowPreview(!showPreview),
+          },
+        ]}
+      />
     </div>
   );
 }

@@ -12,11 +12,13 @@ import { Select } from '../components/Select';
 import { Modal } from '../components/Modal';
 import { MarkdownEditor } from '../components/MarkdownEditor';
 import {
-  IconFileText, IconPlus, IconPencil, IconArrowLeft, IconCheck
+  IconFileText, IconPlus, IconPencil, IconArrowLeft, IconCheck, IconEye
 } from '../components/Icons';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
 import { useAutoSaveDraft, type DraftData } from '../hooks/useAutoSaveDraft';
+import { usePreview, PreviewRenderer } from '../preview';
+import { FabContainer } from '../fab';
 
 type PageEditMode = 'editor' | 'custom_html';
 
@@ -58,6 +60,18 @@ export default function PostEditor() {
   const [pageEditMode, setPageEditMode] = useState<PageEditMode>('editor');
   const [customHtmlFile, setCustomHtmlFile] = useState<File | null>(null);
   const [draftRecovery, setDraftRecovery] = useState<DraftData | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // 预览上下文
+  const preview = usePreview();
+
+  // 注册预览场景
+  useEffect(() => {
+    preview.registerScene('post-editor', {
+      getContent: () => content,
+      getContentType: () => 'markdown',
+    });
+  }, [content, preview.registerScene]);
 
   // 字数统计
   const wordCountInfo = countWords(content);
@@ -343,7 +357,7 @@ export default function PostEditor() {
       </div>
 
       {/* ── 编辑器主体 ── */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 260px', gap: '20px', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: showPreview ? '1fr 1fr 260px' : '1fr 260px', gap: '20px', minHeight: 0, transition: 'grid-template-columns 0.3s var(--ease-emphasized)' }}>
         {/* 左侧：标题 + 编辑器 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
           <Input
@@ -443,6 +457,12 @@ export default function PostEditor() {
             </div>
           )}
         </div>
+
+        {/* 实时预览面板 */}
+        <PreviewRenderer
+          mode="inline"
+          visible={showPreview}
+        />
 
         {/* 右侧：发布设置 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
@@ -630,6 +650,18 @@ export default function PostEditor() {
           </button>
         </div>
       </Modal>
+
+      {/* FAB 浮动预览按钮 */}
+      <FabContainer
+        actions={[
+          {
+            id: 'preview',
+            icon: <IconEye size={20} />,
+            label: t('realtimePreview'),
+            onClick: () => setShowPreview(!showPreview),
+          },
+        ]}
+      />
     </div>
   );
 }

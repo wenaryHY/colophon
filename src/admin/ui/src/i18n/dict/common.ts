@@ -76,6 +76,9 @@ export const commonDict = {
     // 恢复/丢弃草稿
     draftRecover: '恢复',
     draftDiscard: '丢弃',
+
+    // 预览
+    preview: '预览',
   },
   en: {
     // Actions
@@ -153,5 +156,8 @@ export const commonDict = {
     // Draft
     draftRecover: 'Recover',
     draftDiscard: 'Discard',
+
+    // Preview
+    preview: 'Preview',
   },
 };
