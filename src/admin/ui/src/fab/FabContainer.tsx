@@ -123,7 +123,7 @@ function MainButton({
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerUp: (e: React.PointerEvent) => void;
-  dragRef: React.RefObject<HTMLDivElement>;
+  dragRef: React.RefObject<HTMLDivElement | null>;
   onClick: () => void;
 }) {
   /** 处理点击：拖拽中禁止触发点击 */
