@@ -46,8 +46,8 @@ pub async fn list_for_sitemap(pool: &SqlitePool) -> Result<Vec<SitemapItem>, sql
     .await
 }
 
-/// FTS5 full-text search for posts
-/// Returns PublicPostSummary items matching the keyword, optionally filtered by category/tag
+/// FTS5 trigram search with LIKE fallback (trigram tokenizer handles CJK better than unicode61).
+/// Returns PublicPostSummary items matching the keyword, optionally filtered by category/tag.
 pub async fn search_posts(
     pool: &SqlitePool,
     keyword: &str,
@@ -56,38 +56,57 @@ pub async fn search_posts(
     limit: i64,
     offset: i64,
 ) -> Result<Vec<PublicPostSummary>, sqlx::Error> {
-    let fts_keyword = format!("\"{}\"", keyword.replace('"', "\"\""));
-    sqlx::query_as::<_, PublicPostSummary>(
-        "SELECT
-            p.id,
-            p.title,
-            p.slug,
-            p.excerpt,
-            p.content_type,
-            p.published_at,
-            p.created_at,
-            p.updated_at,
-            u.display_name AS author_display_name,
-            c.name AS category_name
+    // First: try FTS5 trigram
+    let fts_keyword = keyword.to_string();
+    let fts_results = sqlx::query_as::<_, PublicPostSummary>(
+        "SELECT p.id, p.title, p.slug, p.excerpt, p.content_type, p.published_at, p.created_at, p.updated_at,
+                u.display_name AS author_display_name, c.name AS category_name
          FROM posts p
          JOIN users u ON u.id = p.author_id
          LEFT JOIN categories c ON c.id = p.category_id
          JOIN posts_fts fts ON fts.rowid = p.rowid
-         WHERE p.status = 'published'
-           AND p.visibility = 'public'
-           AND p.deleted_at IS NULL
+         WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
            AND fts.posts_fts MATCH ?
            AND (? IS NULL OR p.category_id = ?)
-           AND (
-                ? IS NULL OR EXISTS (
-                    SELECT 1 FROM post_tags pt
-                    WHERE pt.post_id = p.id AND pt.tag_id = ?
-                )
-           )
+           AND (? IS NULL OR EXISTS (
+                    SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag_id = ?
+               ))
          ORDER BY bm25(posts_fts), p.pinned DESC, p.published_at DESC, p.created_at DESC
          LIMIT ? OFFSET ?",
     )
     .bind(&fts_keyword)
+    .bind(category_id)
+    .bind(category_id)
+    .bind(tag_id)
+    .bind(tag_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+
+    if !fts_results.is_empty() {
+        return Ok(fts_results);
+    }
+
+    // FTS5 no results → fallback to LIKE
+    let like_keyword = format!("%{}%", keyword);
+    sqlx::query_as::<_, PublicPostSummary>(
+        "SELECT p.id, p.title, p.slug, p.excerpt, p.content_type, p.published_at, p.created_at, p.updated_at,
+                u.display_name AS author_display_name, c.name AS category_name
+         FROM posts p
+         JOIN users u ON u.id = p.author_id
+         LEFT JOIN categories c ON c.id = p.category_id
+         WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
+           AND (p.title LIKE ? OR p.content_md LIKE ?)
+           AND (? IS NULL OR p.category_id = ?)
+           AND (? IS NULL OR EXISTS (
+                    SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag_id = ?
+               ))
+         ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
+         LIMIT ? OFFSET ?",
+    )
+    .bind(&like_keyword)
+    .bind(&like_keyword)
     .bind(category_id)
     .bind(category_id)
     .bind(tag_id)
@@ -104,24 +123,45 @@ pub async fn count_search_posts(
     category_id: Option<&str>,
     tag_id: Option<&str>,
 ) -> Result<i64, sqlx::Error> {
-    let fts_keyword = format!("\"{}\"", keyword.replace('"', "\"\""));
-    sqlx::query_scalar(
+    // First: try FTS5 trigram count
+    let fts_keyword = keyword.to_string();
+    let fts_count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*)
          FROM posts p
          JOIN posts_fts fts ON fts.rowid = p.rowid
-         WHERE p.status = 'published'
-           AND p.visibility = 'public'
-           AND p.deleted_at IS NULL
+         WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
            AND fts.posts_fts MATCH ?
            AND (? IS NULL OR p.category_id = ?)
-           AND (
-                ? IS NULL OR EXISTS (
-                    SELECT 1 FROM post_tags pt
-                    WHERE pt.post_id = p.id AND pt.tag_id = ?
-                )
-           )",
+           AND (? IS NULL OR EXISTS (
+                    SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag_id = ?
+               ))",
     )
     .bind(&fts_keyword)
+    .bind(category_id)
+    .bind(category_id)
+    .bind(tag_id)
+    .bind(tag_id)
+    .fetch_one(pool)
+    .await?;
+
+    if fts_count > 0 {
+        return Ok(fts_count);
+    }
+
+    // FTS5 no results → fallback to LIKE
+    let like_keyword = format!("%{}%", keyword);
+    sqlx::query_scalar(
+        "SELECT COUNT(*)
+         FROM posts p
+         WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
+           AND (p.title LIKE ? OR p.content_md LIKE ?)
+           AND (? IS NULL OR p.category_id = ?)
+           AND (? IS NULL OR EXISTS (
+                    SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag_id = ?
+               ))",
+    )
+    .bind(&like_keyword)
+    .bind(&like_keyword)
     .bind(category_id)
     .bind(category_id)
     .bind(tag_id)
