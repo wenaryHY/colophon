@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/static/themes/default/logo-icon.svg">
+<link rel="apple-touch-icon" href="/static/themes/default/logo-icon.svg">
 <title>{{ seo_meta.title }}</title>
 <meta name="description" content="{{ seo_meta.description }}">
 {% if seo_meta.keywords %}<meta name="keywords" content="{{ seo_meta.keywords }}">{% endif %}
@@ -55,6 +57,8 @@ a{color:inherit;text-decoration:none}
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text
 }
 .site-desc{font-size:17px;color:var(--muted);margin:0;font-weight:400;max-width:540px;line-height:1.7}
+.nav-logo{display:inline-flex;align-items:center;margin-right:12px}
+.nav-logo img{height:28px;width:auto}
 
 /* Search Bar */
 .search-bar{
@@ -218,6 +222,9 @@ a{color:inherit;text-decoration:none}
 <div class="wrap">
   <!-- Header -->
   <header class="site-header">
+    <a href="/" class="nav-logo">
+      <img src="/static/themes/default/logo.svg" alt="InkForge" style="height: 28px;">
+    </a>
     <div>
       {% if current_user %}
       <a href="/profile" class="admin-link">个人中心</a>

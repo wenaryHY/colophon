@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/static/themes/default/logo-icon.svg">
+<link rel="apple-touch-icon" href="/static/themes/default/logo-icon.svg">
 <title>{{ seo_meta.title }}</title>
 <meta name="description" content="{{ seo_meta.description }}">
 {% if seo_meta.keywords %}<meta name="keywords" content="{{ seo_meta.keywords }}">{% endif %}
@@ -53,6 +55,8 @@ a{color:var(--accent);text-decoration:none}
   background:var(--text);transition:all 0.2s ease
 }
 .nav-admin:hover{background:var(--accent)}
+.nav-logo{display:inline-flex;align-items:center;margin-right:12px}
+.nav-logo img{height:28px;width:auto}
 
 /* Article Card */
 .article-card{
@@ -216,6 +220,9 @@ a{color:var(--accent);text-decoration:none}
 <div class="wrap">
   <!-- Nav -->
   <nav class="site-nav">
+    <a href="/" class="nav-logo">
+      <img src="/static/themes/default/logo.svg" alt="InkForge" style="height: 28px;">
+    </a>
     <a href="/" class="nav-back">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
       返回首页

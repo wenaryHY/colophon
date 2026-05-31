@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 100" width="100%" height="100%">
+  <defs>
+    <!-- 1. MD3 规范调色板 & 像素渐变 -->
+    <linearGradient id="inkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#818CF8" /> <!-- 浅靛蓝 -->
+      <stop offset="100%" stop-color="#4F46E5" /> <!-- 深邃的墨水紫 -->
+    </linearGradient>
+
+    <linearGradient id="forgeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#49454F" /> <!-- MD3 Slate 铁砧灰 -->
+      <stop offset="100%" stop-color="#1C1B1F" /> <!-- MD3 沉稳黑 -->
+    </linearGradient>
+
+    <!-- 2. 像素火花发光滤镜 -->
+    <filter id="pixelGlow">
+      <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#FFB400" flood-opacity="0.8" />
+    </filter>
+  </defs>
+
+  <!-- === 1. 硬核像素 ICON === -->
+  <g transform="translate(12, 24) scale(4)">
+    
+    <!-- 巧妙元素 A：像素锻造法阵 (Pixel Forge Aura/Rune Base) -->
+    <!-- 调低了不透明度 (0.9 -> 0.5)，使其退居幕后成为轻量的衬底，不再抢夺主体的视觉焦点 -->
+    <g id="magic-aura">
+      <!-- 虚空暗盘基底 -->
+      <path d="
+        M 6,-8 h4 v1 h-4 z
+        M 4,-7 h8 v1 h-8 z
+        M 3,-6 h10 v2 h-10 z
+        M 2,-4 h12 v2 h-12 z
+        M 1,-2 h14 v9 h-14 z
+        M 2,7 h12 v2 h-12 z
+        M 3,9 h10 v2 h-10 z
+        M 4,11 h8 v1 h-8 z
+        M 6,12 h4 v1 h-4 z
+      " fill="#0F172A" opacity="0.5" />
+      <!-- 法阵内圈微光纹路 -->
+      <path d="
+        M 7,-6 h2 v1 h-2 z
+        M 4,-3 h1 v2 h-1 z
+        M 11,-3 h1 v2 h-1 z
+        M 3,1 h1 v4 h-1 z
+        M 12,1 h1 v4 h-1 z
+        M 4,6 h1 v2 h-1 z
+        M 11,6 h1 v2 h-1 z
+        M 7,10 h2 v1 h-2 z
+      " fill="#4F46E5" opacity="0.4" />
+      <!-- 发光的魔法节点 -->
+      <path d="
+        M 7,-7 h2 v1 h-2 z
+        M 2,-2 h1 v1 h-1 z
+        M 13,-2 h1 v1 h-1 z
+        M 2,7 h1 v1 h-1 z
+        M 13,7 h1 v1 h-1 z
+        M 7,11 h2 v1 h-2 z
+      " fill="#818CF8" opacity="0.7" />
+    </g>
+
+    <!-- A. 像素羽毛笔 (Pixel Feather Quill) -->
+    <path d="M7,1 h1v1h-1z M8,0 h1v1h-1z M9,-1 h1v1h-1z M10,-2 h1v1h-1z M11,-3 h1v1h-1z M12,-4 h1v1h-1z M13,-5 h1v1h-1z" fill="#FDE047" />
+    <path d="M7,0 h1v1h-1z M8,-2 h1v2h-1z M9,-3 h1v2h-1z M10,-4 h1v2h-1z M11,-5 h1v2h-1z M12,-6 h1v2h-1z" fill="#F8FAFC" />
+    <path d="M9,1 h1v1h-1z M10,0 h1v2h-1z M11,-1 h1v2h-1z M12,-2 h1v2h-1z M13,-3 h1v2h-1z" fill="#CBD5E1" />
+
+    <!-- B. 三角方锥墨水瓶 (Pyramid Ink Flask) -->
+    <path d="
+      M 6,2 h4v1h-4z
+      M 7,3 h2v1h-2z
+      M 7,4 h2v1h-2z
+      M 6,5 h4v1h-4z
+      M 6,6 h4v1h-4z
+      M 5,7 h6v1h-6z
+      M 5,8 h6v1h-6z
+      M 4,9 h8v1h-8z
+    " fill="url(#inkGrad)" />
+    <!-- 高光反光 -->
+    <path d="M 5,7 h2v1h-2z M 6,5 h1v2h-1z M 7,3 h1v2h-1z" fill="#C7D2FE" opacity="0.8" />
+
+    <!-- C. 像素铁砧 (Forge) -->
+    <path d="
+      M 5,10 h6v1h-6z
+      M 2,11 h12v1h-12z
+      M 1,12 h14v1h-14z
+      M 6,13 h4v1h-4z
+      M 5,14 h6v1h-6z
+      M 4,15 h8v1h-8z
+      M 2,16 h12v1h-12z
+    " fill="url(#forgeGrad)" />
+    <path d="M 5,10 h4v1h-4z M 2,11 h2v1h-2z M 1,12 h2v1h-2z" fill="#CAC4D0" opacity="0.4" />
+
+    <!-- D. 锻造/魔法的像素火花 (Sparks) -->
+    <path d="M 1,8 h1v1h-1z M 14,9 h1v1h-1z M 2,13 h1v1h-1z M 15,14 h1v1h-1z" fill="#FFB400" filter="url(#pixelGlow)" />
+  </g>
+
+  <!-- === 2. TEXT 'ink'：巨大化 8-bit 方块字 === -->
+  <!-- 减负处理：将深渊色阴影从 (90,30) 收缩到 (87,27)，降低透明度，使其变成利落的描边感投影 -->
+  <g transform="translate(87, 27) scale(5)" fill="#0F172A" opacity="0.4">
+    <path d="M 0,0 h2v2h-2z M 0,3 h2v5h-2z M 0,9 h2v2h-2z" />
+    <path d="M 3,3 h2v5h-2z M 5,3 h2v2h-2z M 7,3 h2v5h-2z" />
+    <path d="M 10,0 h2v8h-2z M 12,4 h2v2h-2z M 14,2 h2v2h-2z M 14,6 h2v2h-2z M 14,9 h2v2h-2z M 18,6 h2v2h-2z" />
+  </g>
+  <!-- ink 字体顶层 -->
+  <g transform="translate(85, 25) scale(5)" fill="url(#inkGrad)">
+    <path d="M 0,0 h2v2h-2z M 0,3 h2v5h-2z M 0,9 h2v2h-2z" />
+    <path d="M 3,3 h2v5h-2z M 5,3 h2v2h-2z M 7,3 h2v5h-2z" />
+    <path d="M 10,0 h2v8h-2z M 12,4 h2v2h-2z M 14,2 h2v2h-2z M 14,6 h2v2h-2z M 14,9 h2v2h-2z M 18,6 h2v2h-2z" />
+  </g>
+
+  <!-- === 3. TEXT 'FORGE'：纯硬核像素形态 === -->
+  <!-- 减负处理：将浅色底座阴影从 (191,36) 收缩到 (187,32)，降低透明度。保留镂空底色，但消除笨重感 -->
+  <g transform="translate(187, 32) scale(6)" fill="#64748B" opacity="0.5">
+    <path d="M0,0 h4v1h-4z M0,1 h1v1h-1z M0,2 h3v1h-3z M0,3 h1v1h-1z M0,4 h1v1h-1z" />
+    <path d="M6,0 h2v1h-2z M5,1 h1v1h-1z M8,1 h1v1h-1z M5,2 h1v1h-1z M8,2 h1v1h-1z M5,3 h1v1h-1z M8,3 h1v1h-1z M6,4 h2v1h-2z" />
+    <path d="M10,0 h3v1h-3z M10,1 h1v1h-1z M13,1 h1v1h-1z M10,2 h3v1h-3z M10,3 h1v1h-1z M12,3 h1v1h-1z M10,4 h1v1h-1z M13,4 h1v1h-1z" />
+    <path d="M16,0 h3v1h-3z M15,1 h1v1h-1z M15,2 h1v1h-1z M17,2 h2v1h-2z M15,3 h1v1h-1z M18,3 h1v1h-1z M16,4 h3v1h-3z" />
+    <path d="M20,0 h4v1h-4z M20,1 h1v1h-1z M20,2 h3v1h-3z M20,3 h1v1h-1z M20,4 h4v1h-4z" />
+    <path d="M-1,5.5 h26 v0.8 h-26 z" />
+    <rect x="25" y="0" width="0.8" height="0.8" />
+    <rect x="-2" y="4" width="0.8" height="0.8" />
+  </g>
+  <!-- FORGE 字体顶层 -->
+  <g transform="translate(185, 30) scale(6)" fill="url(#forgeGrad)">
+    <path d="M0,0 h4v1h-4z M0,1 h1v1h-1z M0,2 h3v1h-3z M0,3 h1v1h-1z M0,4 h1v1h-1z" />
+    <path d="M6,0 h2v1h-2z M5,1 h1v1h-1z M8,1 h1v1h-1z M5,2 h1v1h-1z M8,2 h1v1h-1z M5,3 h1v1h-1z M8,3 h1v1h-1z M6,4 h2v1h-2z" />
+    <path d="M10,0 h3v1h-3z M10,1 h1v1h-1z M13,1 h1v1h-1z M10,2 h3v1h-3z M10,3 h1v1h-1z M12,3 h1v1h-1z M10,4 h1v1h-1z M13,4 h1v1h-1z" />
+    <path d="M16,0 h3v1h-3z M15,1 h1v1h-1z M15,2 h1v1h-1z M17,2 h2v1h-2z M15,3 h1v1h-1z M18,3 h1v1h-1z M16,4 h3v1h-3z" />
+    <path d="M20,0 h4v1h-4z M20,1 h1v1h-1z M20,2 h3v1h-3z M20,3 h1v1h-1z M20,4 h4v1h-4z" />
+    <path d="M-1,5.5 h26 v0.8 h-26 z" fill="#1C1B1F" />
+    <rect x="25" y="0" width="0.8" height="0.8" fill="#FFB400" />
+    <rect x="-2" y="4" width="0.8" height="0.8" fill="#FFB400" />
+  </g>
+</svg>
