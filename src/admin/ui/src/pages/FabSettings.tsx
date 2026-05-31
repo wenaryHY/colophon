@@ -5,8 +5,9 @@
  * - 基础设置：启用/禁用 FAB、可拖拽、自动吸附边缘、滚动时自动隐藏
  * - 操作项管理：查看、排序（上下箭头）、添加、编辑、删除自定义操作
  * - 数据持久化：localStorage 存储，支持恢复默认配置
+ * - FAB 已关闭时可在此重新打开
  */
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -14,96 +15,13 @@ import { Select } from '../components/Select';
 import { Modal } from '../components/Modal';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
-
-// ==================== 类型定义 ====================
-
-/** FAB 操作项配置 */
-interface FabAction {
-  /** 唯一标识 */
-  id: string;
-  /** 操作类型：内置预览 or 自定义 */
-  type: 'preview' | 'custom';
-  /** 图标（Emoji 字符串） */
-  icon: string;
-  /** 操作名称 */
-  label: string;
-  /** 是否启用 */
-  enabled: boolean;
-  /** 排序序号（越小越靠前） */
-  order: number;
-  /** 自定义操作的执行配置 */
-  action?: {
-    /** 执行类型：打开 URL / 运行脚本 / 触发事件 */
-    type: 'url' | 'script' | 'event';
-    /** 执行值（URL 地址 / 脚本内容 / 事件名称） */
-    value: string;
-  };
-}
-
-/** FAB 全局配置 */
-interface FabConfig {
-  /** 是否启用 FAB */
-  enabled: boolean;
-  /** 是否可拖拽 */
-  draggable: boolean;
-  /** 自动吸附边缘 */
-  snapToEdge: boolean;
-  /** 滚动时自动隐藏 */
-  autoHide: boolean;
-  /** 操作项列表 */
-  actions: FabAction[];
-}
-
-// ==================== 常量 ====================
-
-/** localStorage 存储键 */
-const STORAGE_KEY = 'fab-config';
-
-/** 默认配置 */
-const DEFAULT_CONFIG: FabConfig = {
-  enabled: true,
-  draggable: true,
-  snapToEdge: true,
-  autoHide: false,
-  actions: [
-    {
-      id: 'preview',
-      type: 'preview',
-      icon: '👁',
-      label: '实时预览',
-      enabled: true,
-      order: 0,
-    },
-  ],
-};
-
-// ==================== 工具函数 ====================
-
-/** 从 localStorage 加载配置，失败或缺失时返回默认配置 */
-function loadConfig(): FabConfig {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_CONFIG;
-    const parsed = JSON.parse(raw) as Partial<FabConfig>;
-    // 合并默认值，防止旧版本缺少新字段
-    return {
-      ...DEFAULT_CONFIG,
-      ...parsed,
-      actions: parsed.actions ?? DEFAULT_CONFIG.actions,
-    };
-  } catch {
-    return DEFAULT_CONFIG;
-  }
-}
-
-/** 将配置持久化到 localStorage */
-function saveConfig(config: FabConfig): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-  } catch (error) {
-    console.error('Failed to save FAB config:', error);
-  }
-}
+import {
+  loadFabConfig,
+  saveFabConfig,
+  DEFAULT_FAB_CONFIG,
+  type FabConfig,
+  type FabAction,
+} from '../fab/FabConfigStorage';
 
 /** 生成唯一 ID */
 function generateId(): string {
@@ -375,7 +293,7 @@ export default function FabSettings() {
   const { t } = useI18n();
 
   // ---- 配置状态 ----
-  const [config, setConfig] = useState<FabConfig>(() => loadConfig());
+  const [config, setConfig] = useState<FabConfig>(() => loadFabConfig());
 
   // ---- Modal 状态 ----
   const [modalOpen, setModalOpen] = useState(false);
@@ -387,6 +305,17 @@ export default function FabSettings() {
   const [formActionType, setFormActionType] = useState<'url' | 'script' | 'event'>('url');
   const [formActionValue, setFormActionValue] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const [fabHidden, setFabHidden] = useState(
+    () => localStorage.getItem('fab-hidden') === 'true',
+  );
+
+  useEffect(() => {
+    const handler = () =>
+      setFabHidden(localStorage.getItem('fab-hidden') === 'true');
+    window.addEventListener('fab-visibility-change', handler);
+    return () => window.removeEventListener('fab-visibility-change', handler);
+  }, []);
 
   // ---- 按 order 排序后的操作项 ----
   const sortedActions = useMemo(
@@ -515,15 +444,22 @@ export default function FabSettings() {
 
   /** 保存配置到 localStorage */
   const handleSave = useCallback(() => {
-    saveConfig(config);
+    saveFabConfig(config);
     toast('FAB 配置已保存', 'success');
   }, [config, toast]);
 
   /** 恢复默认配置 */
   const handleRestoreDefaults = useCallback(() => {
-    setConfig(DEFAULT_CONFIG);
-    saveConfig(DEFAULT_CONFIG);
+    setConfig(DEFAULT_FAB_CONFIG);
+    saveFabConfig(DEFAULT_FAB_CONFIG);
     toast('已恢复默认配置', 'success');
+  }, [toast]);
+
+  /** 重新打开 FAB（清除隐藏标记） */
+  const handleReopenFab = useCallback(() => {
+    localStorage.removeItem('fab-hidden');
+    window.dispatchEvent(new Event('fab-visibility-change'));
+    toast('FAB 已重新打开', 'success');
   }, [toast]);
 
   // ==================== Modal 标题 ====================
@@ -545,6 +481,29 @@ export default function FabSettings() {
           </div>
         }
       />
+
+      {/* FAB 已关闭提示 */}
+      {fabHidden && (
+        <div style={sectionStyle}>
+          <div style={{
+            ...secBodyStyle,
+            alignItems: 'center',
+            textAlign: 'center',
+            gap: '12px',
+          }}>
+            <p style={{
+              fontSize: '14px',
+              color: 'var(--md-on-surface-variant)',
+              margin: 0,
+            }}>
+              {t('fabClosedHint')}
+            </p>
+            <Button onClick={handleReopenFab}>
+              {t('fabEnable')}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ── 基础设置 ── */}
       <div style={sectionStyle}>

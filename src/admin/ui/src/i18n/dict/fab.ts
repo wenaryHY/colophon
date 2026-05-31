@@ -21,6 +21,16 @@ export const fabDict = {
     fabActionTypeScript: '运行脚本',
     fabActionTypeEvent: '触发事件',
     fabActionValue: '执行值',
+
+    // 关闭 / 恢复
+    closeFab: '关闭 FAB',
+    fabClosedHint: 'FAB 已关闭，可在设置中重新打开',
+
+    // 操作管理
+    addAction: '添加新操作',
+    editAction: '编辑操作',
+    deleteAction: '删除操作',
+    resetDefault: '恢复默认',
   },
   en: {
     // Page title
@@ -43,5 +53,15 @@ export const fabDict = {
     fabActionTypeScript: 'Run Script',
     fabActionTypeEvent: 'Trigger Event',
     fabActionValue: 'Value',
+
+    // Close / Restore
+    closeFab: 'Close FAB',
+    fabClosedHint: 'FAB closed, reopen in settings',
+
+    // Action Management
+    addAction: 'Add Action',
+    editAction: 'Edit Action',
+    deleteAction: 'Delete Action',
+    resetDefault: 'Reset to Default',
   },
 };

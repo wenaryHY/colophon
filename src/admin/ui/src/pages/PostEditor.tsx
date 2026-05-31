@@ -67,13 +67,25 @@ export default function PostEditor() {
   const contentRef = useRef(content);
   contentRef.current = content;
 
+  // 用 ref 保持 pageEditMode，getRequestParams 中判断是否自定义HTML模式
+  const pageEditModeRef = useRef(pageEditMode);
+  pageEditModeRef.current = pageEditMode;
+
   // 注册预览场景
   useEffect(() => {
     preview.registerScene('post-editor', {
-      getRequestParams: () => ({
-        content: contentRef.current,
-        content_type: contentType,
-      }),
+      getRequestParams: () => {
+        let previewContent = contentRef.current;
+        // 页面自定义HTML模式：Markdown编辑器被隐藏，content为空串会导致后端校验失败
+        // 此时提供一个提示文本作为预览内容
+        if (!previewContent && contentType === 'page' && pageEditModeRef.current === 'custom_html') {
+          previewContent = '# 自定义HTML页面预览\n\n当前页面使用自定义HTML模式渲染，预览功能暂不支持自定义HTML。';
+        }
+        return {
+          content: previewContent,
+          content_type: contentType,
+        };
+      },
     });
     return () => preview.unregisterScene();
   }, [contentType, preview.registerScene]);
