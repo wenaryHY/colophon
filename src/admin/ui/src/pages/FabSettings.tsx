@@ -98,7 +98,11 @@ function loadConfig(): FabConfig {
 
 /** 将配置持久化到 localStorage */
 function saveConfig(config: FabConfig): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  } catch (error) {
+    console.error('Failed to save FAB config:', error);
+  }
 }
 
 /** 生成唯一 ID */

@@ -179,15 +179,15 @@ export function PreviewRenderer({
   useEffect(() => {
     if (mode !== 'new-tab' || !visible) return;
 
-    // 在新标签页中打开预览
-    const params = new URLSearchParams({
+    const previewData = {
       content,
       contentType,
       theme,
-      themeConfig: JSON.stringify(themeConfig),
-    });
-    const previewFullUrl = `${window.location.origin}/preview?${params.toString()}`;
-    window.open(previewFullUrl, '_blank');
+      themeConfig,
+    };
+    
+    sessionStorage.setItem('inkforge-preview-data', JSON.stringify(previewData));
+    window.open('/preview', '_blank');
 
     // 打开后自动关闭（如果提供了 onClose）
     onClose?.();
@@ -237,7 +237,8 @@ export function PreviewRenderer({
                 left: 0,
                 right: 0,
                 height: '3px',
-                background: 'var(--md-primary)',
+                background: 'linear-gradient(90deg, var(--md-primary) 25%, var(--md-primary-container) 50%, var(--md-primary) 75%)',
+                backgroundSize: '200% 100%',
                 zIndex: 10,
                 animation: 'shimmer 1.5s ease-in-out infinite',
               }}
@@ -308,7 +309,8 @@ export function PreviewRenderer({
             left: 0,
             right: 0,
             height: '3px',
-            background: 'var(--md-primary)',
+            background: 'linear-gradient(90deg, var(--md-primary) 25%, var(--md-primary-container) 50%, var(--md-primary) 75%)',
+            backgroundSize: '200% 100%',
             zIndex: 10,
             animation: 'shimmer 1.5s ease-in-out infinite',
           }}

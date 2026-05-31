@@ -17,7 +17,7 @@ import {
 // ==================== 类型定义 ====================
 
 /** 内容类型 */
-export type ContentType = 'markdown' | 'html' | 'zip';
+export type ContentType = 'markdown' | 'html' | 'zip' | 'json';
 
 /** 设备类型 */
 export type DeviceType = 'desktop' | 'tablet' | 'mobile';
@@ -349,26 +349,21 @@ export function PreviewProvider({ children }: { children: ReactNode }) {
 
   /** 在新标签页中打开预览 */
   const openInNewTab = useCallback(() => {
-    // 将内容编码到 URL 参数中打开新标签页
-    const params = new URLSearchParams({
-      content: content,
-      contentType: contentType,
-      theme: theme,
-      device: device,
-      zoom: String(zoom),
-    });
-
-    // 如果有主题配置，序列化后加入
-    if (Object.keys(themeConfig).length > 0) {
-      try {
-        params.set('themeConfig', JSON.stringify(themeConfig));
-      } catch {
-        // ignore 序列化失败
-      }
-    }
-
-    // 构造预览 URL（假设存在 /preview 路由）
-    const previewUrl = `/preview?${params.toString()}`;
+    // 使用 sessionStorage 传递内容，避免 URL 参数泄露
+    const previewData = {
+      content,
+      contentType,
+      theme,
+      themeConfig,
+      device,
+      zoom,
+    };
+    
+    // 存储到 sessionStorage
+    sessionStorage.setItem('inkforge-preview-data', JSON.stringify(previewData));
+    
+    // 打开预览页面（从 sessionStorage 读取数据）
+    const previewUrl = '/preview';
     window.open(previewUrl, '_blank');
   }, [content, contentType, theme, themeConfig, device, zoom]);
 
