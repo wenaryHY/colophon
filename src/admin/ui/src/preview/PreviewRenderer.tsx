@@ -91,6 +91,11 @@ function usePreviewFetch(
           formData.append('content_type', params.content_type);
           endpoint = '/api/v1/preview/content';
         } else if (mode === 'theme' && themeParams) {
+          // 始终发送 content（后端 preview_theme handler 要求 content 必填）
+          if (params) {
+            formData.append('content', params.content);
+            formData.append('content_type', params.content_type);
+          }
           formData.append('theme_slug', themeParams.theme_slug);
           if (themeParams.theme_config) {
             formData.append('theme_config', themeParams.theme_config);
