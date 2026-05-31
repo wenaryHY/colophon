@@ -196,6 +196,8 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
   const [isDragging, setIsDragging] = useState(false);
 
   // ---- Ref ----
+  // 拖拽进行中的标志（用 ref 避免闭包陈旧问题）
+  const isDraggingRef = useRef(false);
   const dragRef = useRef<HTMLDivElement>(null);
   const hasMovedRef = useRef(false);
 
@@ -240,7 +242,11 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
       state.startClientY = e.clientY;
 
       hasMovedRef.current = false;
+      isDraggingRef.current = true;
       setIsDragging(true);
+      // 初始化 latestX/Y 为当前位置，防止未 move 就 up 时闪现 (0,0)
+      state.latestX = position.x;
+      state.latestY = position.y;
       onDragStart?.();
 
       // 捕获指针，后续 move/up 事件即使离开元素也会触发
@@ -259,7 +265,7 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
    */
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!isDragging) return;
+      if (!isDraggingRef.current) return;
 
       const state = dragStateRef.current;
 
@@ -293,7 +299,7 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
 
       e.preventDefault();
     },
-    [isDragging, elementWidth, elementHeight]
+    [elementWidth, elementHeight]
   );
 
   /**
@@ -304,7 +310,7 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
    */
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
-      if (!isDragging) return;
+      if (!isDraggingRef.current) return;
 
       const state = dragStateRef.current;
 
@@ -314,9 +320,9 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
         state.rafId = 0;
       }
 
-      // 最终位置
-      let finalX = state.latestX;
-      let finalY = state.latestY;
+      // 最终位置，兜底用当前位置防止未发生 move 就 up 时闪现 (0,0)
+      let finalX = state.latestX ?? position.x;
+      let finalY = state.latestY ?? position.y;
 
       // 磁性吸附：靠近边缘时自动吸附
       if (enableSnap) {
@@ -333,6 +339,7 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
       // 更新状态并持久化
       setPosition({ x: finalX, y: finalY });
       savePosition(id, { x: finalX, y: finalY });
+      isDraggingRef.current = false;
       setIsDragging(false);
 
       // 只在真正移动后才触发 onDragEnd 回调
@@ -342,7 +349,7 @@ export function useDraggable(options: UseDraggableOptions): UseDraggableReturn {
 
       e.preventDefault();
     },
-    [isDragging, id, elementWidth, elementHeight, enableSnap, snapThreshold, onDragEnd]
+    [position, id, elementWidth, elementHeight, enableSnap, snapThreshold, onDragEnd]
   );
 
   // ---- 清理 rAF ----

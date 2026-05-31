@@ -25,7 +25,7 @@ use super::{
     repository,
 };
 
-fn markdown_to_html(markdown: &str) -> String {
+pub fn markdown_to_html(markdown: &str) -> String {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_STRIKETHROUGH);

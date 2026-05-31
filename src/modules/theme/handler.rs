@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Multipart, Path, State},
+    extract::{Form, Multipart, Path, State},
     http::{header, HeaderMap, StatusCode},
     response::{Html, IntoResponse, Redirect, Response},
     Json,
@@ -17,7 +17,7 @@ use crate::{
 };
 
 use crate::modules::plugin::hook::{HookContext, HookData, PostBeforeRenderData};
-use super::{context::TemplateContext, domain::ThemeSummary, engine, service::ThemeService};
+use super::{context::TemplateContext, domain::ThemeSummary, engine, service::ThemeService, ThemeConfig};
 
 pub async fn active_theme(
     State(state): State<Arc<AppState>>,
@@ -488,4 +488,105 @@ pub async fn serve_plugin_static(
         Ok(d) => ([(header::CONTENT_TYPE, mime)], d).into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
     }
+}
+
+/// 裸 HTML 预览：纯 Markdown→HTML，不经过 MiniJinja 渲染
+pub async fn preview_content(
+    State(_state): State<Arc<AppState>>,
+    _admin: AdminUser,
+    Form(req): Form<super::dto::PreviewContentRequest>,
+) -> Result<Html<String>, AppError> {
+    let content = req.content.trim().to_string();
+    if content.is_empty() {
+        return Err(AppError::BadRequest("content must not be empty".into()));
+    }
+    if content.len() > 1_048_576 {
+        return Err(AppError::BadRequest("content exceeds 1MB limit".into()));
+    }
+
+    let html = crate::modules::post::service::markdown_to_html(&content);
+    Ok(Html(html))
+}
+
+/// 主题渲染预览：Markdown→HTML→MiniJinja 渲染为完整的主题页面
+pub async fn preview_theme(
+    State(state): State<Arc<AppState>>,
+    _admin: AdminUser,
+    Form(req): Form<super::dto::PreviewThemeRequest>,
+) -> Result<Html<String>, AppError> {
+    let content = req.content.trim().to_string();
+    if content.is_empty() {
+        return Err(AppError::BadRequest("content must not be empty".into()));
+    }
+    if content.len() > 1_048_576 {
+        return Err(AppError::BadRequest("content exceeds 1MB limit".into()));
+    }
+    let content_type = match req.content_type.as_str() {
+        "post" | "page" => req.content_type.clone(),
+        other => return Err(AppError::BadRequest(
+            format!("invalid content_type '{}', must be 'post' or 'page'", other)
+        )),
+    };
+
+    // Markdown → HTML
+    let content_html = crate::modules::post::service::markdown_to_html(&content);
+
+    // 加载 TemplateContext
+    let mut ctx = TemplateContext::load(&state).await?;
+
+    // 覆写主题 slug（如果指定）
+    if let Some(ref slug) = req.theme_slug {
+        ctx.active_theme = slug.clone();
+    }
+
+    // 覆写主题配置（如果指定）
+    if let Some(ref cfg_str) = req.theme_config {
+        if let Ok(cfg) = serde_json::from_str::<ThemeConfig>(cfg_str) {
+            ctx.theme_config = Some(cfg);
+        }
+    }
+
+    // 构造虚拟 post（不存库）
+    let now = chrono::Utc::now().to_rfc3339();
+    let fake_post = crate::modules::post::domain::PublicPostDetail {
+        id: "_preview_".into(),
+        title: "(Preview)".into(),
+        slug: "_preview_".into(),
+        excerpt: None,
+        content_html,
+        content_type: content_type.clone(),
+        allow_comment: 0,
+        published_at: None,
+        created_at: now.clone(),
+        updated_at: now,
+        author_display_name: "(Preview)".into(),
+        category_name: None,
+        cover_media_id: None,
+    };
+
+    // 构建模板引擎
+    let plugin_guard = state.plugin_manager.read().await;
+    let env = engine::build_template_engine(
+        &ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache
+    ).await?;
+
+    // 选择模板
+    let template_name = if content_type == "page" { "page.html" } else { "post.html" };
+    let tmpl = env.get_template(template_name)
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
+
+    // 渲染
+    let rendered = tmpl.render(minijinja::context! {
+        post => fake_post,
+        seo_meta => "",
+        json_ld => "",
+        image => "",
+        comments => Vec::<()>::new(),
+        current_user => _admin.0,
+        plugins => serde_json::Value::Object(Default::default()),
+        post_excerpt => "",
+    })
+    .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
+
+    Ok(Html(rendered))
 }

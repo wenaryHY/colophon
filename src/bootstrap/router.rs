@@ -232,6 +232,8 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/admin/themes/:slug/activate",
             post(modules::theme::handler::activate_theme),
         )
+        .route("/api/v1/preview/content", post(modules::theme::handler::preview_content))
+        .route("/api/v1/preview/theme", post(modules::theme::handler::preview_theme))
         .route(
             "/api/v1/admin/settings",
             get(modules::setting::handler::list_settings)
