@@ -52,8 +52,8 @@ export default function ThemeDetail() {
     if (detail) {
       preview.registerScene('theme-detail', {
         getRequestParams: () => ({
-          content: JSON.stringify(currentFormDataRef.current),
-          content_type: 'json',
+          content: '# 主题预览\n\n这是预览文本，用于展示当前主题的渲染效果。\n\n## 标题示例\n\n这是一段正文内容。\n\n> 这是一段引用。\n\n- 列表项一\n- 列表项二\n- 列表项三',
+          content_type: 'post',
         }),
         getThemeParams: () => ({
           theme_slug: slugRef.current ?? 'default',

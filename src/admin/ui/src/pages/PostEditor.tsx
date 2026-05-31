@@ -128,10 +128,17 @@ export default function PostEditor() {
     setSelectedTagIds(postData.tags?.map((tag) => tag.id) || []);
     setContentType(postData.content_type || 'post');
     setPageEditMode(postData.page_render_mode === 'custom_html' ? 'custom_html' : 'editor');
-    // 检查本地草稿：如果草稿时间比服务器数据更新，提示恢复
+    // 检查本地草稿：如果草稿时间比服务器数据更新且内容不同，提示恢复
     const draft = restoreDraft();
     if (draft && (!postData.updated_at || draft.savedAt > new Date(postData.updated_at).getTime())) {
-      setDraftRecovery(draft);
+      const isContentActuallyDifferent =
+        draft.title !== (postData.title || '') ||
+        draft.content !== (postData.content_md || '') ||
+        draft.excerpt !== (postData.excerpt || '') ||
+        draft.categoryId !== (postData.category_id || '');
+      if (isContentActuallyDifferent) {
+        setDraftRecovery(draft);
+      }
     }
   }, [postData]);
 
