@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 
 export interface DraftData {
   title: string;
@@ -18,14 +18,19 @@ export function useAutoSaveDraft(
   enabled: boolean
 ) {
   const key = postId ? `${DRAFT_PREFIX}${postId}` : `${DRAFT_PREFIX}new`;
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // 自动保存：启用且内容有变化时，2 秒防抖后写入 localStorage
   useEffect(() => {
     if (!enabled) return;
+    setIsSaving(true);
     const timer = setTimeout(() => {
       try {
         localStorage.setItem(key, JSON.stringify({ ...formData, savedAt: Date.now() }));
+        setLastSavedAt(Date.now());
       } catch { /* 存储满或隐私模式下忽略 */ }
+      setIsSaving(false);
     }, 2000);
     return () => clearTimeout(timer);
   }, [formData, key, enabled]);
@@ -43,5 +48,5 @@ export function useAutoSaveDraft(
     localStorage.removeItem(key);
   }, [key]);
 
-  return { restore, clear };
+  return { restore, clear, lastSavedAt, isSaving };
 }

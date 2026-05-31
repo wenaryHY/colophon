@@ -25,6 +25,17 @@ interface RenderModeChoice {
   resolve: (mode: 'editor' | 'custom_html') => void;
 }
 
+/** 统计字数和阅读时间 */
+function countWords(text: string): { chars: number; readMinutes: number } {
+  // 中文字符数
+  const cjk = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
+  // 英文单词数（按空格分割非空项）
+  const withoutCjk = text.replace(/[\u4e00-\u9fff\u3400-\u4dbf]/g, ' ');
+  const enWords = withoutCjk.split(/\s+/).filter(Boolean).length;
+  const total = cjk + enWords;
+  return { chars: total, readMinutes: total === 0 ? 0 : Math.ceil(total / 300) };
+}
+
 export default function PostEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -34,6 +45,9 @@ export default function PostEditor() {
   const isEdit = !!id;
   const [saving, setSaving] = useState(false);
   const [post, setPost] = useState<AdminPost | null>(null);
+
+  // 字数统计
+  const wordCountInfo = countWords(content);
 
   // 表单字段
   const [title, setTitle] = useState('');
@@ -52,7 +66,7 @@ export default function PostEditor() {
   const [renderModeChoice, setRenderModeChoice] = useState<RenderModeChoice | null>(null);
 
   // 草稿自动保存
-  const { restore: restoreDraft, clear: clearDraft } = useAutoSaveDraft(
+  const { restore: restoreDraft, clear: clearDraft, lastSavedAt, isSaving: isAutoSaving } = useAutoSaveDraft(
     id,
     { title, content, contentHtml, excerpt, categoryId, tagIds: selectedTagIds },
     !!title || !!content
@@ -314,6 +328,17 @@ export default function PostEditor() {
           <Button onClick={() => handleSave()} disabled={saving} loading={saving}>
             <IconCheck size={14} /> {t('save')}
           </Button>
+          {/* 自动保存状态指示 */}
+          {isAutoSaving && (
+            <span style={{ fontSize: '12px', color: 'var(--md-on-surface-variant)', marginLeft: '8px' }}>
+              {t('saving')}
+            </span>
+          )}
+          {!isAutoSaving && lastSavedAt && (Date.now() - lastSavedAt < 30000) && (
+            <span style={{ fontSize: '12px', color: 'var(--md-on-surface-variant)', marginLeft: '8px' }}>
+              {t('saved')}
+            </span>
+          )}
         </div>
       </div>
 
@@ -336,6 +361,15 @@ export default function PostEditor() {
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   <MarkdownEditor value={content} onChange={setContent} onHtmlChange={setContentHtml} />
+                </div>
+                {/* 字数统计 + 阅读时间 */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '4px 0', fontSize: '12px', color: 'var(--md-on-surface-variant)',
+                  flexShrink: 0,
+                }}>
+                  <span>{format('wordCount', { count: wordCountInfo.chars.toString() })}</span>
+                  <span>{format('readTime', { minutes: wordCountInfo.readMinutes.toString() })}</span>
                 </div>
               </div>
               <Input

@@ -27,6 +27,13 @@ export const postsDict = {
 
     // 删除确认
     deleteConfirm: '确定要删除文章 "{title}" 吗？',
+
+    // 字数统计和阅读时间
+    wordCount: '{count} 字',
+    readTime: '约 {minutes} 分钟阅读',
+
+    // 保存状态
+    saved: '已保存',
   },
   en: {
     // Page title
@@ -55,5 +62,12 @@ export const postsDict = {
 
     // Delete confirm
     deleteConfirm: 'Are you sure you want to delete "{title}"?',
+
+    // Word count and reading time
+    wordCount: '{count} words',
+    readTime: '{minutes} min read',
+
+    // Save status
+    saved: 'Saved',
   },
 };

@@ -215,6 +215,15 @@ a{color:inherit;text-decoration:none}
   .post-title{font-size:18px}
   .site-footer{flex-direction:column;gap:12px;align-items:flex-start}
 }
+
+/* 高亮搜索关键词样式 */
+mark {
+  background: var(--md-primary-container, #e8f0fe);
+  color: var(--md-on-primary-container, #1a1a2e);
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: inherit;
+}
 </style>
 {{ plugin_head|safe }}
 </head>
@@ -275,6 +284,13 @@ a{color:inherit;text-decoration:none}
 
 <script>
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function highlightText(text, keyword) {
+  if (!keyword || !text) return text || '';
+  // 转义 HTML 特殊字符防止 XSS
+  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(new RegExp(`(${escapedKeyword})`, 'gi'), '<mark style="background:var(--md-primary-container, #e8f0fe);color:var(--md-on-primary-container, #1a1a2e);padding:0 2px;border-radius:2px">$1</mark>');
+}
 const _posts = {{ get_recent_posts(100) | tojson_script | safe }};
 let _currentKeyword = '';
 let _currentCategory = '';
@@ -286,7 +302,7 @@ function renderPosts(posts) {
     grid.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><h3 class="empty-title">暂无文章</h3><p class="empty-desc">前往管理后台发布你的第一篇文章吧</p></div>`;
     return;
   }
-  grid.innerHTML = posts.map(p => `<a class="post-card" href="/${p.content_type === 'page' ? 'pages' : 'posts'}/${esc(p.slug)}"><div class="post-meta"><span>${esc(p.author_display_name)}</span><span class="post-meta-sep"></span><span>${p.published_at ? p.published_at.slice(0,10) : p.created_at.slice(0,10)}</span>${p.category_name ? `<span class="post-meta-sep"></span><span>${esc(p.category_name)}</span>` : ''}</div><h2 class="post-title">${esc(p.title)}</h2>${p.excerpt ? `<p class="post-excerpt">${esc(p.excerpt)}</p>` : ''}<div class="post-footer"><div></div><div class="post-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div></div></a>`).join('');
+  grid.innerHTML = posts.map(p => `<a class="post-card" href="/${p.content_type === 'page' ? 'pages' : 'posts'}/${esc(p.slug)}"><div class="post-meta"><span>${esc(p.author_display_name)}</span><span class="post-meta-sep"></span><span>${p.published_at ? p.published_at.slice(0,10) : p.created_at.slice(0,10)}</span>${p.category_name ? `<span class="post-meta-sep"></span><span>${esc(p.category_name)}</span>` : ''}</div><h2 class="post-title">${highlightText(p.title, _currentKeyword)}</h2>${p.excerpt ? `<p class="post-excerpt">${highlightText(p.excerpt, _currentKeyword)}</p>` : ''}<div class="post-footer"><div></div><div class="post-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div></div></a>`).join('');
 }
 
 async function doSearch() {
