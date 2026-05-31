@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiData, API, API_PREFIX, getQueryClient } from '../lib/api';
@@ -65,13 +65,20 @@ export default function PostEditor() {
   // 预览上下文
   const preview = usePreview();
 
+  // 用 ref 保持最新 content，避免频繁重新注册场景
+  const contentRef = useRef(content);
+  contentRef.current = content;
+
   // 注册预览场景
   useEffect(() => {
     preview.registerScene('post-editor', {
-      getContent: () => content,
-      getContentType: () => 'markdown',
+      getRequestParams: () => ({
+        content: contentRef.current,
+        content_type: contentType,
+      }),
     });
-  }, [content, preview.registerScene]);
+    return () => preview.unregisterScene();
+  }, [contentType, preview.registerScene]);
 
   // 字数统计
   const wordCountInfo = countWords(content);

@@ -3,4 +3,5 @@
  */
 export { FabContainer } from './FabContainer';
 export { useDraggable } from './useDraggable';
+export { usePopoverPosition } from './usePopoverPosition';
 export type { UseDraggableOptions, UseDraggableReturn } from './useDraggable';

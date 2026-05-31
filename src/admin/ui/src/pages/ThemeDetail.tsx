@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '../components/PageHeader';
@@ -44,17 +44,28 @@ export default function ThemeDetail() {
   // 当 detail 变化时初始化 formData
   const currentFormData = detail ? detail.config ?? {} : formData;
 
+  // 用 ref 保持最新数据，避免频繁重新注册场景
+  const currentFormDataRef = useRef(currentFormData);
+  currentFormDataRef.current = currentFormData;
+  const slugRef = useRef(slug);
+  slugRef.current = slug;
+
   // 注册预览场景
   useEffect(() => {
     if (detail) {
       preview.registerScene('theme-detail', {
-        getContent: () => JSON.stringify(currentFormData),
-        getContentType: () => 'json',
-        getTheme: () => slug ?? 'default',
-        getThemeConfig: () => currentFormData,
+        getRequestParams: () => ({
+          content: JSON.stringify(currentFormDataRef.current),
+          content_type: 'json',
+        }),
+        getThemeParams: () => ({
+          theme_slug: slugRef.current ?? 'default',
+          theme_config: JSON.stringify(currentFormDataRef.current),
+        }),
       });
     }
-  }, [detail, currentFormData, slug, preview.registerScene]);
+    return () => preview.unregisterScene();
+  }, [detail, preview.registerScene]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {

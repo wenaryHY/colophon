@@ -11,68 +11,59 @@ import {
 
 /**
  * 实时预览上下文
- * 管理预览内容、主题、设备、缩放等状态，支持场景注册与自动同步
+ * 管理预览状态（设备、缩放），支持场景注册
+ * 内容渲染改为后端 API 驱动，由 PreviewRenderer 负责 fetch
  */
 
 // ==================== 类型定义 ====================
-
-/** 内容类型 */
-export type ContentType = 'markdown' | 'html' | 'zip' | 'json';
 
 /** 设备类型 */
 export type DeviceType = 'desktop' | 'tablet' | 'mobile';
 
 /** 预览状态 */
 export interface PreviewState {
-  /** 预览内容 */
-  content: string;
-  /** 内容类型 */
-  contentType: ContentType;
-  /** 当前主题 slug */
-  theme: string;
-  /** 主题配置 */
-  themeConfig: Record<string, unknown>;
-  /** 是否正在渲染 */
-  isRendering: boolean;
-  /** 渲染错误信息 */
-  error: string | null;
   /** 设备模式 */
   device: DeviceType;
   /** 缩放比例 */
   zoom: number;
   /** 当前注册的场景 ID */
   sceneId: string | null;
+  /** 刷新计数，用于触发 PreviewRenderer 重新 fetch */
+  refreshKey: number;
 }
 
 /** 场景配置 - 场景需实现的接口 */
 export interface SceneConfig {
-  /** 获取当前内容 */
-  getContent: () => string;
-  /** 获取内容类型 */
-  getContentType: () => ContentType;
-  /** 获取主题（可选） */
-  getTheme?: () => string;
-  /** 获取主题配置（可选） */
-  getThemeConfig?: () => Record<string, unknown>;
+  /** 获取预览请求参数（传给后端 API） */
+  getRequestParams: () => {
+    content: string;
+    content_type: string;
+  };
+  /** 获取主题渲染参数（可选） */
+  getThemeParams?: () => {
+    theme_slug: string;
+    theme_config?: string;
+  };
+  /** 内容变化回调（可选，用于实时更新） */
+  onChange?: (callback: () => void) => void;
 }
 
 /** 预览上下文值（包含状态与操作方法） */
 export interface PreviewContextType extends PreviewState {
-  /** 设置预览内容和类型 */
-  setContent: (content: string, type: ContentType) => void;
-  /** 设置主题配置 */
-  setThemeConfig: (config: Record<string, unknown>) => void;
   /** 设置设备模式 */
   setDevice: (device: DeviceType) => void;
   /** 设置缩放比例 */
   setZoom: (zoom: number) => void;
-  /** 设置主题 */
-  setTheme: (theme: string) => void;
 
   /** 注册预览场景 */
   registerScene: (id: string, config: SceneConfig) => void;
   /** 注销当前场景 */
   unregisterScene: () => void;
+
+  /** 获取当前请求参数（用于后端 API 调用） */
+  getRequestParams: () => { content: string; content_type: string } | null;
+  /** 获取当前主题参数 */
+  getThemeParams: () => { theme_slug: string; theme_config?: string } | null;
 
   /** 刷新预览 */
   refresh: () => void;
@@ -82,21 +73,16 @@ export interface PreviewContextType extends PreviewState {
 
 // ==================== 常量 ====================
 
-/** localStorage 键名 - 主题 */
-const THEME_STORAGE_KEY = 'inkforge_preview_theme';
 /** localStorage 键名 - 设备模式 */
 const DEVICE_STORAGE_KEY = 'inkforge_preview_device';
 /** localStorage 键名 - 缩放比例 */
 const ZOOM_STORAGE_KEY = 'inkforge_preview_zoom';
-/** 默认主题 */
-const DEFAULT_THEME = 'default';
 /** 默认缩放比例 */
 const DEFAULT_ZOOM = 1.0;
 /** 最小缩放比例 */
 const MIN_ZOOM = 0.25;
 /** 最大缩放比例 */
 const MAX_ZOOM = 2.0;
-
 
 // ==================== 工具函数 ====================
 
@@ -107,15 +93,6 @@ function inferDefaultDevice(): DeviceType {
   if (width < 768) return 'mobile';
   if (width < 1024) return 'tablet';
   return 'desktop';
-}
-
-/** 安全读取 localStorage 字符串值 */
-function readStorage(key: string, fallback: string): string {
-  try {
-    return localStorage.getItem(key) ?? fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 /** 安全读取 localStorage 数值 */
@@ -143,14 +120,6 @@ const PreviewContext = createContext<PreviewContextType | null>(null);
 
 export function PreviewProvider({ children }: { children: ReactNode }) {
   // ---- 状态初始化 ----
-  const [content, setContentState] = useState('');
-  const [contentType, setContentType] = useState<ContentType>('markdown');
-  const [theme, setThemeState] = useState<string>(() =>
-    readStorage(THEME_STORAGE_KEY, DEFAULT_THEME),
-  );
-  const [themeConfig, setThemeConfigState] = useState<Record<string, unknown>>({});
-  const [isRendering, setIsRendering] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [device, setDeviceState] = useState<DeviceType>(() => {
     try {
       const saved = localStorage.getItem(DEVICE_STORAGE_KEY);
@@ -165,60 +134,16 @@ export function PreviewProvider({ children }: { children: ReactNode }) {
   );
   const [sceneId, setSceneId] = useState<string | null>(null);
 
-  // ---- 场景引用（避免 state 驱动的重渲染） ----
+  // ---- 刷新计数（用于触发 PreviewRenderer 重新 fetch） ----
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // ---- 场景引用 ----
   const sceneConfigRef = useRef<SceneConfig | null>(null);
-  const rafIdRef = useRef<number | null>(null);
-  const mountedRef = useRef(true);
-
-  // ---- 内容同步（基于 rAF 的轮询） ----
-  const syncFromScene = useCallback(() => {
-    if (!mountedRef.current) return;
-
-    const config = sceneConfigRef.current;
-    if (config) {
-      try {
-        const newContent = config.getContent();
-        const newContentType = config.getContentType();
-        setContentState(newContent);
-        setContentType(newContentType);
-
-        // 同步主题（如果场景提供了）
-        if (config.getTheme) {
-          const newTheme = config.getTheme();
-          setThemeState(newTheme);
-        }
-        // 同步主题配置（如果场景提供了）
-        if (config.getThemeConfig) {
-          setThemeConfigState(config.getThemeConfig());
-        }
-
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '场景内容获取失败');
-      }
-    }
-
-    // 通过 rAF 调度下一次同步
-    if (mountedRef.current && sceneConfigRef.current) {
-      rafIdRef.current = requestAnimationFrame(syncFromScene);
-    }
-  }, []);
-
-  // ---- 组件挂载/卸载 ----
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-      }
-    };
-  }, []);
+  const onSceneUnregisterRef = useRef<(() => void) | null>(null);
 
   // ---- 响应式设备模式（监听窗口尺寸变化） ----
   useEffect(() => {
     const handleResize = () => {
-      // 仅在未手动设置时自动切换（通过检查 localStorage 是否有用户显式设置）
       try {
         if (!localStorage.getItem(DEVICE_STORAGE_KEY)) {
           setDeviceState(inferDefaultDevice());
@@ -232,28 +157,6 @@ export function PreviewProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ---- 操作方法 ----
-
-  /** 设置预览内容和类型 */
-  const setContent = useCallback((newContent: string, type: ContentType) => {
-    setContentState(newContent);
-    setContentType(type);
-    setError(null);
-  }, []);
-
-  /** 设置主题 */
-  const setTheme = useCallback((newTheme: string) => {
-    setThemeState(newTheme);
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  /** 设置主题配置 */
-  const setThemeConfig = useCallback((config: Record<string, unknown>) => {
-    setThemeConfigState(config);
-  }, []);
 
   /** 设置设备模式 */
   const setDevice = useCallback((newDevice: DeviceType) => {
@@ -276,145 +179,115 @@ export function PreviewProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /** 从当前场景获取请求参数 */
+  const getRequestParams = useCallback((): { content: string; content_type: string } | null => {
+    const config = sceneConfigRef.current;
+    if (!config) return null;
+    try {
+      return config.getRequestParams();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  /** 从当前场景获取主题参数 */
+  const getThemeParams = useCallback((): { theme_slug: string; theme_config?: string } | null => {
+    const config = sceneConfigRef.current;
+    if (!config || !config.getThemeParams) return null;
+    try {
+      return config.getThemeParams();
+    } catch {
+      return null;
+    }
+  }, []);
+
   /** 注册预览场景 */
   const registerScene = useCallback(
     (id: string, config: SceneConfig) => {
-      // 如果已有场景在运行，先停止 rAF 循环
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-        rafIdRef.current = null;
+      // 注销前一个场景的回调
+      if (onSceneUnregisterRef.current) {
+        try { onSceneUnregisterRef.current(); } catch { /* ignore */ }
       }
 
       setSceneId(id);
       sceneConfigRef.current = config;
-      setIsRendering(true);
 
-      // 立即同步一次内容
-      try {
-        const newContent = config.getContent();
-        const newContentType = config.getContentType();
-        setContentState(newContent);
-        setContentType(newContentType);
+      // 注册 onChange 回调，用于触发刷新
+      config.onChange?.(() => {
+        setRefreshKey((k) => k + 1);
+      });
 
-        if (config.getTheme) {
-          const newTheme = config.getTheme();
-          setThemeState(newTheme);
-          try {
-            localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-          } catch {
-            // ignore
-          }
-        }
-        if (config.getThemeConfig) {
-          setThemeConfigState(config.getThemeConfig());
-        }
-
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '场景注册时获取内容失败');
-      } finally {
-        setIsRendering(false);
-      }
-
-      // 启动 rAF 同步循环
-      rafIdRef.current = requestAnimationFrame(syncFromScene);
+      // 向场景提供取消注册的回调
+      onSceneUnregisterRef.current = () => {
+        // 预留钩子
+      };
     },
-    [syncFromScene],
+    [],
   );
 
   /** 注销当前场景 */
   const unregisterScene = useCallback(() => {
-    if (rafIdRef.current !== null) {
-      cancelAnimationFrame(rafIdRef.current);
-      rafIdRef.current = null;
+    if (onSceneUnregisterRef.current) {
+      try { onSceneUnregisterRef.current(); } catch { /* ignore */ }
+      onSceneUnregisterRef.current = null;
     }
     sceneConfigRef.current = null;
     setSceneId(null);
-    setIsRendering(false);
   }, []);
 
-  /** 刷新预览 - 重新从场景获取内容 */
+  /** 刷新预览 - 触发 PreviewRenderer 重新 fetch */
   const refresh = useCallback(() => {
-    const config = sceneConfigRef.current;
-    if (!config) return;
-
-    setIsRendering(true);
-    try {
-      const newContent = config.getContent();
-      const newContentType = config.getContentType();
-      setContentState(newContent);
-      setContentType(newContentType);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '刷新预览失败');
-    } finally {
-      setIsRendering(false);
-    }
+    setRefreshKey((k) => k + 1);
   }, []);
 
   /** 在新标签页中打开预览 */
   const openInNewTab = useCallback(() => {
-    // 使用 sessionStorage 传递内容，避免 URL 参数泄露
+    const requestParams = getRequestParams();
+    const themeParams = getThemeParams();
+
     const previewData = {
-      content,
-      contentType,
-      theme,
-      themeConfig,
+      requestParams,
+      themeParams,
       device,
       zoom,
     };
-    
-    // 存储到 sessionStorage
+
     sessionStorage.setItem('inkforge-preview-data', JSON.stringify(previewData));
-    
-    // 打开预览页面（从 sessionStorage 读取数据）
-    const previewUrl = '/preview';
-    window.open(previewUrl, '_blank');
-  }, [content, contentType, theme, themeConfig, device, zoom]);
+    window.open('/preview', '_blank');
+  }, [getRequestParams, getThemeParams, device, zoom]);
 
   // ---- Context 值 ----
   const value = useMemo<PreviewContextType>(
     () => ({
       // 状态
-      content,
-      contentType,
-      theme,
-      themeConfig,
-      isRendering,
-      error,
       device,
       zoom,
       sceneId,
+      refreshKey,
       // 更新方法
-      setContent,
-      setTheme,
-      setThemeConfig,
       setDevice,
       setZoom,
       // 场景管理
       registerScene,
       unregisterScene,
+      // 参数获取
+      getRequestParams,
+      getThemeParams,
       // 操作
       refresh,
       openInNewTab,
     }),
     [
-      content,
-      contentType,
-      theme,
-      themeConfig,
-      isRendering,
-      error,
       device,
       zoom,
       sceneId,
-      setContent,
-      setTheme,
-      setThemeConfig,
+      refreshKey,
       setDevice,
       setZoom,
       registerScene,
       unregisterScene,
+      getRequestParams,
+      getThemeParams,
       refresh,
       openInNewTab,
     ],

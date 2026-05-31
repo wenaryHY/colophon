@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePreview } from './PreviewContext';
 import { Modal } from '../components/Modal';
 
 // ==================== 类型定义 ====================
 
 /** 渲染模式 */
-type RenderMode = 'inline' | 'modal' | 'new-tab';
+type RenderMode = 'inline' | 'modal' | 'new-tab' | 'fab-popover';
+
+/** 后端预览请求参数 */
+interface PreviewRequestParams {
+  content: string;
+  content_type: string;
+}
 
 /** 预览渲染器属性 */
 interface PreviewRendererProps {
@@ -13,123 +20,90 @@ interface PreviewRendererProps {
   mode: RenderMode;
   /** 是否可见 */
   visible: boolean;
-  /** 关闭回调（modal 模式） */
+  /** 关闭回调（modal / fab-popover 模式） */
   onClose?: () => void;
   /** 预览容器样式 */
   className?: string;
 }
 
-// ==================== 工具函数 ====================
+// ==================== 常量 ====================
+
+/** 防抖延迟（ms） */
+const DEBOUNCE_DELAY = 300;
+
+/** FAB 浮窗默认尺寸 */
+const FAB_POPOVER_DEFAULT_WIDTH = 420;
+const FAB_POPOVER_DEFAULT_HEIGHT = 560;
+
+// ==================== Hook: 防抖 fetch 预览 ====================
 
 /**
- * 构建预览页面的完整 HTML（用于 iframe srcdoc）
+ * 向后端 API 发起预览请求，返回渲染后的 HTML
+ * 内置 300ms 防抖，避免频繁请求
+ * @param params - 预览请求参数
+ * @param refreshKey - 刷新计数，变化时强制重新 fetch
  */
-function buildPreviewHtml(
-  content: string,
-  contentType: string,
-  _theme: string,
-  _themeConfig: Record<string, unknown>,
-): string {
-  // 基础样式
-  const baseStyles = `
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      line-height: 1.8;
-      padding: 24px;
-      max-width: 800px;
-      margin: 0 auto;
-      color: #333;
-      background: #fff;
+function usePreviewFetch(params: PreviewRequestParams | null, refreshKey: number) {
+  const [html, setHtml] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!params || !params.content) {
+      setHtml('');
+      setLoading(false);
+      setError(null);
+      return;
     }
-    h1, h2, h3 { margin-top: 1.5em; margin-bottom: 0.5em; }
-    p { margin-bottom: 1em; }
-    img { max-width: 100%; height: auto; }
-    pre { background: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto; }
-    code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
-    blockquote { border-left: 3px solid #ddd; padding-left: 16px; margin-left: 0; color: #666; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
-    .preview-empty { text-align: center; color: #999; padding: 40px; font-size: 16px; }
-  `;
 
-  // 渲染内容
-  let bodyContent = '';
-  if (!content) {
-    bodyContent = '<div class="preview-empty">暂无内容</div>';
-  } else if (contentType === 'html') {
-    bodyContent = content;
-  } else if (contentType === 'markdown') {
-    bodyContent = simpleMarkdownToHtml(content);
-  } else {
-    bodyContent = `<pre>${escapeHtml(content)}</pre>`;
-  }
+    let cancelled = false;
 
-  return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>预览</title>
-  <style>${baseStyles}</style>
-</head>
-<body>
-  ${bodyContent}
-  <script>
-    // 监听父页面消息，动态更新内容
-    window.addEventListener('message', function(e) {
-      if (e.data && e.data.type === 'CONTENT_UPDATE') {
-        document.body.innerHTML = e.data.payload.html || e.data.payload.content || '';
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+
+      setLoading(true);
+      setError(null);
+      try {
+        const formData = new URLSearchParams();
+        formData.append('content', params.content);
+        formData.append('content_type', params.content_type);
+
+        const resp = await fetch('/api/v1/preview/content', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const text = await resp.text();
+        if (!cancelled) {
+          setHtml(text);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Unknown error');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    });
-  </script>
-</body>
-</html>`;
-}
+    }, DEBOUNCE_DELAY);
 
-/** 简单的 Markdown 转 HTML */
-function simpleMarkdownToHtml(md: string): string {
-  let html = md;
-  // 标题
-  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-  // 粗体/斜体
-  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  // 代码块
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-  // 行内代码
-  html = html.replace(/`(.+?)`/g, '<code>$1</code>');
-  // 链接
-  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
-  // 图片
-  html = html.replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1">');
-  // 引用
-  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
-  // 段落
-  html = html.replace(/^(?!<[a-z]|$)(.+)$/gm, '<p>$1</p>');
-  // 空行
-  html = html.replace(/\n\n/g, '<br>');
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [params?.content, params?.content_type, refreshKey]);
 
-  return html;
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return { html, loading, error };
 }
 
 // ==================== 组件 ====================
 
 /**
  * 预览渲染器组件
- * 使用 iframe srcdoc 在前端直接渲染预览内容，无需后端 API
- * 支持 inline / modal / new-tab 三种模式
+ * 使用后端 API 渲染内容，iframe 展示返回的完整 HTML
+ * 支持 inline / modal / new-tab / fab-popover 四种模式
  *
  * @example
  * ```tsx
@@ -146,63 +120,34 @@ export function PreviewRenderer({
   onClose,
   className,
 }: PreviewRendererProps) {
-  const {
-    content,
-    contentType,
-    theme,
-    themeConfig,
-    isRendering,
-    error,
-  } = usePreview();
+  const { getRequestParams, openInNewTab, refreshKey } = usePreview();
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
 
-  // 构建 srcdoc HTML
-  const srcDoc = useMemo(
-    () => buildPreviewHtml(content, contentType, theme, themeConfig),
-    [content, contentType, theme, themeConfig],
-  );
+  // 获取当前场景的请求参数
+  const requestParams = getRequestParams();
 
-  // ==================== postMessage 增量更新 ====================
-
-  // 内容变化时通过 postMessage 增量更新（避免整个 iframe 重载）
-  useEffect(() => {
-    if (iframeRef.current?.contentWindow && iframeLoaded) {
-      const html = contentType === 'markdown'
-        ? simpleMarkdownToHtml(content)
-        : content;
-      iframeRef.current.contentWindow.postMessage({
-        type: 'CONTENT_UPDATE',
-        payload: { html, content, contentType },
-      }, '*');
-    }
-  }, [content, contentType, iframeLoaded]);
+  // 通过后端 API 获取渲染后的 HTML
+  const { html, loading, error } = usePreviewFetch(requestParams, refreshKey);
 
   // ==================== iframe 加载处理 ====================
 
   const handleIframeLoad = useCallback(() => {
-    setIframeLoaded(true);
+    // iframe 加载完成，可在此做后续处理
   }, []);
 
   // ==================== new-tab 模式处理 ====================
 
+  const openInNewTabRef = useRef(openInNewTab);
+  openInNewTabRef.current = openInNewTab;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (mode !== 'new-tab' || !visible) return;
-
-    const previewData = {
-      content,
-      contentType,
-      theme,
-      themeConfig,
-    };
-
-    sessionStorage.setItem('inkforge-preview-data', JSON.stringify(previewData));
-    window.open('/preview', '_blank');
-
-    // 打开后自动关闭（如果提供了 onClose）
-    onClose?.();
-  }, [mode, visible, content, contentType, theme, themeConfig, onClose]);
+    openInNewTabRef.current();
+    onCloseRef.current?.();
+  }, [mode, visible]);
 
   // ==================== 渲染逻辑 ====================
 
@@ -214,6 +159,91 @@ export function PreviewRenderer({
   // 不可见时不渲染
   if (!visible) {
     return null;
+  }
+
+  // ==================== fab-popover 模式 ====================
+
+  if (mode === 'fab-popover') {
+    return createPortal(
+      <div
+        className={className}
+        style={{
+          position: 'fixed',
+          bottom: 100,
+          right: 24,
+          width: FAB_POPOVER_DEFAULT_WIDTH,
+          height: FAB_POPOVER_DEFAULT_HEIGHT,
+          borderRadius: 'var(--radius-lg)',
+          overflow: 'hidden',
+          border: '1px solid var(--md-outline-variant)',
+          background: 'var(--md-surface-container-lowest)',
+          boxShadow: 'var(--elevation-3)',
+          zIndex: 998,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* 顶部栏 */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '8px 16px',
+            borderBottom: '1px solid var(--md-outline-variant)',
+            flexShrink: 0,
+            background: 'var(--md-surface-container-low)',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '13px',
+              fontWeight: 600,
+              color: 'var(--md-on-surface-variant)',
+            }}
+          >
+            预览
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 'var(--radius-full)',
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--md-on-surface-variant)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '16px',
+              transition: 'background 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--md-surface-container-highest)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+            aria-label="关闭预览"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* 加载/错误/内容 */}
+        {renderIframe({
+          html,
+          loading,
+          error,
+          iframeRef,
+          onLoad: handleIframeLoad,
+          style: { flex: 1, minHeight: 0 },
+        })}
+      </div>,
+      document.body,
+    );
   }
 
   // ==================== modal 模式 ====================
@@ -239,57 +269,14 @@ export function PreviewRenderer({
             background: 'var(--md-surface-container-lowest)',
           }}
         >
-          {/* 加载状态指示器 */}
-          {isRendering && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '3px',
-                background: 'linear-gradient(90deg, var(--md-primary) 25%, var(--md-primary-container) 50%, var(--md-primary) 75%)',
-                backgroundSize: '200% 100%',
-                zIndex: 10,
-                animation: 'shimmer 1.5s ease-in-out infinite',
-              }}
-            />
-          )}
-
-          {/* 错误提示 */}
-          {error && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                padding: '16px 24px',
-                background: 'var(--md-error-container)',
-                color: 'var(--md-on-error-container)',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '14px',
-                zIndex: 10,
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          {/* 预览 iframe（srcdoc 方式） */}
-          <iframe
-            ref={iframeRef}
-            srcDoc={srcDoc}
-            sandbox="allow-scripts"
-            onLoad={handleIframeLoad}
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              background: 'var(--md-surface-container-lowest)',
-            }}
-            title="预览内容"
-          />
+          {renderIframe({
+            html,
+            loading,
+            error,
+            iframeRef,
+            onLoad: handleIframeLoad,
+            style: { width: '100%', height: '100%' },
+          })}
         </div>
       </Modal>
     );
@@ -310,8 +297,45 @@ export function PreviewRenderer({
         flexShrink: 0,
       }}
     >
-      {/* 加载状态指示器 */}
-      {isRendering && (
+      {renderIframe({
+        html,
+        loading,
+        error,
+        iframeRef,
+        onLoad: handleIframeLoad,
+        style: { width: '100%', height: '100%' },
+      })}
+    </div>
+  );
+}
+
+// ==================== 辅助渲染函数 ====================
+
+interface RenderIframeOptions {
+  html: string;
+  loading: boolean;
+  error: string | null;
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
+  onLoad: () => void;
+  style: React.CSSProperties;
+}
+
+/**
+ * 渲染 iframe 预览容器（含 loading / error 状态）
+ * 三种模式（inline / modal / fab-popover）共用此渲染逻辑
+ */
+function renderIframe({
+  html,
+  loading,
+  error,
+  iframeRef,
+  onLoad,
+  style,
+}: RenderIframeOptions) {
+  return (
+    <div style={{ position: 'relative', ...style }}>
+      {/* 加载状态 */}
+      {loading && (
         <div
           style={{
             position: 'absolute',
@@ -319,7 +343,8 @@ export function PreviewRenderer({
             left: 0,
             right: 0,
             height: '3px',
-            background: 'linear-gradient(90deg, var(--md-primary) 25%, var(--md-primary-container) 50%, var(--md-primary) 75%)',
+            background:
+              'linear-gradient(90deg, var(--md-primary) 25%, var(--md-primary-container) 50%, var(--md-primary) 75%)',
             backgroundSize: '200% 100%',
             zIndex: 10,
             animation: 'shimmer 1.5s ease-in-out infinite',
@@ -347,12 +372,12 @@ export function PreviewRenderer({
         </div>
       )}
 
-      {/* 预览 iframe（srcdoc 方式） */}
+      {/* 预览 iframe */}
       <iframe
         ref={iframeRef}
-        srcDoc={srcDoc}
-        sandbox="allow-scripts"
-        onLoad={handleIframeLoad}
+        srcDoc={html}
+        sandbox="allow-scripts allow-same-origin"
+        onLoad={onLoad}
         style={{
           width: '100%',
           height: '100%',
