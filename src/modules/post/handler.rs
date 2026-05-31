@@ -7,7 +7,7 @@ use axum::{
 };
 
 use crate::{
-    modules::theme::context::TemplateContext,
+    modules::{seo, theme::context::TemplateContext},
     shared::{
         auth::AdminUser,
         error::{AppError, AppResult},
@@ -182,24 +182,25 @@ pub async fn render_custom_page(
                 .get_template("post.html")
                 .map_err(|e| AppError::Anyhow(anyhow::anyhow!("template error: {}", e)))?;
 
+            let description = seo::meta::extract_description(&page.content_html, "");
+            let og_image = "";
+            let seo_meta = seo::meta::build_post_meta_with_content_type(
+                &ctx.site_title, &ctx.site_url,
+                &page.title, &slug, Some(description.as_str()), &page.content_html,
+                "", og_image, &page.content_type,
+            );
+
+            let json_ld = seo::meta::build_post_json_ld_with_content_type(
+                &ctx.site_title, &ctx.site_url,
+                &page.title, &slug, &description,
+                "", None, "", &page.content_type,
+            );
+
             let html = tmpl
                 .render(minijinja::context! {
                     site_title => &ctx.site_title,
-                    seo_meta => minijinja::context! {
-                        title => format!("{} - {}", page.title, &ctx.site_title),
-                        description => "",
-                        keywords => "",
-                        canonical_url => format!("{}/pages/{}", &ctx.site_url, slug),
-                        og_title => page.title.clone(),
-                        og_description => "",
-                        og_url => format!("{}/pages/{}", &ctx.site_url, slug),
-                        og_type => "article",
-                        og_image => "",
-                        twitter_card => "summary",
-                        twitter_title => page.title.clone(),
-                        twitter_description => "",
-                        twitter_image => "",
-                    },
+                    seo_meta => seo_meta,
+                    json_ld => json_ld,
                     post => minijinja::context! {
                         title => page.title,
                         content_html => page.content_html,

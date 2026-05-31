@@ -203,6 +203,11 @@ pub async fn render_home(
         "",  // seo_keywords
         "",
     );
+    let json_ld = crate::modules::seo::meta::build_home_json_ld(
+        &ctx.site_title,
+        &ctx.site_description,
+        &ctx.site_url,
+    );
 
     let plugin_guard = state.plugin_manager.read().await;
     let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache).await?;
@@ -213,6 +218,7 @@ pub async fn render_home(
     let rendered = tmpl
         .render(minijinja::context!(
             seo_meta => seo_meta,
+            json_ld => json_ld,
             current_user => auth
         ))
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
@@ -292,6 +298,12 @@ pub async fn render_post(
         std::collections::HashMap::new()
     };
 
+    let og_image = p
+        .cover_media_id
+        .as_ref()
+        .map(|id| format!("{}/uploads/{}", ctx.site_url, id))
+        .unwrap_or_default();
+
     let seo_meta = crate::modules::seo::meta::build_post_meta_with_content_type(
         &ctx.site_title,
         &ctx.site_url,
@@ -300,7 +312,19 @@ pub async fn render_post(
         p.excerpt.as_deref(),
         &p.content_html,
         "",  // seo_keywords
-        "",
+        &og_image,
+        &p.content_type,
+    );
+
+    let json_ld = crate::modules::seo::meta::build_post_json_ld_with_content_type(
+        &ctx.site_title,
+        &ctx.site_url,
+        &p.title,
+        &p.slug,
+        p.excerpt.as_deref().unwrap_or(""),
+        &p.author_display_name,
+        p.published_at.as_deref(),
+        &p.updated_at,
         &p.content_type,
     );
 
@@ -318,6 +342,8 @@ pub async fn render_post(
         .render(minijinja::context! {
             post => p,
             seo_meta => seo_meta,
+            json_ld => json_ld,
+            image => og_image,
             comments => comments,
             current_user => auth,
             plugins => plugin_extra,

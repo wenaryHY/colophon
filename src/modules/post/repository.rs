@@ -281,7 +281,8 @@ pub async fn get_public_post_by_slug(
             p.created_at,
             p.updated_at,
             u.display_name AS author_display_name,
-            c.name AS category_name
+            c.name AS category_name,
+            p.cover_media_id
          FROM posts p
          JOIN users u ON u.id = p.author_id
          LEFT JOIN categories c ON c.id = p.category_id

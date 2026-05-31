@@ -50,6 +50,16 @@ fn collapse_whitespace(input: &str) -> String {
     input.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// 从 HTML 内容中提取纯文本摘要（generate_excerpt 的语义别名）
+pub fn extract_description(html_content: &str, fallback: &str) -> String {
+    let excerpt = generate_excerpt(html_content, 160);
+    if excerpt.is_empty() {
+        fallback.to_string()
+    } else {
+        excerpt
+    }
+}
+
 pub fn generate_excerpt(input: &str, max_chars: usize) -> String {
     let cleaned = collapse_whitespace(&strip_html_tags(input));
     let mut excerpt = String::new();
