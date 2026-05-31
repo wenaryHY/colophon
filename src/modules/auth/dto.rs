@@ -12,6 +12,7 @@ pub struct RegisterRequest {
 pub struct LoginRequest {
     pub login: String,
     pub password: String,
+    pub remember_me: Option<bool>,
 }
 
 /// 登录/注册响应中返回的用户摘要信息

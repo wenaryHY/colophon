@@ -20,7 +20,7 @@ interface LoginResponse {
 interface AuthContextValue {
   user: CurrentUser | null;
   token: string;
-  login: (login: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  login: (login: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; message?: string }>;
   register: (data: RegisterData) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -92,11 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = useCallback(async (loginValue: string, password: string) => {
+  const login = useCallback(async (loginValue: string, password: string, rememberMe?: boolean) => {
     try {
       const data = await apiData<LoginResponse>(`${API_PREFIX}/auth/login`, {
         method: 'POST',
-        body: JSON.stringify({ login: loginValue, password }),
+        body: JSON.stringify({ login: loginValue, password, remember_me: rememberMe }),
       });
       setAccessToken(data.access_token);
       await refreshUser();

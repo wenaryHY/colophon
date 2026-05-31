@@ -19,6 +19,7 @@ export default function Login() {
   const [loginValue, setLoginValue] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
@@ -54,7 +55,7 @@ export default function Login() {
     if (!loginValue || !loginPassword) return;
     setLoginLoading(true);
     try {
-      const result = await login(loginValue, loginPassword);
+      const result = await login(loginValue, loginPassword, rememberMe);
       if (result.success) {
         setTimeout(() => navigate('/posts'), 100);
       } else {
@@ -315,6 +316,10 @@ export default function Login() {
                 placeholder={t('usernameOrEmail')} required style={inputStyle} onFocus={focusIn} onBlur={focusOut} />
               <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
                 placeholder={t('password')} required style={inputStyle} onFocus={focusIn} onBlur={focusOut} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: -4 }}>
+                <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+                <span style={{ fontSize: 13, color: 'var(--md-on-surface-variant)' }}>7 天内免登录</span>
+              </label>
               <button
                 type="submit"
                 disabled={loginLoading}

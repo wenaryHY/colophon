@@ -35,7 +35,7 @@ pub async fn register(
     let expires_in_seconds = state.config.auth.expires_in_seconds;
     let (login_data, refresh_token) = service::register(state, body).await?;
     let access_token = login_data.access_token.clone();
-    let refresh_cookie = build_refresh_cookie(&refresh_token);
+    let refresh_cookie = build_refresh_cookie(&refresh_token, REMEMBER_ME_MAX_AGE);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
     let json = Json(ApiResponse::success(login_data));
 
@@ -67,9 +67,17 @@ pub async fn login(
         "received login request"
     );
     let expires_in_seconds = state.config.auth.expires_in_seconds;
+    let remember_me = body.remember_me.unwrap_or(false);
     let (login_data, refresh_token) = service::login(state, body).await?;
     let access_token = login_data.access_token.clone();
-    let refresh_cookie = build_refresh_cookie(&refresh_token);
+
+    let (session_max_age, refresh_max_age) = if remember_me {
+        (REMEMBER_ME_MAX_AGE as i64, REMEMBER_ME_MAX_AGE)
+    } else {
+        (expires_in_seconds, SHORT_MAX_AGE)
+    };
+
+    let refresh_cookie = build_refresh_cookie(&refresh_token, refresh_max_age);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
     let json = Json(ApiResponse::success(login_data));
 
@@ -77,7 +85,7 @@ pub async fn login(
     resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
     let session_cookie = build_session_cookie(
         &access_token,
-        expires_in_seconds,
+        session_max_age,
     );
     resp_headers.append(
         axum::http::header::SET_COOKIE,
@@ -217,7 +225,7 @@ pub async fn refresh_token(
     );
 
     // 设置新 refresh_token cookie + 返回 access_token JSON
-    let refresh_cookie = build_refresh_cookie(&new_token);
+    let refresh_cookie = build_refresh_cookie(&new_token, REMEMBER_ME_MAX_AGE);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
     let json = Json(ApiResponse::success(serde_json::json!({
         "access_token": access_token,
@@ -230,18 +238,20 @@ pub async fn refresh_token(
 
 // ── Cookie helpers ──
 
-/// refresh_token 7 天
-const REFRESH_TOKEN_MAX_AGE: u32 = 604800;
+/// 7 天，用于"记住我"
+const REMEMBER_ME_MAX_AGE: u64 = 604800;
+/// 15 分钟，用于未勾选"记住我"的短期会话
+const SHORT_MAX_AGE: u64 = 900;
 
 /// 构建 refresh_token 的 HttpOnly Secure SameSite=Strict cookie
-fn build_refresh_cookie(token: &str) -> String {
+fn build_refresh_cookie(token: &str, max_age_secs: u64) -> String {
     let secure = if cfg!(debug_assertions) {
         ""
     } else {
         "; Secure"
     };
     format!(
-        "inkforge_refresh={token}; Path=/api/v1/auth/refresh; Max-Age={REFRESH_TOKEN_MAX_AGE}; HttpOnly; SameSite=Strict{secure}"
+        "inkforge_refresh={token}; Path=/api/v1/auth/refresh; Max-Age={max_age_secs}; HttpOnly; SameSite=Strict{secure}"
     )
 }
 

@@ -27,6 +27,7 @@ mod auth_integration_tests {
         let valid_request = LoginRequest {
             login: "testuser".to_string(),
             password: "SecurePass123!".to_string(),
+            remember_me: None,
         };
 
         assert_eq!(valid_request.login, "testuser");
