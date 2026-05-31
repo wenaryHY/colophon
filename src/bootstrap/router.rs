@@ -16,9 +16,18 @@ use tower_http::{
 
 use crate::{admin, modules, state::AppState, ws};
 
-async fn health_check() -> impl IntoResponse {
+async fn health_check(
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let db_ok = sqlx::query_scalar::<_, String>("SELECT 'ok'")
+        .fetch_one(&state.pool)
+        .await
+        .is_ok();
+
+    let status = if db_ok { "ok" } else { "degraded" };
     axum::Json(serde_json::json!({
-        "status": "ok"
+        "status": status,
+        "db": if db_ok { "ok" } else { "error" }
     }))
 }
 
