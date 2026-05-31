@@ -30,6 +30,13 @@ export const loginDict = {
 
     // 语言切换
     language: '语言',
+
+    // 错误
+    loginFailed: '登录失败',
+    registerFailed: '注册失败',
+
+    // 记住我
+    rememberMe: '7 天内免登录',
   },
   en: {
     // Title
@@ -61,5 +68,12 @@ export const loginDict = {
 
     // Language
     language: 'Language',
+
+    // Errors
+    loginFailed: 'Login failed',
+    registerFailed: 'Registration failed',
+
+    // Remember me
+    rememberMe: 'Stay signed in for 7 days',
   },
 };

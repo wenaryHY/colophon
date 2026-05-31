@@ -125,7 +125,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
             letterSpacing: '0.12em',
             fontWeight: 500,
           }}>
-            Admin Panel
+            {t('adminPanel')}
           </div>
         </div>
       </div>
@@ -228,7 +228,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
                 transition: 'all 0.15s ease',
               }}
             >
-              {l === 'zh' ? '中文' : 'EN'}
+              {l === 'zh' ? t('langZh') : t('langEn')}
             </button>
           ))}
         </div>

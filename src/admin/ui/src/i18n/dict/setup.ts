@@ -32,6 +32,8 @@ export const setupDict = {
     submitBtn: '完成安装并进入后台',
     langZh: '中文',
     langEn: 'EN',
+    setupCompletedToast: '安装完成，正在进入后台…',
+    setupFailed: '安装失败',
   },
   en: {
     checkingSetup: 'Checking installation status…',
@@ -66,5 +68,7 @@ export const setupDict = {
     submitBtn: 'Complete Setup & Enter Admin',
     langZh: '中文',
     langEn: 'EN',
+    setupCompletedToast: 'Setup complete, entering admin...',
+    setupFailed: 'Setup failed',
   },
 };

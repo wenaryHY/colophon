@@ -204,7 +204,7 @@ export default function Posts() {
       <PageHeader
         title={t('postsTitle')}
         subtitle={format('postsCount', { count: total })}
-        actions={<Button onClick={() => navigate(contentTypeTab === 'post' ? '/posts/new' : '/posts/new?type=page')}><IconPlus /> {contentTypeTab === 'post' ? t('newPost') : t('newPage', '新建页面')}</Button>}
+        actions={<Button onClick={() => navigate(contentTypeTab === 'post' ? '/posts/new' : '/posts/new?type=page')}><IconPlus /> {contentTypeTab === 'post' ? t('newPost') : t('newPage')}</Button>}
       />
 
       <SlotRenderer target="dashboard.widget" />
@@ -227,7 +227,7 @@ export default function Posts() {
             display: 'flex', alignItems: 'center', gap: '6px',
           }}
         >
-          <IconFileText size={14} /> 文章
+          <IconFileText size={14} /> {t('postTab')}
         </button>
         <button
           onClick={() => { setContentTypeTab('page'); setPage(1); setSelectedIds(new Set()); }}
@@ -241,7 +241,7 @@ export default function Posts() {
             display: 'flex', alignItems: 'center', gap: '6px',
           }}
         >
-          <IconPencil size={14} /> 页面
+          <IconPencil size={14} /> {t('pageTab')}
         </button>
       </div>
 
@@ -256,7 +256,7 @@ export default function Posts() {
             transition: 'all var(--transition-normal)',
           }}
         >
-          {contentTypeTab === 'post' ? t('activePosts') : '活跃页面'}
+          {contentTypeTab === 'post' ? t('activePosts') : t('activePages')}
         </button>
         <button
           onClick={() => navigate('/trash?tab=post')}
@@ -417,7 +417,7 @@ export default function Posts() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <span style={{ fontSize: '12.5px', color: 'var(--md-outline)' }}>
-              第 {(page - 1) * 10 + 1}-{Math.min(page * 10, total)} 条，共 {total} 条
+              {format('paginationInfo', { start: (page - 1) * 10 + 1, end: Math.min(page * 10, total), total })}
             </span>
             <Pagination page={page} pages={pages} onPageChange={setPage} />
           </div>
@@ -429,9 +429,9 @@ export default function Posts() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-        title="删除文章"
-        message={`确定要删除文章「${deleteTarget?.title || ''}」吗？此操作不可恢复。`}
-        confirmText="确认删除" variant="danger"
+        title={t('deletePostTitle')}
+        message={format('deletePostMessage', { title: deleteTarget?.title || '' })}
+        confirmText={t('deleteConfirm')} variant="danger"
       />
 
       {/* 批量删除确认 */}
@@ -439,9 +439,9 @@ export default function Posts() {
         open={batchDeleteTarget}
         onClose={() => setBatchDeleteTarget(false)}
         onConfirm={() => batchDeleteMutation.mutate([...selectedIds])}
-        title="批量删除文章"
-        message={`确定要删除选中的 ${selectedIds.size} 篇文章吗？此操作不可恢复。`}
-        confirmText={`删除 ${selectedIds.size} 篇`} variant="danger"
+        title={t('batchDeletePostsTitle')}
+        message={format('batchDeletePostsMessage', { count: selectedIds.size })}
+        confirmText={format('deleteCountPostsConfirm', { count: selectedIds.size })} variant="danger"
       />
 
       <style>{`

@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PostsSkeleton } from '../components/Skeleton';
 import { IconMessageSquare, IconClock, IconCheckCircle, IconTrash2, IconExternalLink, IconCheck, IconBan } from '../components/Icons';
 import { useToast } from '../contexts/ToastContext';
+import { useI18n } from '../i18n';
 
 /* 样式 */
 const TH = {
@@ -34,6 +35,7 @@ const iconBtn: React.CSSProperties = {
 
 export default function Comments() {
   const toast = useToast();
+  const { t, format } = useI18n();
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Comment | null>(null);
 
@@ -54,25 +56,25 @@ export default function Comments() {
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => apiData(`${API_PREFIX}/admin/comments/${id}/approve`, { method: 'POST' }),
-    onSuccess: () => { toast('已通过', 'success'); invalidate(); },
-    onError: (error) => toast(error instanceof Error ? error.message : '操作失败', 'error'),
+    onSuccess: () => { toast(t('approvedSuccess'), 'success'); invalidate(); },
+    onError: (error) => toast(error instanceof Error ? error.message : t('actionFailed'), 'error'),
   });
 
   const rejectMutation = useMutation({
     mutationFn: (id: string) => apiData(`${API_PREFIX}/admin/comments/${id}/reject`, { method: 'POST' }),
-    onSuccess: () => { toast('已拒绝', 'success'); invalidate(); },
-    onError: (error) => toast(error instanceof Error ? error.message : '操作失败', 'error'),
+    onSuccess: () => { toast(t('rejectedSuccess'), 'success'); invalidate(); },
+    onError: (error) => toast(error instanceof Error ? error.message : t('actionFailed'), 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiData(`${API_PREFIX}/admin/comments/${id}`, { method: 'DELETE' }),
     onSuccess: (_, id) => {
-      toast('删除成功', 'success');
+      toast(t('deleteSuccess'), 'success');
       setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
       setDeleteTarget(null);
       invalidate();
     },
-    onError: (error) => { toast(error instanceof Error ? error.message : '删除失败', 'error'); setDeleteTarget(null); },
+    onError: (error) => { toast(error instanceof Error ? error.message : t('deleteFailed'), 'error'); setDeleteTarget(null); },
   });
 
   const batchApproveMutation = useMutation({
@@ -80,11 +82,11 @@ export default function Comments() {
       await Promise.all(pendingIds.map(id => apiData(`${API_PREFIX}/admin/comments/${id}/approve`, { method: 'POST' })));
     },
     onSuccess: (_, pendingIds) => {
-      toast(`成功通过 ${pendingIds.length} 条评论`, 'success');
+      toast(format('batchApproveSuccess', { count: pendingIds.length }), 'success');
       setSelectedIds(new Set());
       invalidate();
     },
-    onError: (error) => toast(error instanceof Error ? error.message : '批量操作失败', 'error'),
+    onError: (error) => toast(error instanceof Error ? error.message : t('batchActionFailed'), 'error'),
   });
 
   const batchRejectMutation = useMutation({
@@ -92,11 +94,11 @@ export default function Comments() {
       await Promise.all(pendingIds.map(id => apiData(`${API_PREFIX}/admin/comments/${id}/reject`, { method: 'POST' })));
     },
     onSuccess: (_, pendingIds) => {
-      toast(`成功拒绝 ${pendingIds.length} 条评论`, 'success');
+      toast(format('batchRejectSuccess', { count: pendingIds.length }), 'success');
       setSelectedIds(new Set());
       invalidate();
     },
-    onError: (error) => toast(error instanceof Error ? error.message : '批量操作失败', 'error'),
+    onError: (error) => toast(error instanceof Error ? error.message : t('batchActionFailed'), 'error'),
   });
 
   const batchDeleteMutation = useMutation({
@@ -104,12 +106,12 @@ export default function Comments() {
       await Promise.all(ids.map(id => apiData(`${API_PREFIX}/admin/comments/${id}`, { method: 'DELETE' })));
     },
     onSuccess: (_, ids) => {
-      toast(`成功删除 ${ids.length} 条评论`, 'success');
+      toast(format('batchDeleteCommentsSuccess', { count: ids.length }), 'success');
       setSelectedIds(new Set());
       setBatchDeleteOpen(false);
       invalidate();
     },
-    onError: (error) => { toast(error instanceof Error ? error.message : '批量删除失败', 'error'); setBatchDeleteOpen(false); },
+    onError: (error) => { toast(error instanceof Error ? error.message : t('batchDeleteCommentsFailed'), 'error'); setBatchDeleteOpen(false); },
   });
 
   function handleBatchApprove() {
@@ -117,7 +119,7 @@ export default function Comments() {
       const c = items.find(i => i.id === id);
       return c && c.status === 'pending';
     });
-    if (pendingIds.length === 0) { toast('没有待审核的评论', 'info'); return; }
+    if (pendingIds.length === 0) { toast(t('noPendingComments'), 'info'); return; }
     batchApproveMutation.mutate(pendingIds);
   }
 
@@ -126,7 +128,7 @@ export default function Comments() {
       const c = items.find(i => i.id === id);
       return c && c.status === 'pending';
     });
-    if (pendingIds.length === 0) { toast('没有待审核的评论', 'info'); return; }
+    if (pendingIds.length === 0) { toast(t('noPendingComments'), 'info'); return; }
     batchRejectMutation.mutate(pendingIds);
   }
 
@@ -151,24 +153,24 @@ export default function Comments() {
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-        <StatsCard icon={<IconMessageSquare size={20} />} value={total} label="评论总数" theme="blue" />
-        <StatsCard icon={<IconClock size={20} />} value={pendingCount} label="待审核" theme="amber" />
+        <StatsCard icon={<IconMessageSquare size={20} />} value={total} label={t('commentsTotal')} theme="blue" />
+        <StatsCard icon={<IconClock size={20} />} value={pendingCount} label={t('pendingReview')} theme="amber" />
       </div>
 
       <PageHeader
-        title="评论管理"
-        subtitle={`共 ${total} 条评论`}
+        title={t('commentsTitle')}
+        subtitle={format('commentsCount', { count: total })}
         actions={
           selectedIds.size > 0 ? (
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <Button variant="success" size="sm" onClick={handleBatchApprove}>
-                <IconCheckCircle size={14} /> 批量通过 ({[...selectedIds].filter(id => items.find(i => i.id === id)?.status === 'pending').length})
+                <IconCheckCircle size={14} /> {format('batchApprove', { count: [...selectedIds].filter(id => items.find(i => i.id === id)?.status === 'pending').length })}
               </Button>
               <Button variant="ghost" size="sm" onClick={handleBatchReject}>
-                <IconBan size={14} /> 批量拒绝
+                <IconBan size={14} /> {t('batchReject')}
               </Button>
               <Button variant="danger" size="sm" onClick={() => setBatchDeleteOpen(true)}>
-                <IconTrash2 size={14} /> 删除 ({selectedIds.size})
+                <IconTrash2 size={14} /> {format('batchDeleteComments', { count: selectedIds.size })}
               </Button>
             </div>
           ) : undefined
@@ -193,12 +195,12 @@ export default function Comments() {
                   {selectedIds.size === items.length && items.length > 0 && <IconCheck size={12} color="#fff" />}
                 </button>
               </th>
-              <th style={TH}>用户</th>
-              <th style={TH}>内容</th>
-              <th style={TH}>文章</th>
-              <th style={{ ...TH, width: '88px' }}>状态</th>
-              <th style={{ ...TH, width: '140px' }}>时间</th>
-              <th style={{ ...TH, width: '120px', textAlign: 'right' as const }}>操作</th>
+              <th style={TH}>{t('userLabel')}</th>
+              <th style={TH}>{t('contentLabel')}</th>
+              <th style={TH}>{t('postLabel')}</th>
+              <th style={{ ...TH, width: '88px' }}>{t('statusLabel')}</th>
+              <th style={{ ...TH, width: '140px' }}>{t('timeLabel')}</th>
+              <th style={{ ...TH, width: '120px', textAlign: 'right' as const }}>{t('actionsLabel')}</th>
             </tr></thead>
             <tbody>
               {items.length > 0 ? items.map((cmt) => {
@@ -248,7 +250,7 @@ export default function Comments() {
                           onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
                         ><IconExternalLink size={11} />{esc(cmt.post_title)}</a>
                       ) : (
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', textDecoration: 'line-through' }}>文章已删除</span>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', textDecoration: 'line-through' }}>{t('deletedPost')}</span>
                       )}
                     </td>
                     <td style={TD}><StatusBadge status={cmt.status} /></td>
@@ -260,14 +262,14 @@ export default function Comments() {
                         {cmt.status === 'pending' && (
                           <>
                             <button
-                              title="通过"
+                              title={t('approveAction')}
                               style={{ ...iconBtn, background: 'transparent', color: '#10b981' }}
                               onClick={() => approveMutation.mutate(cmt.id)}
                               onMouseEnter={e => { e.currentTarget.style.background = '#ecfdf5'; e.currentTarget.style.color = '#059669'; }}
                               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#10b981'; }}
                             ><IconCheckCircle size={16} /></button>
                             <button
-                              title="拒绝"
+                              title={t('rejectAction')}
                               style={{ ...iconBtn, background: 'transparent', color: '#f59e0b' }}
                               onClick={() => rejectMutation.mutate(cmt.id)}
                               onMouseEnter={e => { e.currentTarget.style.background = '#fffbeb'; e.currentTarget.style.color = '#d97706'; }}
@@ -276,7 +278,7 @@ export default function Comments() {
                           </>
                         )}
                         <button
-                          title="删除"
+                          title={t('delete')}
                           style={{ ...iconBtn, background: 'transparent', color: '#ef4444' }}
                           onClick={() => setDeleteTarget(cmt)}
                           onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}
@@ -288,7 +290,7 @@ export default function Comments() {
                 );
               }) : (
                 <tr><td colSpan={7}>
-                  <EmptyState icon={<IconMessageSquare size={28} />} message="暂无评论" />
+                  <EmptyState icon={<IconMessageSquare size={28} />} message={t('noComments')} />
                 </td></tr>
               )}
             </tbody>
@@ -298,11 +300,11 @@ export default function Comments() {
       </Card>
 
       <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-        title="删除评论" message={`确定要删除 ${deleteTarget?.display_name || ''} 的评论吗？`} variant="danger" confirmText="删除" />
+        title={t('deleteCommentTitle')} message={format('deleteCommentSimpleMessage', { name: deleteTarget?.display_name || '' })} variant="danger" confirmText={t('delete')} />
 
       <ConfirmDialog open={batchDeleteOpen} onClose={() => setBatchDeleteOpen(false)} onConfirm={() => batchDeleteMutation.mutate([...selectedIds])}
-        title="批量删除评论" message={`确定要删除选中的 ${selectedIds.size} 条评论吗？此操作不可恢复。`}
-        variant="danger" confirmText={`删除 ${selectedIds.size} 条`} />
+        title={t('batchDeleteCommentTitle')} message={format('batchDeleteCommentMessage', { count: selectedIds.size })}
+        variant="danger" confirmText={format('deleteCommentsConfirm', { count: selectedIds.size })} />
     </>
   );
 }

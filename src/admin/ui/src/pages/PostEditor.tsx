@@ -28,7 +28,7 @@ interface RenderModeChoice {
 export default function PostEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { t, format } = useI18n();
   const toast = useToast();
 
   const isEdit = !!id;
@@ -202,7 +202,7 @@ export default function PostEditor() {
   if (postLoading) {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: 'var(--md-on-surface-variant)' }}>
-        加载中…
+        {t('loading')}
       </div>
     );
   }
@@ -210,8 +210,8 @@ export default function PostEditor() {
   if (postError) {
     return (
       <div style={{ padding: '40px', textAlign: 'center' }}>
-        <h3>加载失败</h3>
-        <p style={{ color: 'var(--md-on-surface-variant)' }}>无法加载文章数据，请刷新重试</p>
+        <h3>{t('loadFailed')}</h3>
+        <p style={{ color: 'var(--md-on-surface-variant)' }}>{t('loadPostFailedHint')}</p>
       </div>
     );
   }
@@ -226,7 +226,7 @@ export default function PostEditor() {
           color: 'var(--md-on-primary-container)', display: 'flex',
           alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
         }}>
-          <span style={{ fontSize: '14px' }}>检测到未保存的草稿（{new Date(draftRecovery.savedAt).toLocaleString()}），是否恢复？</span>
+          <span style={{ fontSize: '14px' }}>{format('draftRecoveryHint', { date: new Date(draftRecovery.savedAt).toLocaleString() })}</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="md3-btn" onClick={() => {
               setTitle(draftRecovery.title);
@@ -236,11 +236,11 @@ export default function PostEditor() {
               setCategoryId(draftRecovery.categoryId);
               setSelectedTagIds(draftRecovery.tagIds);
               setDraftRecovery(null);
-            }}>恢复</button>
+            }}>{t('draftRecover')}</button>
             <button className="md3-btn" onClick={() => {
               clearDraft();
               setDraftRecovery(null);
-            }}>丢弃</button>
+            }}>{t('draftDiscard')}</button>
           </div>
         </div>
       )}
@@ -269,7 +269,7 @@ export default function PostEditor() {
               fontSize: '20px', fontWeight: 800, color: 'var(--md-on-surface)',
               fontFamily: "'Manrope', sans-serif", letterSpacing: '-0.3px', lineHeight: 1.2,
             }}>
-              {isEdit ? t('editPostTitle') : (contentType === 'page' ? '新建页面' : t('createPostTitle'))}
+              {isEdit ? t('editPostTitle') : (contentType === 'page' ? t('newPage') : t('createPostTitle'))}
             </h1>
           </div>
         </div>
@@ -292,7 +292,7 @@ export default function PostEditor() {
                   display: 'flex', alignItems: 'center', gap: '5px',
                 }}
               >
-                <IconFileText size={13} /> 文章
+                <IconFileText size={13} /> {t('postTab')}
               </button>
               <button
                 onClick={() => setContentType('page')}
@@ -306,7 +306,7 @@ export default function PostEditor() {
                   display: 'flex', alignItems: 'center', gap: '5px',
                 }}
               >
-                <IconPencil size={13} /> 页面
+                <IconPencil size={13} /> {t('pageTab')}
               </button>
             </div>
           )}
@@ -360,16 +360,16 @@ export default function PostEditor() {
                 <IconPlus size={24} style={{ color: 'var(--md-outline)' }} />
               </div>
               <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--md-on-surface)', marginBottom: '6px' }}>
-                上传自定义 HTML
+                {t('uploadCustomHtml')}
               </p>
               <p style={{ fontSize: '12.5px', color: 'var(--md-on-surface-variant)', marginBottom: '6px' }}>
-                上传单个 HTML 文件或包含 HTML/CSS/JS 的 ZIP 包
+                {t('uploadCustomHtmlDesc')}
               </p>
               <p style={{ fontSize: '11.5px', color: 'var(--md-outline)', marginBottom: '8px', lineHeight: 1.5 }}>
-                ZIP 包中必须包含 index.html，发布后前台将通过 /pages/&#123;slug&#125; 访问
+                {t('uploadCustomHtmlHint')}
               </p>
               <p style={{ fontSize: '11.5px', color: 'var(--md-error)', marginBottom: '16px', lineHeight: 1.6 }}>
-                发布后的自定义 HTML 会启用更严格的安全策略：禁止表单提交、外部连接与页面嵌入；如需脚本，仅应依赖当前站点内联或同源静态资源。
+                {t('uploadCustomHtmlWarning')}
               </p>
               <input
                 type="file"
@@ -385,7 +385,7 @@ export default function PostEditor() {
                 variant="ghost"
                 onClick={() => document.getElementById('custom-html-upload-editor')?.click()}
               >
-                选择文件
+                {t('selectFile')}
               </Button>
               {customHtmlFile && (
                 <div style={{
@@ -393,7 +393,7 @@ export default function PostEditor() {
                   background: 'var(--md-primary-container)',
                   fontSize: '12.5px', color: 'var(--md-on-primary-container)', fontWeight: 600,
                 }}>
-                  已选择: {customHtmlFile.name} ({Math.ceil(customHtmlFile.size / 1024)} KB)
+                  {format('selectedFile', { name: customHtmlFile.name, size: Math.ceil(customHtmlFile.size / 1024) })}
                 </div>
               )}
               {post?.custom_html_path && !customHtmlFile && (
@@ -402,8 +402,8 @@ export default function PostEditor() {
                   background: 'var(--md-surface-container)',
                   fontSize: '12px', color: 'var(--md-on-surface-variant)',
                 }}>
-                  当前自定义页面路径: {post.custom_html_path}
-                  <br />重新上传将覆盖现有文件
+                  {format('currentPagePath', { path: post.custom_html_path })}
+                  <br />{t('reuploadOverrides')}
                 </div>
               )}
             </div>
@@ -428,7 +428,7 @@ export default function PostEditor() {
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                   <line x1="9" y1="3" x2="9" y2="21"/>
                 </svg>
-                页面显示内容
+                {t('pageDisplayContent')}
               </div>
               <div style={{
                 display: 'flex', gap: '0',
@@ -445,7 +445,7 @@ export default function PostEditor() {
                     transition: 'all var(--transition-fast)',
                   }}
                 >
-                  Markdown 编辑器
+                  {t('markdownEditor')}
                 </button>
                 <button
                   onClick={() => setPageEditMode('custom_html')}
@@ -458,7 +458,7 @@ export default function PostEditor() {
                     transition: 'all var(--transition-fast)',
                   }}
                 >
-                  自定义 HTML
+                  {t('customHtml')}
                 </button>
               </div>
               {post?.page_render_mode && (
@@ -474,7 +474,7 @@ export default function PostEditor() {
                     width: '6px', height: '6px', borderRadius: '50%',
                     background: post.page_render_mode === 'custom_html' ? 'var(--md-secondary)' : 'var(--md-primary)',
                   }} />
-                  当前前台显示：{post.page_render_mode === 'custom_html' ? '自定义 HTML' : 'Markdown 编辑器'}
+                  {format('currentFrontDisplay', { mode: post.page_render_mode === 'custom_html' ? t('customHtml') : t('markdownEditor') })}
                 </div>
               )}
             </div>
@@ -534,17 +534,17 @@ export default function PostEditor() {
       <Modal
         open={!!renderModeChoice}
         onClose={() => { renderModeChoice?.resolve('editor'); }}
-        title="选择页面显示方式"
+        title={t('choosePageMode')}
         width="480px"
         actions={
           <>
-            <Button variant="ghost" onClick={() => { renderModeChoice?.resolve('editor'); }}>取消</Button>
+            <Button variant="ghost" onClick={() => { renderModeChoice?.resolve('editor'); }}>{t('cancel')}</Button>
           </>
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <p style={{ fontSize: '14px', color: 'var(--md-on-surface-variant)', lineHeight: 1.6 }}>
-            此页面同时有 Markdown 内容和自定义 HTML 内容，请选择前台访问者看到的版本：
+            {t('choosePageModeDesc')}
           </p>
           <button
             onClick={() => { renderModeChoice?.resolve('editor'); }}
@@ -566,8 +566,8 @@ export default function PostEditor() {
               <IconFileText size={20} style={{ color: 'var(--md-on-primary-container)' }} />
             </div>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--md-on-surface)' }}>使用 Markdown 编辑器</div>
-              <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginTop: '2px' }}>通过主题模板渲染，样式统一</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--md-on-surface)' }}>{t('useMarkdownEditor')}</div>
+              <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginTop: '2px' }}>{t('useMarkdownEditorDesc')}</div>
             </div>
           </button>
           <button
@@ -590,8 +590,8 @@ export default function PostEditor() {
               <IconPencil size={20} style={{ color: 'var(--md-on-secondary-container)' }} />
             </div>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--md-on-surface)' }}>使用自定义 HTML</div>
-              <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginTop: '2px' }}>完全自定义，独立于主题样式</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--md-on-surface)' }}>{t('useCustomHtml')}</div>
+              <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginTop: '2px' }}>{t('useCustomHtmlDesc')}</div>
             </div>
           </button>
         </div>

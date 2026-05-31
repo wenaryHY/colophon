@@ -56,6 +56,26 @@ export const commonDict = {
     page: '页',
     total: '共',
     items: '条',
+
+    // 状态标签（StatusBadge）
+    statusPublished: '已发布',
+    statusDraft: '草稿',
+    statusTrashed: '回收站',
+    statusPending: '待审核',
+    statusApproved: '已通过',
+    statusRejected: '已拒绝',
+    statusDeleted: '已删除',
+
+    // 确认对话框
+    confirmDialogTitle: '确认操作',
+
+    // 语言标签
+    langZh: '中文',
+    langEn: 'English',
+
+    // 恢复/丢弃草稿
+    draftRecover: '恢复',
+    draftDiscard: '丢弃',
   },
   en: {
     // Actions
@@ -113,5 +133,25 @@ export const commonDict = {
     page: 'Page',
     total: 'Total',
     items: 'items',
+
+    // Status badges
+    statusPublished: 'Published',
+    statusDraft: 'Draft',
+    statusTrashed: 'Trashed',
+    statusPending: 'Pending',
+    statusApproved: 'Approved',
+    statusRejected: 'Rejected',
+    statusDeleted: 'Deleted',
+
+    // Confirm dialog
+    confirmDialogTitle: 'Confirm Action',
+
+    // Language labels
+    langZh: '中文',
+    langEn: 'English',
+
+    // Draft
+    draftRecover: 'Recover',
+    draftDiscard: 'Discard',
   },
 };

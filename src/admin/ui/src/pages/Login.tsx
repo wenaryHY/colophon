@@ -59,7 +59,7 @@ export default function Login() {
       if (result.success) {
         setTimeout(() => navigate('/posts'), 100);
       } else {
-        toast(result.message || '登录失败', 'error');
+        toast(result.message || t('loginFailed'), 'error');
       }
     } finally {
       setLoginLoading(false);
@@ -85,7 +85,7 @@ export default function Login() {
         toast(t('registerSuccess'), 'success');
         setTimeout(() => window.location.reload(), 100);
       } else {
-        toast(result.message || '注册失败', 'error');
+        toast(result.message || t('registerFailed'), 'error');
       }
     } finally {
       setLoginLoading(false);
@@ -211,7 +211,7 @@ export default function Login() {
               transition: 'background 0.15s ease, color 0.15s ease',
             }}
           >
-            {l === 'zh' ? '中文' : 'English'}
+            {l === 'zh' ? t('langZh') : t('langEn')}
           </button>
         ))}
       </div>
@@ -318,7 +318,7 @@ export default function Login() {
                 placeholder={t('password')} required style={inputStyle} onFocus={focusIn} onBlur={focusOut} />
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: -4 }}>
                 <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
-                <span style={{ fontSize: 13, color: 'var(--md-on-surface-variant)' }}>7 天内免登录</span>
+                <span style={{ fontSize: 13, color: 'var(--md-on-surface-variant)' }}>{t('rememberMe')}</span>
               </label>
               <button
                 type="submit"

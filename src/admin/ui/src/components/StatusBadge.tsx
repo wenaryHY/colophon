@@ -1,3 +1,5 @@
+import { useI18n } from '../i18n';
+
 interface StatusBadgeProps {
   status: string;
 }
@@ -5,18 +7,31 @@ interface StatusBadgeProps {
 /* ── MD3 chip 风格：语义色彩保持含义不变 ──
    绿色=成功/通过，黄色=警告/待处理，红色=危险/拒绝，灰色=禁用/已删除
 */
-const CONFIG: Record<string, { label: string; bg: string; dot: string; textColor: string }> = {
-  published: { label: '已发布', bg: 'var(--success-50)',  dot: 'var(--success-500)', textColor: 'var(--success-700)' },
-  draft:     { label: '草稿',   bg: 'var(--warning-50)',  dot: 'var(--warning-500)', textColor: 'var(--warning-700)' },
-  trashed:   { label: '回收站', bg: 'var(--danger-50)',   dot: 'var(--danger-500)',  textColor: 'var(--danger-700)' },
-  pending:   { label: '待审核', bg: 'var(--warning-50)',  dot: 'var(--warning-500)', textColor: 'var(--warning-700)' },
-  approved:  { label: '已通过', bg: 'var(--success-50)',  dot: 'var(--success-500)', textColor: 'var(--success-700)' },
-  rejected:  { label: '已拒绝', bg: 'var(--danger-50)',   dot: 'var(--danger-500)',  textColor: 'var(--danger-700)' },
-  deleted:   { label: '已删除', bg: 'var(--md-surface-container)', dot: 'var(--md-outline)', textColor: 'var(--md-on-surface-variant)' },
+const STATUS_KEY_MAP: Record<string, string> = {
+  published: 'statusPublished',
+  draft: 'statusDraft',
+  trashed: 'statusTrashed',
+  pending: 'statusPending',
+  approved: 'statusApproved',
+  rejected: 'statusRejected',
+  deleted: 'statusDeleted',
+};
+
+const COLOR_CONFIG: Record<string, { bg: string; dot: string; textColor: string }> = {
+  published: { bg: 'var(--success-50)',  dot: 'var(--success-500)', textColor: 'var(--success-700)' },
+  draft:     { bg: 'var(--warning-50)',  dot: 'var(--warning-500)', textColor: 'var(--warning-700)' },
+  trashed:   { bg: 'var(--danger-50)',   dot: 'var(--danger-500)',  textColor: 'var(--danger-700)' },
+  pending:   { bg: 'var(--warning-50)',  dot: 'var(--warning-500)', textColor: 'var(--warning-700)' },
+  approved:  { bg: 'var(--success-50)',  dot: 'var(--success-500)', textColor: 'var(--success-700)' },
+  rejected:  { bg: 'var(--danger-50)',   dot: 'var(--danger-500)',  textColor: 'var(--danger-700)' },
+  deleted:   { bg: 'var(--md-surface-container)', dot: 'var(--md-outline)', textColor: 'var(--md-on-surface-variant)' },
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const c = CONFIG[status] || { label: status, bg: 'var(--md-surface-container)', dot: 'var(--md-outline)', textColor: 'var(--md-on-surface-variant)' };
+  const { t } = useI18n();
+  const key = STATUS_KEY_MAP[status] || status;
+  const label = t(key, status);
+  const c = COLOR_CONFIG[status] || { bg: 'var(--md-surface-container)', dot: 'var(--md-outline)', textColor: 'var(--md-on-surface-variant)' };
   return (
     <span style={{
       display: 'inline-flex',
@@ -38,7 +53,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
         background: c.dot,
         flexShrink: 0,
       }} />
-      {c.label}
+      {label}
     </span>
   );
 }

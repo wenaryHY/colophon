@@ -1,6 +1,7 @@
 import { IconAlertCircle } from './Icons';
 import { Modal } from './Modal';
 import { Button } from './Button';
+import { useI18n } from '../i18n';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -19,19 +20,23 @@ const BORDER_MAP = { danger: 'var(--danger-100)', warning: 'var(--warning-100)',
 
 export function ConfirmDialog({
   open, onClose, onConfirm,
-  title = '确认操作', message,
-  confirmText = '确认', cancelText = '取消',
+  title, message,
+  confirmText, cancelText,
   variant = 'danger',
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
+  const resolvedTitle = title || t('confirmDialogTitle');
+  const resolvedConfirmText = confirmText || t('confirm');
+  const resolvedCancelText = cancelText || t('cancel');
   return (
     <Modal
-      open={open} onClose={onClose} title={title} width="420px"
+      open={open} onClose={onClose} title={resolvedTitle} width="420px"
       actions={
         <>
-          <Button variant="ghost" onClick={onClose}>{cancelText}</Button>
+          <Button variant="ghost" onClick={onClose}>{resolvedCancelText}</Button>
           <Button variant={variant === 'danger' ? 'danger' : variant === 'warning' ? 'warning' : 'primary'}
             onClick={() => { onConfirm(); onClose(); }}>
-            {confirmText}
+            {resolvedConfirmText}
           </Button>
         </>
       }

@@ -3,6 +3,7 @@ import type { EditorView } from '@codemirror/view';
 import { CodeMirrorPanel } from './CodeMirrorPanel';
 import { TiptapPanel } from './TiptapPanel';
 import { MediaPicker } from '../MediaPicker';
+import { useI18n } from '../../i18n';
 
 type Mode = 'source' | 'wysiwyg';
 
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function MarkdownEditor({ value, onChange, onHtmlChange }: Props) {
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>('source');
   const [mediaOpen, setMediaOpen] = useState(false);
   const cmViewRef = useRef<EditorView | null>(null);
@@ -49,20 +51,20 @@ export function MarkdownEditor({ value, onChange, onHtmlChange }: Props) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
           </svg>
-          源码
+          {t('sourceCode')}
         </TabButton>
         <TabButton active={mode === 'wysiwyg'} onClick={() => setMode('wysiwyg')}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
           </svg>
-          可视化
+          {t('visual')}
         </TabButton>
 
         {/* Media library button */}
         <button
           type="button"
           onClick={() => setMediaOpen(true)}
-          title="插入媒体文件"
+          title={t('insertMedia')}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: '5px',
             padding: '7px 12px', borderRadius: '8px',
@@ -87,11 +89,11 @@ export function MarkdownEditor({ value, onChange, onHtmlChange }: Props) {
             <circle cx="8.5" cy="8.5" r="1.5"/>
             <polyline points="21 15 16 10 5 21"/>
           </svg>
-          媒体库
+          {t('mediaLibrary')}
         </button>
 
         <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)' }}>
-          {mode === 'source' ? 'Markdown 源码' : '所见即所得'}
+          {mode === 'source' ? t('markdownSource') : t('wysiwyg')}
         </span>
       </div>
 

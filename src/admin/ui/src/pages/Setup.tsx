@@ -106,14 +106,14 @@ export default function Setup() {
       const nextTarget = payload.redirect_to || '/admin';
       setRedirectTarget(nextTarget);
       setCompleted(true);
-      toast('安装完成，正在进入后台…', 'success');
+      toast(t('setupCompletedToast'), 'success');
       window.setTimeout(() => {
         navigateToAdmin(nextTarget);
       }, 900);
       setSubmitting(false);
     },
     onError: (error) => {
-      toast(error instanceof Error ? error.message : '安装失败', 'error');
+      toast(error instanceof Error ? error.message : t('setupFailed'), 'error');
       setSubmitting(false);
     },
   });

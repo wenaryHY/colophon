@@ -11,6 +11,7 @@ import { TextStyle, Color } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import TextAlign from '@tiptap/extension-text-align';
 import { Markdown } from 'tiptap-markdown';
+import { useI18n } from '../../i18n';
 
 // tiptap-markdown doesn't ship TypeScript types for editor.storage.markdown
 declare module '@tiptap/core' {
@@ -34,6 +35,7 @@ const PRESET_COLORS = [
 ];
 
 export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
+  const { t } = useI18n();
   const isExternalUpdateRef = useRef(false);
   const [colorOpen, setColorOpen] = useState(false);
 
@@ -46,7 +48,7 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
       TaskItem.configure({ nested: true }),
       Image.configure({ inline: false }),
       Placeholder.configure({
-        placeholder: '开始写作...',
+        placeholder: t('startWriting'),
       }),
       Underline,
       Link.configure({ openOnClick: false }),
@@ -132,7 +134,7 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
         <span style={{ width: 1, background: 'var(--md-outline-variant)', margin: '4px 4px' }} />
         {/* 链接 + HTML 颜色 */}
         <button onClick={() => {
-          const url = window.prompt('URL');
+          const url = window.prompt(t('url'));
           if (url) editor.chain().focus().setLink({ href: url }).run();
           else editor.chain().focus().unsetLink().run();
         }} className={`toolbar-btn ${editor.isActive('link') ? 'is-active' : ''}`}>🔗</button>
@@ -140,7 +142,7 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           <button
             className={`toolbar-btn ${editor.isActive('textStyle') ? 'is-active' : ''}`}
             onClick={() => setColorOpen(!colorOpen)}
-            title="文字颜色"
+            title={t('textColor')}
           >A</button>
           {colorOpen && (
             <div style={{
@@ -148,7 +150,7 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
               background: 'var(--md-surface)', padding: 8, borderRadius: 8,
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', flexWrap: 'wrap', gap: 4, width: 180
             }}>
-              <button className="toolbar-btn" onClick={() => { editor.chain().focus().unsetColor().run(); setColorOpen(false); }} style={{ width: '100%', textAlign: 'left', fontSize: 12 }}>默认</button>
+              <button className="toolbar-btn" onClick={() => { editor.chain().focus().unsetColor().run(); setColorOpen(false); }} style={{ width: '100%', textAlign: 'left', fontSize: 12 }}>{t('defaultColor')}</button>
               {PRESET_COLORS.map(c => (
                 <button
                   key={c}

@@ -23,6 +23,9 @@ export const navDict = {
     logout: '退出登录',
     admin: '管理员',
     member: '成员',
+
+    // 品牌
+    adminPanel: 'Admin Panel',
   },
   en: {
     // Content
@@ -47,5 +50,8 @@ export const navDict = {
     logout: 'Logout',
     admin: 'Admin',
     member: 'Member',
+
+    // Brand
+    adminPanel: 'Admin Panel',
   },
 };

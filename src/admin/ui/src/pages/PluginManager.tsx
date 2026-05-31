@@ -60,7 +60,7 @@ export default function PluginManager() {
 
   if (isLoading) {
     return (
-      <div className="setup-loading">{t('loading', '加载中...')}</div>
+      <div className="setup-loading">{t('loading')}</div>
     );
   }
 
@@ -71,7 +71,7 @@ export default function PluginManager() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <PageHeader
         title={t('plugins')}
-        subtitle={t('pluginsSubtitle', '管理已安装的插件，启用或禁用功能扩展')}
+        subtitle={t('pluginsSubtitle')}
       />
 
       {/* 概览卡片 */}
@@ -91,7 +91,7 @@ export default function PluginManager() {
         >
           <div>
             <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>
-              {t('totalPlugins', '插件总数')}
+              {t('totalPlugins')}
             </div>
             <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--md-on-surface)' }}>
               {plugins.length}
@@ -99,7 +99,7 @@ export default function PluginManager() {
           </div>
           <div>
             <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>
-              {t('enabledPlugins', '已启用')}
+              {t('enabledPlugins')}
             </div>
             <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--md-primary)' }}>
               {enabledCount}
@@ -107,7 +107,7 @@ export default function PluginManager() {
           </div>
           <div>
             <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>
-              {t('disabledPlugins', '已禁用')}
+              {t('disabledPlugins')}
             </div>
             <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--md-outline)' }}>
               {plugins.length - enabledCount}
@@ -120,16 +120,16 @@ export default function PluginManager() {
       <section style={sectionStyle}>
         <div style={{ padding: '20px 24px', background: 'var(--md-surface-container-low)' }}>
           <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--md-on-surface)' }}>
-            {t('installedPlugins', '已安装插件')}
+            {t('installedPlugins')}
           </div>
           <div style={{ fontSize: '12.5px', color: 'var(--md-outline)', marginTop: '4px' }}>
-            {t('installedPluginsDesc', '所有已扫描到的插件')}
+            {t('installedPluginsDesc')}
           </div>
         </div>
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {plugins.length === 0 ? (
             <div style={{ padding: '28px', textAlign: 'center', color: 'var(--md-outline)' }}>
-              {t('noPlugins', '暂无已安装的插件')}
+              {t('noPlugins')}
             </div>
           ) : (
             plugins.map((p) => (
@@ -156,7 +156,7 @@ export default function PluginManager() {
                         fontWeight: 600,
                       }}
                     >
-                      {p.enabled ? t('enabled', '已启用') : t('disabled', '已禁用')}
+                      {p.enabled ? t('enabled') : t('disabled')}
                     </span>
                   </div>
                   {p.description && (
@@ -192,7 +192,7 @@ export default function PluginManager() {
                     onClick={() => toggleMutation.mutate(p.id)}
                     loading={toggleMutation.isPending}
                   >
-                    {p.enabled ? t('disable', '禁用') : t('enable', '启用')}
+                    {p.enabled ? t('disable') : t('enable')}
                   </Button>
                 </div>
               </div>

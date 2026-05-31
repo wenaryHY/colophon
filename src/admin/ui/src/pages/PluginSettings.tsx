@@ -236,17 +236,17 @@ export default function PluginSettings() {
 
   /* ── Loading ── */
   if (isLoading) {
-    return <div style={CENTER_STYLE}>Loading...</div>;
+    return <div style={CENTER_STYLE}>{t('loading')}</div>;
   }
 
   /* ── Error ── */
   if (error && schema.length === 0) {
     return (
       <div style={{ ...CENTER_STYLE, flexDirection: 'column' as const, gap: '16px' }}>
-        <div style={{ color: 'var(--danger-500)', fontSize: '15px', fontWeight: 600 }}>错误</div>
+        <div style={{ color: 'var(--danger-500)', fontSize: '15px', fontWeight: 600 }}>{t('error')}</div>
         <div style={{ color: 'var(--md-on-surface-variant)' }}>{error}</div>
         <Button variant="ghost" onClick={() => navigate('/admin/plugins')}>
-          返回插件列表
+          {t('backToPluginList')}
         </Button>
       </div>
     );
@@ -256,9 +256,9 @@ export default function PluginSettings() {
   if (schema.length === 0) {
     return (
       <>
-        <PageHeader title={name || '插件'} subtitle="此插件没有可配置的选项" />
+        <PageHeader title={name || t('plugins')} subtitle={t('noConfigOptions')} />
         <div style={CENTER_STYLE}>
-          <div style={{ color: 'var(--md-outline)' }}>该插件未定义任何设置项</div>
+          <div style={{ color: 'var(--md-outline)' }}>{t('noSettingsDefined')}</div>
         </div>
       </>
     );
@@ -268,10 +268,10 @@ export default function PluginSettings() {
     <>
       <PageHeader
         title={name || t('pluginSettings')}
-        subtitle="配置插件运行参数"
+        subtitle={t('pluginSettingsSubtitle')}
         actions={
           <Button onClick={handleSave} disabled={saveMutation.isPending} loading={saveMutation.isPending}>
-            保存
+            {t('save')}
           </Button>
         }
       />
@@ -293,7 +293,7 @@ export default function PluginSettings() {
 
       <div style={sectionStyle}>
         <div style={secHeadStyle}>
-          <h3 style={secTitleStyle}>插件设置</h3>
+          <h3 style={secTitleStyle}>{t('pluginSettingsTitle')}</h3>
         </div>
         <div style={secBodyStyle}>
           {schema.map((s) => (

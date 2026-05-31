@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [token, setTokenState] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const { setLang } = useI18n();
+  const { setLang, t } = useI18n();
   /** 仅首次挂载运行一次 auth 校验 */
   const authChecked = useRef(false);
 
@@ -103,9 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
     } catch (error) {
       clearAuth();
-      return { success: false, message: error instanceof Error ? error.message : '登录失败' };
+      return { success: false, message: error instanceof Error ? error.message : t('loginFailed') };
     }
-  }, [clearAuth, refreshUser]);
+  }, [clearAuth, refreshUser, t]);
 
   const register = useCallback(async (data: RegisterData) => {
     try {
@@ -118,9 +118,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true };
     } catch (error) {
       clearAuth();
-      return { success: false, message: error instanceof Error ? error.message : '注册失败' };
+      return { success: false, message: error instanceof Error ? error.message : t('registerFailed') };
     }
-  }, [clearAuth, refreshUser]);
+  }, [clearAuth, refreshUser, t]);
 
   const logout = useCallback(async () => {
     try {

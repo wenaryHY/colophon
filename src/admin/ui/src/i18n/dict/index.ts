@@ -6,6 +6,9 @@ import { postsDict } from './posts';
 import { settingsDict } from './settings';
 import { contentDict } from './content';
 import { setupDict } from './setup';
+import { editorDict } from './editor';
+import { mediaDict } from './media';
+import { pluginsDict } from './plugins';
 
 // 合并所有字典
 export const dictionary = {
@@ -17,6 +20,9 @@ export const dictionary = {
     ...settingsDict.zh,
     ...contentDict.zh,
     ...setupDict.zh,
+    ...editorDict.zh,
+    ...mediaDict.zh,
+    ...pluginsDict.zh,
   },
   en: {
     ...commonDict.en,
@@ -26,6 +32,9 @@ export const dictionary = {
     ...settingsDict.en,
     ...contentDict.en,
     ...setupDict.en,
+    ...editorDict.en,
+    ...mediaDict.en,
+    ...pluginsDict.en,
   },
 };
 

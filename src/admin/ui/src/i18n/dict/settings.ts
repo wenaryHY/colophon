@@ -71,6 +71,30 @@ export const settingsDict = {
 
     // 保存
     saveChanges: '保存更改',
+
+    // 备份操作 toast
+    creating: '创建中…',
+    backupCreated: '已创建新备份',
+    createBackupFailed: '创建备份失败',
+    downloadBackupFailed: '下载备份失败',
+    backupDownloadStarted: '备份文件已开始下载',
+    mergeRestoreSuccess: '合并恢复成功，页面即将刷新',
+    mergeRestoreFailed: '合并恢复失败',
+    mergeRestoreConfirm: '将执行"合并恢复"：保留当前新数据并合并备份历史数据，是否继续？',
+    backupDeleted: '备份已删除',
+    deleteBackupFailed: '删除备份失败',
+    deleteBackupConfirm: '确定删除这个备份吗？删除后不可恢复。',
+    backupImportSuccess: '备份导入成功，页面将刷新...',
+    importFailed: '导入失败',
+    settingsSaved: '设置已保存',
+    settingsSaveFailed: '保存设置失败',
+    languageSaveFailed: '保存语言设置失败',
+    backupHistoryCount: '备份历史 ({count})',
+
+    // URL hint (extended)
+    siteUrlHintFull: '博客的完整访问地址，必须是纯 origin，例如 https://example.com',
+    adminUrlLabel: '后台 URL',
+    adminUrlHint: 'admin_url 由 site_url 自动推导，修改 site_url 即可同步更新',
   },
   en: {
     // Page title
@@ -143,5 +167,29 @@ export const settingsDict = {
 
     // Save
     saveChanges: 'Save Changes',
+
+    // Backup toast messages
+    creating: 'Creating...',
+    backupCreated: 'Backup created',
+    createBackupFailed: 'Failed to create backup',
+    downloadBackupFailed: 'Failed to download backup',
+    backupDownloadStarted: 'Backup download started',
+    mergeRestoreSuccess: 'Merge restore successful, page will refresh',
+    mergeRestoreFailed: 'Merge restore failed',
+    mergeRestoreConfirm: 'About to perform "merge restore": keep current new data and merge historical data from backup. Continue?',
+    backupDeleted: 'Backup deleted',
+    deleteBackupFailed: 'Failed to delete backup',
+    deleteBackupConfirm: 'Are you sure you want to delete this backup? This cannot be undone.',
+    backupImportSuccess: 'Backup imported successfully, page will refresh...',
+    importFailed: 'Import failed',
+    settingsSaved: 'Settings saved',
+    settingsSaveFailed: 'Failed to save settings',
+    languageSaveFailed: 'Failed to save language setting',
+    backupHistoryCount: 'Backup History ({count})',
+
+    // URL hint (extended)
+    siteUrlHintFull: 'Full blog URL, must be a pure origin, e.g. https://example.com',
+    adminUrlLabel: 'Admin URL',
+    adminUrlHint: 'admin_url is auto-derived from site_url. Update site_url to sync.',
   },
 };

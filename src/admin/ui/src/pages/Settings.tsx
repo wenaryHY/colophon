@@ -109,7 +109,7 @@ function formatBytes(size: number): string {
 
 export default function Settings() {
   const toast = useToast();
-  const { t, lang, setLang } = useI18n();
+  const { t, lang, setLang, format } = useI18n();
   const { user, refreshUser } = useAuth();
   const restoreInputRef = useRef<HTMLInputElement>(null);
   const [kv, setKv] = useState<Record<string, string>>({});
@@ -157,7 +157,7 @@ export default function Settings() {
       });
 
       if (!res.ok) {
-        throw new Error('下载备份失败');
+        throw new Error(t('downloadBackupFailed'));
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -166,9 +166,9 @@ export default function Settings() {
       a.download = `inkforge_backup_${backupId}_${new Date().toISOString().slice(0, 10)}.zip`;
       a.click();
       URL.revokeObjectURL(url);
-      toast('备份文件已开始下载', 'success');
+      toast(t('backupDownloadStarted'), 'success');
     } catch (error) {
-      toast(error instanceof Error ? error.message : '下载备份失败', 'error');
+      toast(error instanceof Error ? error.message : t('downloadBackupFailed'), 'error');
     } finally {
       setDownloadingBackupId(null);
     }
@@ -176,27 +176,27 @@ export default function Settings() {
 
   const createBackupMutation = useMutation({
     mutationFn: () => createBackup('local'),
-    onSuccess: () => { toast('已创建新备份', 'success'); refetchBackups(); },
-    onError: (error) => toast(error instanceof Error ? error.message : '创建备份失败', 'error'),
+    onSuccess: () => { toast(t('backupCreated'), 'success'); refetchBackups(); },
+    onError: (error) => toast(error instanceof Error ? error.message : t('createBackupFailed'), 'error'),
   });
 
   const mergeRestoreMutation = useMutation({
     mutationFn: (backupId: string) => mergeRestoreBackup(backupId),
     onSuccess: () => {
-      toast('合并恢复成功，页面即将刷新', 'success');
+      toast(t('mergeRestoreSuccess'), 'success');
       setMergeRestoringId(null);
       setTimeout(() => location.reload(), 1200);
     },
     onError: (error) => {
-      toast(error instanceof Error ? error.message : '合并恢复失败', 'error');
+      toast(error instanceof Error ? error.message : t('mergeRestoreFailed'), 'error');
       setMergeRestoringId(null);
     },
   });
 
   const deleteBackupMutation = useMutation({
     mutationFn: (backupId: string) => deleteBackupApi(backupId),
-    onSuccess: () => { toast('备份已删除', 'success'); refetchBackups(); },
-    onError: (error) => toast(error instanceof Error ? error.message : '删除备份失败', 'error'),
+    onSuccess: () => { toast(t('backupDeleted'), 'success'); refetchBackups(); },
+    onError: (error) => toast(error instanceof Error ? error.message : t('deleteBackupFailed'), 'error'),
   });
 
   const saveSettingsMutation = useMutation({
@@ -223,11 +223,11 @@ export default function Settings() {
     },
     retry: 0,
     onSuccess: () => {
-      toast('设置已保存', 'success');
+      toast(t('settingsSaved'), 'success');
       getQueryClient().invalidateQueries({ queryKey: ['settings'] });
       getQueryClient().invalidateQueries({ queryKey: ['settings-themes'] });
     },
-    onError: (error) => toast(error instanceof Error ? error.message : '保存设置失败', 'error'),
+    onError: (error) => toast(error instanceof Error ? error.message : t('settingsSaveFailed'), 'error'),
   });
 
   const languageMutation = useMutation({
@@ -241,11 +241,11 @@ export default function Settings() {
         await refreshUser();
       }
     },
-    onError: (error) => toast(error instanceof Error ? error.message : '保存语言设置失败', 'error'),
+    onError: (error) => toast(error instanceof Error ? error.message : t('languageSaveFailed'), 'error'),
   });
 
   function handleMergeRestore(backupId: string) {
-    if (!window.confirm('将执行"合并恢复"：保留当前新数据并合并备份历史数据，是否继续？')) {
+    if (!window.confirm(t('mergeRestoreConfirm'))) {
       return;
     }
     setMergeRestoringId(backupId);
@@ -253,7 +253,7 @@ export default function Settings() {
   }
 
   function handleDeleteBackup(backupId: string) {
-    if (!window.confirm('确定删除这个备份吗？删除后不可恢复。')) return;
+    if (!window.confirm(t('deleteBackupConfirm'))) return;
     deleteBackupMutation.mutate(backupId);
   }
 
@@ -264,57 +264,57 @@ export default function Settings() {
       <PageHeader title={t('title')} subtitle={t('subtitle')}
         actions={<Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending} loading={saveSettingsMutation.isPending}>{t('saveChanges')}</Button>} />
 
-      <SettingSection title="基础信息" description="站点名称、描述等核心信息">
-        <FormRow label="站点标题">
+      <SettingSection title={t('basicInfo')} description={t('basicInfoDesc')}>
+        <FormRow label={t('siteTitle')}>
           <Input value={kv.site_title || ''} onChange={(e) => update('site_title', e.target.value)} placeholder="InkForge" />
         </FormRow>
-        <FormRow label="站点描述" hint="用于 SEO 和页面 meta 描述，建议不超过 160 字符">
+        <FormRow label={t('siteDescription')} hint={t('siteDescHint')}>
           <Input value={kv.site_description || ''} onChange={(e) => update('site_description', e.target.value)} placeholder="A personal blog powered by InkForge" />
         </FormRow>
-        <FormRow label="站点 URL" hint="博客的完整访问地址，必须是纯 origin，例如 https://example.com">
+        <FormRow label={t('siteUrl')} hint={t('siteUrlHintFull')}>
           <Input value={kv.site_url || ''} onChange={(e) => update('site_url', e.target.value)} placeholder="https://example.com" />
         </FormRow>
-        <FormRow label="后台 URL" hint="admin_url 由 site_url 自动推导，修改 site_url 即可同步更新">
+        <FormRow label={t('adminUrlLabel')} hint={t('adminUrlHint')}>
           <Input value={kv.admin_url || ''} disabled placeholder="https://example.com/admin" />
         </FormRow>
       </SettingSection>
 
-      <SettingSection title="评论与注册" description="控制用户交互和内容审核策略">
+      <SettingSection title={t('commentsAndReg')} description={t('commentsAndRegDesc')}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
-            <FormRow label="公开注册">
+            <FormRow label={t('allowRegister')}>
               <Select value={kv.allow_register || 'true'} onChange={(e) => update('allow_register', e.target.value)}>
-                <option value="true">允许新用户注册</option><option value="false">关闭注册</option>
+                <option value="true">{t('allowRegisterOption1')}</option><option value="false">{t('allowRegisterOption2')}</option>
               </Select>
             </FormRow>
-            <FormRow label="允许评论">
+            <FormRow label={t('allowComment')}>
               <Select value={kv.allow_comment || 'true'} onChange={(e) => update('allow_comment', e.target.value)}>
-                <option value="true">允许评论</option><option value="false">全局关闭评论</option>
+                <option value="true">{t('allowCommentOption1')}</option><option value="false">{t('allowCommentOption2')}</option>
               </Select>
             </FormRow>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
-            <FormRow label="评论需登录">
+            <FormRow label={t('commentRequireLogin')}>
               <Select value={kv.comment_require_login || 'true'} onChange={(e) => update('comment_require_login', e.target.value)}>
-                <option value="true">是 — 仅登录可评论</option><option value="false">否 — 游客也可评论</option>
+                <option value="true">{t('requireLoginOption1')}</option><option value="false">{t('requireLoginOption2')}</option>
               </Select>
             </FormRow>
-            <FormRow label="审核策略">
+            <FormRow label={t('moderationMode')}>
               <Select value={kv.comment_moderation_mode || 'all'} onChange={(e) => update('comment_moderation_mode', e.target.value)}>
-                <option value="all">全部待审</option><option value="first_comment">首条待审，后续放行</option><option value="none">无需审核，直接发布</option>
+                <option value="all">{t('moderationAll')}</option><option value="first_comment">{t('moderationFirst')}</option><option value="none">{t('moderationNone')}</option>
               </Select>
             </FormRow>
           </div>
         </div>
-        <FormRow label="评论最大长度" hint="单条评论允许的最大字符数">
+        <FormRow label={t('commentMaxLength')} hint={t('maxLengthHint')}>
           <Input type="number" value={kv.comment_max_length || '2000'} onChange={(e) => update('comment_max_length', e.target.value)} />
         </FormRow>
       </SettingSection>
 
-      <SettingSection title="主题与外观" description="切换和管理已安装的前台主题">
+      <SettingSection title={t('themeAppearance')} description={t('themeAppearanceDesc')}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
-            <FormRow label="当前主题">
+            <FormRow label={t('currentTheme')}>
               <Select value={kv.active_theme || activeThemeOptions[0]?.value || 'default'}
                 onChange={(e) => update('active_theme', e.target.value)}>
                 {activeThemeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -322,9 +322,9 @@ export default function Settings() {
             </FormRow>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
-            <FormRow label="默认模式">
+            <FormRow label={t('defaultMode')}>
               <Select value={kv.theme_default_mode || 'system'} onChange={(e) => update('theme_default_mode', e.target.value)}>
-                <option value="system">跟随系统</option><option value="light">浅色模式</option><option value="dark">深色模式</option>
+                <option value="system">{t('modeSystem')}</option><option value="light">{t('modeLight')}</option><option value="dark">{t('modeDark')}</option>
               </Select>
             </FormRow>
           </div>
@@ -332,7 +332,7 @@ export default function Settings() {
 
         <div style={{ marginTop: '22px', paddingTop: '18px', background: 'var(--md-surface-container-low)', borderRadius: 'var(--radius-md)', padding: '18px' }}>
           <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--md-outline)', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '16px' }}>
-            已安装的主题
+            {t('installedThemes')}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
             {themes.map((theme) => (
@@ -358,7 +358,7 @@ export default function Settings() {
                     color: 'var(--md-on-primary)', fontSize: '10px', fontWeight: 700,
                     padding: '3px 10px', borderRadius: 'var(--radius-full)', letterSpacing: '0.06em',
                     textTransform: 'uppercase',
-                  }}>使用中</span>
+                  }}>{t('themeActive')}</span>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                   <div style={{
@@ -381,9 +381,9 @@ export default function Settings() {
         </div>
       </SettingSection>
 
-      <SettingSection title="回收站与清理" description="配置已删除内容的保留天数与自动清理时间">
+      <SettingSection title={t('trashCleanup')} description={t('trashCleanupDesc')}>
         <div style={preferenceGridStyle}>
-          <PreferenceCard label="保留天数" hint="软删除的内容将被保存的天数，最长 90 天。过期后自动永久清理。">
+          <PreferenceCard label={t('retentionDays')} hint={t('retentionDaysHint')}>
             <NumberWheelPicker
               value={parseInt(kv.trash_retention_days || '30')}
               min={1}
@@ -393,7 +393,7 @@ export default function Settings() {
             />
           </PreferenceCard>
 
-          <PreferenceCard label="自动清理时间" hint="每天执行自动永久清理任务的时间。建议设在凌晨，避开访问高峰。">
+          <PreferenceCard label={t('cleanupTime')} hint={t('cleanupTimeHint')}>
             <TimePicker
               hour={parseInt(kv.trash_cleanup_hour || '3')}
               minute={parseInt(kv.trash_cleanup_minute || '0')}
@@ -423,11 +423,11 @@ export default function Settings() {
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <Button onClick={() => createBackupMutation.mutate()} disabled={createBackupMutation.isPending} loading={createBackupMutation.isPending}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-              {createBackupMutation.isPending ? '创建中…' : '创建备份'}
+              {createBackupMutation.isPending ? t('creating') : t('createBackup')}
             </Button>
             <Button variant="ghost" onClick={() => restoreInputRef.current?.click()}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              导入备份文件
+              {t('importBackup')}
             </Button>
             <input
               ref={restoreInputRef}
@@ -437,7 +437,7 @@ export default function Settings() {
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                if (!window.confirm(`即将用 "${file.name}" 替换当前数据库，原数据库会备份为 .bak 文件。是否继续？`)) {
+                if (!window.confirm(format('backupConfirm', { filename: file.name }))) {
                   return;
                 }
                 const formData = new FormData();
@@ -450,13 +450,13 @@ export default function Settings() {
                   .then((r) => r.json())
                   .then((json) => {
                     if (json.code === 0) {
-                      toast('备份导入成功，页面将刷新...', 'success');
+                      toast(t('backupImportSuccess'), 'success');
                       setTimeout(() => location.reload(), 1500);
                     } else {
-                      toast(json.message || '导入失败', 'error');
+                      toast(json.message || t('importFailed'), 'error');
                     }
                   })
-                  .catch((err) => toast(err instanceof Error ? err.message : '导入失败', 'error'))
+                  .catch((err) => toast(err instanceof Error ? err.message : t('importFailed'), 'error'))
                   .finally(() => {
                     if (restoreInputRef.current) restoreInputRef.current.value = '';
                   });
@@ -466,11 +466,11 @@ export default function Settings() {
 
           <div style={{ paddingTop: '16px' }}>
             <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--md-outline)', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '12px' }}>
-              备份历史 ({backups.length})
+              {format('backupHistoryCount', { count: backups.length })}
             </div>
             {backups.length === 0 ? (
               <div style={{ fontSize: '13px', color: 'var(--md-outline)', padding: '20px 0', textAlign: 'center' }}>
-                暂无备份记录，点击上方「创建备份」生成第一份
+                {t('noBackup')}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
