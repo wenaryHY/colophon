@@ -126,10 +126,26 @@ export function FabContainer() {
   // ==================== 预览上下文 ====================
   const preview = usePreview();
   const hasScene = preview.sceneId !== null;
-
   // ==================== 状态 ====================
   const [isMobile, setIsMobile] = useState(isMobileView());
   const [showPopover, setShowPopover] = useState(false);
+
+  // ==================== Ref ====================
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // ==================== 拖拽集成 ====================
+  const {
+    position,
+    isDragging,
+    hasMovedRef,
+    dragRef,
+    handlers,
+  } = useDraggable({
+    id: 'fab-container',
+    initialPosition: getDefaultPosition(),
+    elementWidth: MAIN_BUTTON_SIZE,
+    elementHeight: MAIN_BUTTON_SIZE,
+  });
 
   // ==================== FAB 位置追踪 ====================
   const [fabRect, setFabRect] = useState<DOMRect | null>(null);
@@ -149,23 +165,6 @@ export function FabContainer() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // ==================== Ref ====================
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // ==================== 拖拽集成 ====================
-  const {
-    position,
-    isDragging,
-    hasMovedRef,
-    dragRef,
-    handlers,
-  } = useDraggable({
-    id: 'fab-container',
-    initialPosition: getDefaultPosition(),
-    elementWidth: MAIN_BUTTON_SIZE,
-    elementHeight: MAIN_BUTTON_SIZE,
-  });
 
   // ==================== 响应式监听 ====================
   useEffect(() => {
