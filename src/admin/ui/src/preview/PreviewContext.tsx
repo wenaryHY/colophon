@@ -96,8 +96,7 @@ const DEFAULT_ZOOM = 1.0;
 const MIN_ZOOM = 0.25;
 /** 最大缩放比例 */
 const MAX_ZOOM = 2.0;
-/** 缩放步进 */
-const ZOOM_STEP = 0.25;
+
 
 // ==================== 工具函数 ====================
 
@@ -152,9 +151,15 @@ export function PreviewProvider({ children }: { children: ReactNode }) {
   const [themeConfig, setThemeConfigState] = useState<Record<string, unknown>>({});
   const [isRendering, setIsRendering] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [device, setDeviceState] = useState<DeviceType>(() =>
-    readStorage(DEVICE_STORAGE_KEY, inferDefaultDevice()),
-  );
+  const [device, setDeviceState] = useState<DeviceType>(() => {
+    try {
+      const saved = localStorage.getItem(DEVICE_STORAGE_KEY);
+      if (saved === 'desktop' || saved === 'tablet' || saved === 'mobile') return saved;
+    } catch {
+      // ignore
+    }
+    return inferDefaultDevice();
+  });
   const [zoom, setZoomState] = useState<number>(() =>
     clampZoom(readStorageNumber(ZOOM_STORAGE_KEY, DEFAULT_ZOOM)),
   );

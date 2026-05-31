@@ -29,7 +29,7 @@ export interface UseDraggableReturn {
   /** 是否正在拖拽 */
   isDragging: boolean;
   /** 绑定到拖拽元素的 ref */
-  dragRef: React.RefObject<HTMLDivElement>;
+  dragRef: React.RefObject<HTMLDivElement | null>;
   /** 需要绑定到元素的事件处理器 */
   handlers: {
     onPointerDown: (e: React.PointerEvent) => void;

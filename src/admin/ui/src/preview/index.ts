@@ -10,4 +10,4 @@ export type {
   SceneConfig,
   PreviewContextType,
 } from './PreviewContext';
-export type { PreviewRendererProps } from './PreviewRenderer';
+
