@@ -3,10 +3,10 @@ use image::{self, imageops::FilterType};
 use image::ImageReader;
 use crate::shared::error::AppResult;
 
-/// 最大源图像素总数（宽×高），超过此值不生成缩略图
-/// 4000×3000 = 12,000,000 像素，解码后约 48MB RGBA；
-/// 阈值设为 20MP，覆盖 5000×4000 的常见大图，但不处理 10000×10000 的怪物
-const MAX_SOURCE_PIXEL_COUNT_FOR_THUMBNAIL_GENERATION: u64 = 20_000_000;
+/// 缩略图处理的源图内存上限（字节）: 30MB
+/// 4000×3000 RGBA = 48MB → 超过上限，跳过
+/// 2000×1500 RGBA = 12MB → 低于上限，可以处理
+const MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION: u64 = 30_000_000;
 
 /// 缩略图生成配置
 pub struct ThumbnailGenerationConfig {
@@ -46,8 +46,9 @@ pub fn generate_thumbnails(
     let (orig_w, orig_h) = reader.into_dimensions()
         .map_err(|e| anyhow::anyhow!("Failed to read image dimensions: {}", e))?;
 
-    let pixel_count = orig_w as u64 * orig_h as u64;
-    if pixel_count > MAX_SOURCE_PIXEL_COUNT_FOR_THUMBNAIL_GENERATION {
+    // 基于 RGBA 解码后的内存估算（4 bytes per pixel）判断是否跳过
+    let estimated_memory_bytes = orig_w as u64 * orig_h as u64 * 4;
+    if estimated_memory_bytes > MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION {
         // 返回原始尺寸但空缩略图列表——不崩溃，只是不生成
         return Ok((orig_w, orig_h, Vec::new()));
     }
@@ -233,10 +234,10 @@ mod tests {
         std::fs::remove_file(&source_path).ok();
     }
 
-    /// 验证小图片不受像素上限阈值影响，正常生成缩略图
-    /// 阈值 20MP 远大于此测试的图片，此测试验证新的尺寸预检代码路径不会误杀正常图片
+    /// 验证小图片不受内存上限阈值影响，正常生成缩略图
+    /// 200×200×4 = 160KB，远小于 30MB 阈值，应正常生成
     #[test]
-    fn test_small_image_passes_pixel_count_threshold() {
+    fn test_small_image_passes_memory_threshold() {
         let png_data = create_test_png(200, 200);
         let temp_dir = std::env::temp_dir();
         let source_path = temp_dir.join("test_threshold_pass.png");
@@ -253,7 +254,7 @@ mod tests {
         )
         .unwrap();
 
-        // 200×200 = 40,000 像素，远小于 20MP 阈值，应正常生成
+        // 200×200×4 = 160KB，远小于 30MB 阈值，应正常生成
         assert_eq!(orig_w, 200);
         assert_eq!(orig_h, 200);
         assert_eq!(thumbs.len(), 1);
@@ -262,5 +263,28 @@ mod tests {
         let thumb_path = output_dir.join("test-threshold_thumb_100w.webp");
         std::fs::remove_file(&source_path).ok();
         std::fs::remove_file(&thumb_path).ok();
+    }
+
+    /// 验证超大图片的内存估算超过阈值
+    /// 4000×3000×4 = 48MB > 30MB 阈值，应被跳过
+    #[test]
+    fn test_image_above_memory_threshold_estimation() {
+        // 不实际创建大图（耗内存），只验证阈值计算逻辑
+        let estimated = 4000u64 * 3000 * 4; // 48_000_000 bytes
+        assert!(
+            estimated > MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION,
+            "4000×3000 RGBA ({} bytes) should exceed the {} byte threshold",
+            estimated,
+            MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION
+        );
+
+        // 验证中等图片可以通过
+        let medium_estimated = 2000u64 * 1500 * 4; // 12_000_000 bytes
+        assert!(
+            medium_estimated < MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION,
+            "2000×1500 RGBA ({} bytes) should be below the {} byte threshold",
+            medium_estimated,
+            MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION
+        );
     }
 }

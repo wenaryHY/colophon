@@ -163,14 +163,16 @@ pub async fn upload_media_raw(
         match result {
             Ok((orig_w, orig_h, generated_thumbs)) => {
                 if generated_thumbs.is_empty() && orig_w > 0 && orig_h > 0 {
+                    let estimated_memory_mb = (orig_w as u64 * orig_h as u64 * 4) as f64 / 1_048_576.0;
                     tracing::info!(
                         module = "media",
                         event = "thumbnail_skipped_large_image",
                         media_id = %media_id,
                         width = orig_w,
                         height = orig_h,
-                        pixel_count = orig_w as u64 * orig_h as u64,
-                        "image too large for thumbnail generation, original preserved"
+                        estimated_memory_mb = format_args!("{:.1}", estimated_memory_mb),
+                        "image too large for thumbnail generation (est. {:.1} MB RGBA), original preserved",
+                        estimated_memory_mb,
                     );
                 }
                 for t in generated_thumbs {
