@@ -27,7 +27,8 @@ pub struct DatabaseConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct AuthConfig {
     pub secret: String,
-    pub expires_in_seconds: i64,
+    /// 访问令牌默认存活时长（秒），必须为正整数
+    pub expires_in_seconds: u64,
     pub allow_insecure_default_secret: bool,
 }
 

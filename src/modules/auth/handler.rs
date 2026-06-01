@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::{
     infra::jwt,
-    shared::{error::AppResult, json::AppJson, response::ApiResponse},
+    shared::{auth_constants, error::AppResult, json::AppJson, response::ApiResponse},
     state::AppState,
 };
 
@@ -33,18 +33,22 @@ pub async fn register(
         "received registration request"
     );
     let expires_in_seconds = state.config.auth.expires_in_seconds;
-    let (login_data, refresh_token) = service::register(state, body, expires_in_seconds).await?;
+    let (login_data, refresh_token) = service::register(
+        state,
+        body,
+        expires_in_seconds,
+        REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS,
+    )
+    .await?;
     let access_token = login_data.access_token.clone();
-    let refresh_cookie = build_refresh_cookie(&refresh_token, REMEMBER_ME_MAX_AGE);
+    let refresh_cookie =
+        build_refresh_cookie(&refresh_token, REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
     let json = Json(ApiResponse::success(login_data));
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
-    let session_cookie = build_session_cookie(
-        &access_token,
-        expires_in_seconds,
-    );
+    let session_cookie = build_session_cookie(&access_token, expires_in_seconds);
     resp_headers.append(
         axum::http::header::SET_COOKIE,
         axum::http::HeaderValue::from_str(&session_cookie).unwrap(),
@@ -70,12 +74,13 @@ pub async fn login(
     let remember_me = body.remember_me.unwrap_or(false);
 
     let (session_max_age, refresh_max_age) = if remember_me {
-        (REMEMBER_ME_MAX_AGE as i64, REMEMBER_ME_MAX_AGE)
+        (REMEMBER_ME_MAX_AGE, REMEMBER_ME_MAX_AGE)
     } else {
         (expires_in_seconds, SHORT_MAX_AGE)
     };
 
-    let (login_data, refresh_token) = service::login(state, body, session_max_age).await?;
+    let (login_data, refresh_token) =
+        service::login(state, body, session_max_age, refresh_max_age).await?;
     let access_token = login_data.access_token.clone();
 
     let refresh_cookie = build_refresh_cookie(&refresh_token, refresh_max_age);
@@ -84,10 +89,7 @@ pub async fn login(
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
-    let session_cookie = build_session_cookie(
-        &access_token,
-        session_max_age,
-    );
+    let session_cookie = build_session_cookie(&access_token, session_max_age);
     resp_headers.append(
         axum::http::header::SET_COOKIE,
         axum::http::HeaderValue::from_str(&session_cookie).unwrap(),
@@ -110,7 +112,9 @@ pub async fn logout(
     );
 
     // 撤销 refresh token（如果存在）
-    if let Some(cookie) = jar.get("inkforge_refresh") {
+    if let Some(cookie) =
+        jar.get(auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN)
+    {
         let token_hash = jwt::hash_token(cookie.value());
         let _ = repository::revoke_refresh_token(&state.pool, &token_hash).await;
     }
@@ -148,7 +152,7 @@ pub async fn refresh_token(
     );
 
     let token = jar
-        .get("inkforge_refresh")
+        .get(auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN)
         .map(|c| c.value().to_string())
         .ok_or_else(|| {
             tracing::warn!(
@@ -160,16 +164,17 @@ pub async fn refresh_token(
         })?;
 
     let token_hash = jwt::hash_token(&token);
-    let (user_id, _expires_at, family_id, used_at) = repository::find_valid_refresh_token(&state.pool, &token_hash)
-        .await?
-        .ok_or_else(|| {
-            tracing::warn!(
-                module = "auth",
-                event = "refresh_token_invalid",
-                "refresh token not found or expired"
-            );
-            crate::shared::error::AppError::Unauthorized
-        })?;
+    let (user_id, _expires_at, family_id, used_at) =
+        repository::find_valid_refresh_token(&state.pool, &token_hash)
+            .await?
+            .ok_or_else(|| {
+                tracing::warn!(
+                    module = "auth",
+                    event = "refresh_token_invalid",
+                    "refresh token not found or expired"
+                );
+                crate::shared::error::AppError::Unauthorized
+            })?;
 
     // 并发保护：如果 token 已被使用（前一次 refresh 已标记），直接拒绝
     if used_at.is_some() {
@@ -193,8 +198,14 @@ pub async fn refresh_token(
     let expires_at = (chrono::Utc::now() + chrono::Duration::days(7)).to_rfc3339();
 
     repository::save_refresh_token(
-        &state.pool, &new_id, &user_id, &new_hash, &expires_at, &family,
-    ).await?;
+        &state.pool,
+        &new_id,
+        &user_id,
+        &new_hash,
+        &expires_at,
+        &family,
+    )
+    .await?;
 
     // 签发新 access_token
     let user = crate::modules::user::repository::find_current(&state.pool, &user_id)
@@ -247,45 +258,57 @@ pub async fn refresh_token(
     Ok((resp_headers, json).into_response())
 }
 
+// ── 时间常量 ──
+
+/// 7 天（秒），用于"记住我"场景
+const REMEMBER_ME_MAX_AGE: u64 = 604800;
+/// 15 分钟（秒），用于未勾选"记住我"的短期会话
+const SHORT_MAX_AGE: u64 = 900;
+/// 1 天（秒），注册用户 refresh cookie 默认存活时长
+const REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS: u64 = 86400;
+
 // ── Cookie helpers ──
 
-/// 7 天，用于"记住我"
-const REMEMBER_ME_MAX_AGE: u64 = 604800;
-/// 15 分钟，用于未勾选"记住我"的短期会话
-const SHORT_MAX_AGE: u64 = 900;
-
 /// 构建 refresh_token 的 HttpOnly Secure SameSite=Strict cookie
-fn build_refresh_cookie(token: &str, max_age_secs: u64) -> String {
+fn build_refresh_cookie(token: &str, max_age_seconds: u64) -> String {
     let secure = if cfg!(debug_assertions) {
         ""
     } else {
         "; Secure"
     };
     format!(
-        "inkforge_refresh={token}; Path=/api/v1/auth/refresh; Max-Age={max_age_secs}; HttpOnly; SameSite=Strict{secure}"
+        "{name}={token}; Path=/api/v1/auth/refresh; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}",
+        name = auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN,
     )
 }
 
 /// 清除 refresh_token cookie
 fn build_clear_refresh_cookie() -> String {
     let secure = if cfg!(debug_assertions) { "" } else { "; Secure" };
-    format!("inkforge_refresh=; Path=/api/v1/auth/refresh; Max-Age=0; HttpOnly; SameSite=Strict{secure}")
+    format!(
+        "{name}=; Path=/api/v1/auth/refresh; Max-Age=0; HttpOnly; SameSite=Strict{secure}",
+        name = auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN,
+    )
 }
 
-/// 构建 session cookie（access_token），15 分钟过期，Path=/
-fn build_session_cookie(access_token: &str, max_age_seconds: i64) -> String {
+/// 构建 session cookie（access_token），Path=/
+fn build_session_cookie(access_token: &str, max_age_seconds: u64) -> String {
     let secure = if cfg!(debug_assertions) {
         ""
     } else {
         "; Secure"
     };
     format!(
-        "inkforge_session={access_token}; Path=/; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}"
+        "{name}={access_token}; Path=/; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}",
+        name = auth_constants::SESSION_COOKIE_NAME_FOR_JWT_ACCESS_TOKEN,
     )
 }
 
 /// 清除 session cookie（access_token）
 fn build_clear_session_cookie() -> String {
     let secure = if cfg!(debug_assertions) { "" } else { "; Secure" };
-    format!("inkforge_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict{secure}")
+    format!(
+        "{name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict{secure}",
+        name = auth_constants::SESSION_COOKIE_NAME_FOR_JWT_ACCESS_TOKEN,
+    )
 }

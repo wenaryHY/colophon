@@ -12,7 +12,7 @@ use axum_extra::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::{shared::error::AppError, state::AppState};
+use crate::{shared::auth_constants, shared::error::AppError, state::AppState};
 
 // Re-export hash and jwt functions for convenience
 pub use crate::infra::hash::*;
@@ -42,7 +42,7 @@ pub struct AdminUser(pub AuthUser);
 
 pub fn session_token_from_headers(headers: &HeaderMap) -> Option<String> {
     CookieJar::from_headers(headers)
-        .get("inkforge_session")
+        .get(auth_constants::SESSION_COOKIE_NAME_FOR_JWT_ACCESS_TOKEN)
         .map(|cookie| cookie.value().to_string())
 }
 

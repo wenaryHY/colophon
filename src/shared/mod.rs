@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod auth_constants;
 pub mod error;
 pub mod json;
 pub mod pagination;

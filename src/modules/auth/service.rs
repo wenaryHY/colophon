@@ -17,7 +17,8 @@ use super::{
 pub async fn register(
     state: Arc<AppState>,
     body: RegisterRequest,
-    token_lifetime_seconds: i64,
+    token_lifetime_seconds: u64,
+    refresh_expires_in_seconds: u64,
 ) -> AppResult<(LoginResponseData, String)> {
     ensure_public_registration_available(&state, &body).await?;
     validate_register_request(&body)?;
@@ -54,7 +55,8 @@ pub async fn register(
     let token_hash = hash_token(&refresh_token);
     let refresh_id = uuid::Uuid::new_v4().to_string();
     let family_id = uuid::Uuid::new_v4().to_string();
-    let expires_at = (chrono::Utc::now() + chrono::Duration::days(7)).to_rfc3339();
+    // DB expires_at 对齐 cookie Max-Age
+    let expires_at = (chrono::Utc::now() + chrono::Duration::seconds(refresh_expires_in_seconds as i64)).to_rfc3339();
     repository::save_refresh_token(&state.pool, &refresh_id, &user_id, &token_hash, &expires_at, &family_id)
         .await?;
 
@@ -81,7 +83,8 @@ pub async fn register(
 pub async fn login(
     state: Arc<AppState>,
     body: LoginRequest,
-    token_lifetime_seconds: i64,
+    token_lifetime_seconds: u64,
+    refresh_expires_in_seconds: u64,
 ) -> AppResult<(LoginResponseData, String)> {
     ensure_setup_completed(&state).await?;
     tracing::debug!(
@@ -146,7 +149,8 @@ pub async fn login(
     let token_hash = hash_token(&refresh_token);
     let refresh_id = uuid::Uuid::new_v4().to_string();
     let family_id = uuid::Uuid::new_v4().to_string();
-    let expires_at = (chrono::Utc::now() + chrono::Duration::days(7)).to_rfc3339();
+    // DB expires_at 对齐 cookie Max-Age
+    let expires_at = (chrono::Utc::now() + chrono::Duration::seconds(refresh_expires_in_seconds as i64)).to_rfc3339();
     repository::save_refresh_token(&state.pool, &refresh_id, &user.id, &token_hash, &expires_at, &family_id)
         .await?;
 
