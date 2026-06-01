@@ -199,6 +199,7 @@ function DeliveriesPanel({
         page: number;
         page_size: number;
       }>(`${API_PREFIX}/admin/webhooks/${webhookId}/deliveries?page=${page}&page_size=${pageSize}`),
+    staleTime: 5 * 60 * 1000, // 5 分钟内不重新请求
   });
 
   const deliveries = deliveriesResp?.items ?? [];
@@ -322,6 +323,7 @@ export default function Webhooks() {
   const { data: webhooks, isLoading } = useQuery({
     queryKey: ['webhooks'],
     queryFn: () => apiData<Webhook[]>(`${API_PREFIX}/admin/webhooks`),
+    staleTime: 5 * 60 * 1000, // 5 分钟内不重新请求
   });
 
   const createMutation = useMutation({

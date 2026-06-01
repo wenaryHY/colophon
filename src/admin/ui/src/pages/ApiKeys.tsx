@@ -22,6 +22,7 @@ export default function ApiKeys() {
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['api-keys'],
     queryFn: () => apiData<ApiKeyListItem[]>(`${API_PREFIX}/admin/api-keys`),
+    staleTime: 5 * 60 * 1000, // 5 分钟内不重新请求
   });
 
   // 创建弹窗

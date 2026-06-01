@@ -291,6 +291,16 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/admin/webhooks/:id/deliveries",
             get(crate::modules::webhook::handler::list_deliveries),
         )
+        .route(
+            "/api/v1/admin/api-keys",
+            get(crate::modules::api_key::handler::list_api_keys)
+                .post(crate::modules::api_key::handler::create_api_key),
+        )
+        .route(
+            "/api/v1/admin/api-keys/:id",
+            patch(crate::modules::api_key::handler::update_api_key)
+                .delete(crate::modules::api_key::handler::revoke_api_key),
+        )
         .merge(state.plugin_manager.read().await.collect_routes(&state));
 
     Router::new()
