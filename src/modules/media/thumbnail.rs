@@ -8,10 +8,9 @@ use crate::shared::error::AppResult;
 /// 超过此大小的文件不解码缩略图——即使解码成功开销也太高
 const MAX_SOURCE_FILE_SIZE_BYTES_FOR_THUMBNAIL_GENERATION: u64 = 5_000_000;
 
-/// 缩略图处理的源图内存上限（字节）: 30MB
-/// 4000×3000 RGBA = 48MB → 超过上限，跳过
-/// 2000×1500 RGBA = 12MB → 低于上限，可以处理
-const MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION: u64 = 30_000_000;
+/// 缩略图处理的源图内存上限（字节）: 100MB
+/// 覆盖到 5000×5000 RGBA ≈ 100MB 以内的常见尺寸
+const MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION: u64 = 100_000_000;
 
 /// 缩略图生成配置
 pub struct ThumbnailGenerationConfig {
@@ -304,24 +303,24 @@ mod tests {
         std::fs::remove_file(&thumb_path).ok();
     }
 
-    /// 验证超大图片的内存估算超过阈值
-    /// 4000×3000×4 = 48MB > 30MB 阈值，应被跳过
+    /// 验证超大图片的内存估算超过 100MB 阈值
+    /// 6000×5000×4 = 120MB > 100MB 阈值，应被跳过
     #[test]
     fn test_image_above_memory_threshold_estimation() {
         // 不实际创建大图（耗内存），只验证阈值计算逻辑
-        let estimated = 4000u64 * 3000 * 4; // 48_000_000 bytes
+        let estimated = 6000u64 * 5000 * 4; // 120_000_000 bytes
         assert!(
             estimated > MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION,
-            "4000×3000 RGBA ({} bytes) should exceed the {} byte threshold",
+            "6000×5000 RGBA ({} bytes) should exceed the {} byte threshold",
             estimated,
             MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION
         );
 
-        // 验证中等图片可以通过
-        let medium_estimated = 2000u64 * 1500 * 4; // 12_000_000 bytes
+        // 验证 4000×3000 现在可以通过（48MB < 100MB）
+        let medium_estimated = 4000u64 * 3000 * 4; // 48_000_000 bytes
         assert!(
             medium_estimated < MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION,
-            "2000×1500 RGBA ({} bytes) should be below the {} byte threshold",
+            "4000×3000 RGBA ({} bytes) should be below the {} byte threshold",
             medium_estimated,
             MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION
         );
