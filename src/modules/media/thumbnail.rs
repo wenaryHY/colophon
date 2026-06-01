@@ -1,7 +1,12 @@
 use std::path::Path;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use image::{self, imageops::FilterType};
 use image::ImageReader;
 use crate::shared::error::AppResult;
+
+/// 缩略图处理的源文件大小上限（字节）: 5MB
+/// 超过此大小的文件不解码缩略图——即使解码成功开销也太高
+const MAX_SOURCE_FILE_SIZE_BYTES_FOR_THUMBNAIL_GENERATION: u64 = 5_000_000;
 
 /// 缩略图处理的源图内存上限（字节）: 30MB
 /// 4000×3000 RGBA = 48MB → 超过上限，跳过
@@ -34,7 +39,42 @@ pub struct ThumbnailInfo {
 
 /// 纯同步函数——必须在 `spawn_blocking` 内调用
 /// 返回：(原图宽, 原图高, 缩略图列表)
+///
+/// 多层兜底：
+/// 1. 文件大小 > 5MB → 直接跳过，不碰解码器
+/// 2. `catch_unwind` 包裹 → image crate 内部 panic 也不崩溃
+/// 3. 仅读尺寸不完整解码 → 内存估算阈值 30MB 跳过
 pub fn generate_thumbnails(
+    source_path: &Path,
+    output_dir: &Path,
+    media_id: &str,
+    config: &ThumbnailGenerationConfig,
+) -> AppResult<(u32, u32, Vec<ThumbnailInfo>)> {
+    // 第一层：文件大小前置判断（不需要碰解码器）
+    let file_size = std::fs::metadata(source_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+    if file_size > MAX_SOURCE_FILE_SIZE_BYTES_FOR_THUMBNAIL_GENERATION {
+        return Ok((0, 0, Vec::new()));
+    }
+
+    // 第二层：catch_unwind 兜底——image crate 内部 panic 也不崩溃
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        generate_thumbnails_impl(source_path, output_dir, media_id, config)
+    }));
+
+    match result {
+        Ok(Ok(result)) => Ok(result),
+        Ok(Err(e)) => Err(e),
+        Err(_panic) => {
+            // image crate 内部 panic → 返回空缩略图，不崩溃
+            Ok((0, 0, Vec::new()))
+        }
+    }
+}
+
+/// 缩略图生成的实际逻辑（由 `generate_thumbnails` 的 catch_unwind 包装调用）
+fn generate_thumbnails_impl(
     source_path: &Path,
     output_dir: &Path,
     media_id: &str,
@@ -46,10 +86,9 @@ pub fn generate_thumbnails(
     let (orig_w, orig_h) = reader.into_dimensions()
         .map_err(|e| anyhow::anyhow!("Failed to read image dimensions: {}", e))?;
 
-    // 基于 RGBA 解码后的内存估算（4 bytes per pixel）判断是否跳过
+    // 第三层：基于 RGBA 解码后的内存估算（4 bytes per pixel）判断是否跳过
     let estimated_memory_bytes = orig_w as u64 * orig_h as u64 * 4;
     if estimated_memory_bytes > MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION {
-        // 返回原始尺寸但空缩略图列表——不崩溃，只是不生成
         return Ok((orig_w, orig_h, Vec::new()));
     }
 

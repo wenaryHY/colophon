@@ -161,6 +161,14 @@ pub async fn upload_media_raw(
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("spawn_blocking error: {}", e)))?;
 
         match result {
+            Ok((0, 0, generated)) if generated.is_empty() => {
+                tracing::warn!(
+                    module = "media",
+                    event = "thumbnail_generation_prevented_crash",
+                    media_id = %media_id,
+                    "thumbnail generation skipped to prevent crash (file too large or image crate panicked)"
+                );
+            }
             Ok((orig_w, orig_h, generated_thumbs)) => {
                 if generated_thumbs.is_empty() && orig_w > 0 && orig_h > 0 {
                     let estimated_memory_mb = (orig_w as u64 * orig_h as u64 * 4) as f64 / 1_048_576.0;
