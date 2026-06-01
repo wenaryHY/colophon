@@ -233,19 +233,3 @@ where
             .await?;
     Ok(row.0)
 }
-
-/// 删除指定 webhook 的所有投递记录
-#[allow(dead_code)]
-pub async fn delete_deliveries_for_webhook<'e, E>(
-    executor: E,
-    webhook_id: &str,
-) -> Result<(), sqlx::Error>
-where
-    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
-{
-    sqlx::query("DELETE FROM webhook_deliveries WHERE webhook_id = ?")
-        .bind(webhook_id)
-        .execute(executor)
-        .await?;
-    Ok(())
-}

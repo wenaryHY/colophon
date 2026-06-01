@@ -32,6 +32,7 @@ const prefetchPages: Record<string, () => void> = {
   'media-categories': () => import('../pages/MediaCategories'),
   plugins: () => import('../pages/PluginManager'),
   webhooks: () => import('../pages/Webhooks'),
+  'api-keys': () => import('../pages/ApiKeys'),
 };
 
 // 导航配置（key 用于匹配路由，labelKey 用于翻译）

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
@@ -22,24 +22,29 @@ use super::{
 };
 
 // ── 重试退避常量 ──
-const RETRY_BASE_DELAY_SECS: u64 = 5;
+const INITIAL_DELAY_SECONDS_FOR_WEBHOOK_RETRY: u64 = 5;
+
+/// Webhook HTTP client 懒加载，避免 expect 硬崩溃
+static WEBHOOK_HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn get_webhook_http_client() -> &'static reqwest::Client {
+    WEBHOOK_HTTP_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new()) // 降级到默认 client
+    })
+}
 
 /// Webhook 分发器——注册为 HookHandler 监听 post.after_save / post.after_publish 等事件
 #[derive(Clone)]
 pub struct WebhookDispatcher {
     pool: SqlitePool,
-    client: Client,
 }
 
 impl WebhookDispatcher {
     pub fn new(pool: SqlitePool) -> Self {
-        Self {
-            pool,
-            client: Client::builder()
-                .timeout(Duration::from_secs(10))
-                .build()
-                .expect("failed to build reqwest Client for webhook dispatcher"),
-        }
+        Self { pool }
     }
 
     /// 将本分发器包装为 action hooks
@@ -55,14 +60,20 @@ impl WebhookDispatcher {
 #[async_trait]
 impl HookHandler for WebhookDispatcher {
     async fn run(&self, ctx: &mut HookContext) -> AppResult<()> {
-        let event = &ctx.hook_name;
-        let payload = serialize_hook_data_to_json(event, &ctx.data);
-        dispatch_webhooks_for_event(&self.pool, &self.client, event, &payload).await;
+        let event = ctx.hook_name.clone();
+        let payload = serialize_hook_data_to_json(&event, &ctx.data);
+        let pool = self.pool.clone();
+
+        tokio::spawn(async move {
+            dispatch_webhooks_for_event(&pool, get_webhook_http_client(), &event, &payload).await;
+        });
+
         Ok(())
     }
 }
 
 /// 将 HookData 序列化为 webhook payload JSON
+#[allow(unreachable_patterns)]
 fn serialize_hook_data_to_json(event: &str, data: &HookData) -> serde_json::Value {
     let data_value = match data {
         HookData::PostAfterSave(d) => serde_json::json!({
@@ -99,6 +110,7 @@ fn serialize_hook_data_to_json(event: &str, data: &HookData) -> serde_json::Valu
             "post_id": d.post_id,
             "post_title": d.post_title,
         }),
+        _ => serde_json::json!({}),
     };
 
     serde_json::json!({
@@ -174,8 +186,10 @@ async fn send_webhook_with_retry(
 
     for attempt in 0..=max_retries {
         if attempt > 0 {
-            // 指数退避，上限 60 秒
-            let delay_secs = (RETRY_BASE_DELAY_SECS.pow(attempt as u32)).min(60);
+            // 标准指数退避: 5 * 2^(attempt-1), 上限 60 秒
+            let delay_secs = (INITIAL_DELAY_SECONDS_FOR_WEBHOOK_RETRY
+                * 2u64.pow(attempt as u32 - 1))
+            .min(60);
             tracing::warn!(
                 module = "webhook",
                 webhook_id = %webhook.id,
@@ -314,6 +328,9 @@ pub async fn create_webhook(
     if body.url.trim().is_empty() {
         return Err(AppError::BadRequest("webhook url is required".into()));
     }
+    if url::Url::parse(body.url.trim()).is_err() {
+        return Err(AppError::BadRequest("invalid webhook URL".into()));
+    }
 
     let events = if body.events.trim().is_empty() {
         "post.after_publish".to_string()
@@ -357,6 +374,9 @@ pub async fn update_webhook(
     if let Some(ref url) = body.url {
         if url.trim().is_empty() {
             return Err(AppError::BadRequest("webhook url cannot be empty".into()));
+        }
+        if url::Url::parse(url.trim()).is_err() {
+            return Err(AppError::BadRequest("invalid webhook URL".into()));
         }
     }
 

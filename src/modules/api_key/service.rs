@@ -1,5 +1,8 @@
 use sha2::{Digest, Sha256};
 
+// API Key 权限固定为 read_only，仅能访问需要 AuthUser 的公开内容 API。
+// 管理操作（/api/v1/admin/*）需要 AdminUser (JWT session)，API Key 无法访问。
+
 /// 生成新的 API Key
 /// 返回：(完整明文key仅展示一次, key_prefix, key_hash)
 pub fn generate_api_key_and_hash() -> (String, String, String) {

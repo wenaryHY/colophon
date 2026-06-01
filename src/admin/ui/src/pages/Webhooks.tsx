@@ -82,7 +82,7 @@ function WebhookForm({
       enabled,
       max_retries: Math.max(0, Math.min(5, parseInt(maxRetries) || 3)),
     };
-    onSubmit(isEdit ? base : { ...base, secret: secret.trim() || undefined });
+    onSubmit({ ...base, secret: secret.trim() || undefined });
   };
 
   const formStyle: React.CSSProperties = {

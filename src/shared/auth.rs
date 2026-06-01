@@ -47,6 +47,8 @@ pub fn session_token_from_headers(headers: &HeaderMap) -> Option<String> {
 }
 
 /// 从 X-API-Key header 提取并 hash，查询 DB 验证
+/// API Key 权限固定为 read_only，仅能访问需要 AuthUser 的公开内容 API。
+/// 管理操作（/api/v1/admin/*）需要 AdminUser (JWT session)，API Key 无法访问。
 async fn authenticate_via_api_key(
     api_key_plaintext: &str,
     app_state: &Arc<AppState>,
