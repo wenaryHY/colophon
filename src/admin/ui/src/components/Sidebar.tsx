@@ -3,7 +3,7 @@ import { useI18n } from '../i18n';
 import { useSlots } from '../lib/slots';
 import {
   IconFileText, IconFolderOpen, IconTag, IconMessageSquare,
-  IconUpload, IconSettings, IconUser, IconLogOut, IconPalette, IconTrash2, IconPackage, IconZap,
+  IconUpload, IconSettings, IconUser, IconLogOut, IconPalette, IconTrash2, IconPackage, IconZap, IconWebhook, IconKey,
 } from './Icons';
 
 // 导航配置类型
@@ -31,6 +31,7 @@ const prefetchPages: Record<string, () => void> = {
   trash: () => import('../pages/RecycleBin'),
   'media-categories': () => import('../pages/MediaCategories'),
   plugins: () => import('../pages/PluginManager'),
+  webhooks: () => import('../pages/Webhooks'),
 };
 
 // 导航配置（key 用于匹配路由，labelKey 用于翻译）
@@ -51,6 +52,8 @@ const navConfig: NavGroupConfig[] = [
       { key: 'media-categories', icon: IconFolderOpen, labelKey: 'mediaCategories' },
       { key: 'themes', icon: IconPalette, labelKey: 'themes' },
       { key: 'plugins', icon: IconPackage, labelKey: 'plugins' },
+      { key: 'webhooks', icon: IconWebhook, labelKey: 'webhooks' },
+      { key: 'api-keys', icon: IconKey, labelKey: 'apiKeys' },
       { key: 'trash', icon: IconTrash2, labelKey: 'trash' },
       { key: 'settings', icon: IconSettings, labelKey: 'settings' },
       { key: 'fab-settings', icon: IconZap, labelKey: 'fabSettings' },

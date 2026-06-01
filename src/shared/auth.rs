@@ -10,6 +10,7 @@ use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
+use sha2::{Digest, Sha256};
 
 use crate::{shared::error::AppError, state::AppState};
 
@@ -45,6 +46,64 @@ pub fn session_token_from_headers(headers: &HeaderMap) -> Option<String> {
         .map(|cookie| cookie.value().to_string())
 }
 
+/// 从 X-API-Key header 提取并 hash，查询 DB 验证
+async fn authenticate_via_api_key(
+    api_key_plaintext: &str,
+    app_state: &Arc<AppState>,
+) -> Result<Option<AuthUser>, AppError> {
+    let key_hash = hex::encode(Sha256::digest(api_key_plaintext.as_bytes()));
+
+    let result = crate::modules::api_key::repository::find_api_key_with_user_by_hash(
+        &app_state.pool,
+        &key_hash,
+    )
+    .await;
+
+    match result {
+        Ok(Some(row)) => {
+            // 检查是否过期
+            if let Some(ref expires_at) = row.api_key_expires_at {
+                let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+                if expires_at < &now {
+                    return Ok(None);
+                }
+            }
+
+            // 更新 last_used_at（best-effort，失败不影响认证）
+            let _ = crate::modules::api_key::repository::update_api_key_last_used_at(
+                &app_state.pool,
+                &row.api_key_id,
+            )
+            .await;
+
+            tracing::debug!(
+                module = "shared_auth",
+                event = "auth_api_key_success",
+                path = "",
+                user_id = %row.user_id,
+                username = %row.username,
+                "authenticated via API key"
+            );
+
+            Ok(Some(AuthUser {
+                id: row.user_id,
+                username: row.username,
+                role: row.permissions,
+            }))
+        }
+        Ok(None) => Ok(None),
+        Err(e) => {
+            tracing::error!(
+                module = "shared_auth",
+                event = "auth_api_key_db_error",
+                error = ?e,
+                "database error during API key lookup"
+            );
+            Ok(None)
+        }
+    }
+}
+
 #[axum::async_trait]
 impl<S> FromRequestParts<S> for AuthUser
 where
@@ -54,6 +113,21 @@ where
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let app_state = Arc::<AppState>::from_ref(state);
+
+        // ── 1. 尝试 X-API-Key header ──
+        if let Some(api_key) = parts
+            .headers
+            .get("X-API-Key")
+            .and_then(|v| v.to_str().ok())
+            .filter(|s| !s.is_empty())
+        {
+            if let Some(auth_user) = authenticate_via_api_key(api_key, &app_state).await? {
+                return Ok(auth_user);
+            }
+        }
+
+        // ── 2. 尝试 Bearer Token ──
         let auth_header = parts
             .extract::<TypedHeader<Authorization<Bearer>>>()
             .await
@@ -73,7 +147,6 @@ where
             return Err(AppError::Unauthorized);
         };
 
-        let app_state = Arc::<AppState>::from_ref(state);
         let claims = match decode_token(&token, &app_state.config.auth.secret) {
             Ok(c) => c,
             Err(e) => {

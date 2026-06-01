@@ -26,6 +26,8 @@ const RecycleBin = lazy(() => import('./pages/RecycleBin'));
 const PluginSettings = lazy(() => import('./pages/PluginSettings'));
 const PluginManager = lazy(() => import('./pages/PluginManager'));
 const FabSettings = lazy(() => import('./pages/FabSettings'));
+const Webhooks = lazy(() => import('./pages/Webhooks'));
+const ApiKeys = lazy(() => import('./pages/ApiKeys'));
 
 const pageToRoute: Record<string, string> = {
   posts: '/posts',
@@ -38,6 +40,8 @@ const pageToRoute: Record<string, string> = {
   'media-categories': '/media-categories',
   themes: '/themes',
   plugins: '/plugins',
+  webhooks: '/webhooks',
+  'api-keys': '/api-keys',
   trash: '/trash',
 };
 
@@ -45,6 +49,8 @@ function getActivePage(pathname: string): string {
   if (pathname.startsWith('/posts')) return 'posts';
   if (pathname.startsWith('/themes')) return 'themes';
   if (pathname.startsWith('/plugins')) return 'plugins';
+  if (pathname.startsWith('/webhooks')) return 'webhooks';
+  if (pathname.startsWith('/api-keys')) return 'api-keys';
   if (pathname.startsWith('/categories')) return 'categories';
   if (pathname.startsWith('/tags')) return 'tags';
   if (pathname.startsWith('/comments')) return 'comments';
@@ -130,6 +136,8 @@ export default function App() {
           <Route path="trash" element={<RecycleBin />} />
           <Route path="plugins/:name/settings" element={<PluginSettings />} />
           <Route path="plugins" element={<PluginManager />} />
+          <Route path="webhooks" element={<Webhooks />} />
+          <Route path="api-keys" element={<ApiKeys />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

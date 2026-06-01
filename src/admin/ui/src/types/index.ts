@@ -257,3 +257,71 @@ export interface TrashItem {
   deleted_at: string;
   expires_in_days: number;
 }
+
+// ── Webhook ──
+
+export interface Webhook {
+  id: string;
+  name: string;
+  url: string;
+  events: string;
+  secret?: string | null;
+  enabled: number; // sqlite boolean: 0/1
+  retry_count: number;
+  max_retries: number;
+  last_triggered_at?: string | null;
+  last_error?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhook_id: string;
+  event: string;
+  request_url: string;
+  request_body?: string | null;
+  response_status?: number | null;
+  response_body?: string | null;
+  duration_ms?: number | null;
+  success: number; // 0/1
+  created_at: string;
+}
+
+export interface CreateWebhookRequest {
+  name: string;
+  url: string;
+  events?: string;
+  secret?: string;
+  enabled?: boolean;
+  max_retries?: number;
+}
+
+export interface UpdateWebhookRequest {
+  name?: string;
+  url?: string;
+  events?: string;
+  secret?: string;
+  enabled?: boolean;
+  max_retries?: number;
+}
+
+export interface ApiKeyListItem {
+  id: string;
+  name: string;
+  key_prefix: string;
+  permissions: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
+export interface CreateApiKeyResponse {
+  id: string;
+  name: string;
+  key_prefix: string;
+  api_key: string;
+  permissions: string;
+  expires_at: string | null;
+  created_at: string;
+}

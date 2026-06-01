@@ -13,6 +13,7 @@ export const commonDict = {
     search: '搜索',
     filter: '筛选',
     refresh: '刷新',
+    close: '关闭',
     loading: '加载中...',
     saving: '保存中...',
     deleting: '删除中...',
@@ -79,6 +80,27 @@ export const commonDict = {
 
     // 预览
     preview: '预览',
+
+    // Webhook
+    webhookName: '名称',
+    webhookUrl: '目标 URL',
+    webhookEvents: '事件',
+    webhookSecret: '签名密钥',
+    webhookEnabled: '启用',
+    webhookMaxRetries: '最大重试次数',
+    webhookLastTriggered: '最后触发',
+    webhookLastError: '最后错误',
+    webhookDeliveries: '投递记录',
+    webhookCreate: '创建 Webhook',
+    webhookEdit: '编辑 Webhook',
+    webhookNoDeliveries: '暂无投递记录',
+    webhookUrlPlaceholder: 'https://example.com/webhook',
+    webhookEventsPlaceholder: 'post.after_publish,post.after_save',
+    webhookSecretPlaceholder: '可选，用于 HMAC-SHA256 签名',
+    webhookStatusSuccess: '成功',
+    webhookStatusFailed: '失败',
+    webhookDuration: '耗时',
+    webhooksSubtitle: '管理 Webhook 通知配置',
   },
   en: {
     // Actions
@@ -93,6 +115,7 @@ export const commonDict = {
     search: 'Search',
     filter: 'Filter',
     refresh: 'Refresh',
+    close: 'Close',
     loading: 'Loading...',
     saving: 'Saving...',
     deleting: 'Deleting...',
@@ -159,5 +182,26 @@ export const commonDict = {
 
     // Preview
     preview: 'Preview',
+
+    // Webhook
+    webhookName: 'Name',
+    webhookUrl: 'Target URL',
+    webhookEvents: 'Events',
+    webhookSecret: 'Secret',
+    webhookEnabled: 'Enabled',
+    webhookMaxRetries: 'Max Retries',
+    webhookLastTriggered: 'Last Triggered',
+    webhookLastError: 'Last Error',
+    webhookDeliveries: 'Deliveries',
+    webhookCreate: 'Create Webhook',
+    webhookEdit: 'Edit Webhook',
+    webhookNoDeliveries: 'No deliveries yet',
+    webhookUrlPlaceholder: 'https://example.com/webhook',
+    webhookEventsPlaceholder: 'post.after_publish,post.after_save',
+    webhookSecretPlaceholder: 'Optional, for HMAC-SHA256 signature',
+    webhookStatusSuccess: 'Success',
+    webhookStatusFailed: 'Failed',
+    webhookDuration: 'Duration',
+    webhooksSubtitle: 'Manage webhook notification configs',
   },
 };

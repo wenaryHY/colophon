@@ -276,6 +276,21 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/v1/admin/plugins/slots", get(crate::modules::plugin::handler::list_slots))
         .route("/api/v1/admin/plugins", get(crate::modules::plugin::handler::list_plugins))
         .route("/api/v1/admin/plugins/:name/toggle", post(crate::modules::plugin::handler::toggle_plugin))
+        .route(
+            "/api/v1/admin/webhooks",
+            get(crate::modules::webhook::handler::list_webhooks)
+                .post(crate::modules::webhook::handler::create_webhook),
+        )
+        .route(
+            "/api/v1/admin/webhooks/:id",
+            get(crate::modules::webhook::handler::get_webhook)
+                .patch(crate::modules::webhook::handler::update_webhook)
+                .delete(crate::modules::webhook::handler::delete_webhook),
+        )
+        .route(
+            "/api/v1/admin/webhooks/:id/deliveries",
+            get(crate::modules::webhook::handler::list_deliveries),
+        )
         .merge(state.plugin_manager.read().await.collect_routes(&state));
 
     Router::new()
@@ -327,6 +342,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                             header::ACCEPT,
                             header::ORIGIN,
                             "x-client-request-id".parse().unwrap(),
+                            "x-api-key".parse().unwrap(),
                         ])
                         .expose_headers([
                             "x-client-request-id".parse().unwrap(),

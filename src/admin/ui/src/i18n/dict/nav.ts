@@ -16,8 +16,10 @@ export const navDict = {
     trash: '回收站',
     settings: '设置',
     fabSettings: 'FAB 设置',
-    plugins: '插件',
-    pluginSettings: '插件设置',
+    apiKeys: 'API 密钥',
+      plugins: '插件',
+      webhooks: 'Webhooks',
+      pluginSettings: '插件设置',
 
     // 用户
     visitSite: '访问站点',
@@ -44,8 +46,10 @@ export const navDict = {
     trash: 'Trash',
     settings: 'Settings',
     fabSettings: 'FAB Settings',
-    plugins: 'Plugins',
-    pluginSettings: 'Plugin Settings',
+    apiKeys: 'API Keys',
+      plugins: 'Plugins',
+      webhooks: 'Webhooks',
+      pluginSettings: 'Plugin Settings',
 
     // User
     visitSite: 'Visit Site',

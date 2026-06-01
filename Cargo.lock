@@ -2927,6 +2927,7 @@ dependencies = [
  "config",
  "futures-util",
  "hex",
+ "hmac",
  "jsonwebtoken",
  "mime_guess",
  "minijinja",
