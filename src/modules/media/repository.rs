@@ -1,6 +1,6 @@
 use uuid::Uuid;
 
-use super::domain::{MediaItem, MediaThumbnail};
+use super::domain::{MediaItem, MediaThumbnail, ThumbnailTask};
 
 pub async fn list_media<'e, E>(
     executor: E,
@@ -239,4 +239,131 @@ where
         .execute(executor)
         .await?;
     Ok(())
+}
+
+// ── 异步缩略图任务 ──
+
+/// 插入一个待处理的缩略图任务
+pub async fn insert_thumbnail_task<'e, E>(
+    executor: E,
+    task: &ThumbnailTask,
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
+    sqlx::query(
+        "INSERT INTO thumbnail_tasks (id, media_id, status, retry_count, max_retries, last_error) VALUES (?, ?, ?, ?, ?, ?)"
+    )
+    .bind(&task.id)
+    .bind(&task.media_id)
+    .bind(&task.status)
+    .bind(task.retry_count)
+    .bind(task.max_retries)
+    .bind(&task.last_error)
+    .execute(executor)
+    .await?;
+    Ok(())
+}
+
+/// 取出一个 pending 任务并原子性地标记为 processing
+/// SQLite 是单写者，先用子查询取 id，再 UPDATE 标记，最后 SELECT 返回
+pub async fn take_one_pending_thumbnail_task<'e, E>(
+    executor: E,
+) -> Result<Option<ThumbnailTask>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
+    // 两步法（兼容不支持 RETURNING 的 SQLite 版本）：
+    // 1. 用子查询 UPDATE 标记一个 pending 任务为 processing
+    // 2. SELECT 该任务返回给调用者
+    // SQLite 单写者模式下，UPDATE 天然原子，不存在竞态
+
+    let rows = sqlx::query(
+        "UPDATE thumbnail_tasks SET status = 'processing', updated_at = datetime('now')
+         WHERE id IN (
+             SELECT id FROM thumbnail_tasks WHERE status = 'pending'
+             ORDER BY created_at ASC LIMIT 1
+         )"
+    )
+    .execute(executor)
+    .await?;
+
+    if rows.rows_affected() == 0 {
+        return Ok(None);
+    }
+
+    let task = sqlx::query_as::<_, ThumbnailTask>(
+        "SELECT * FROM thumbnail_tasks WHERE status = 'processing'
+         ORDER BY created_at ASC LIMIT 1"
+    )
+    .fetch_optional(executor)
+    .await?;
+
+    Ok(task)
+}
+
+/// 标记任务为完成，记录原图尺寸
+pub async fn mark_thumbnail_task_done<'e, E>(
+    executor: E,
+    task_id: &str,
+    width: u32,
+    height: u32,
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
+    sqlx::query(
+        "UPDATE thumbnail_tasks SET status = 'done', width = ?, height = ?, updated_at = datetime('now') WHERE id = ?"
+    )
+    .bind(width as i64)
+    .bind(height as i64)
+    .bind(task_id)
+    .execute(executor)
+    .await?;
+    Ok(())
+}
+
+/// 标记任务为失败
+/// retry=true 时重置为 pending（递增 retry_count）；retry=false 时标记为 failed
+pub async fn mark_thumbnail_task_failed<'e, E>(
+    executor: E,
+    task_id: &str,
+    error_message: &str,
+    retry: bool,
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
+    if retry {
+        sqlx::query(
+            "UPDATE thumbnail_tasks SET status = 'pending', retry_count = retry_count + 1, last_error = ?, updated_at = datetime('now') WHERE id = ?"
+        )
+        .bind(error_message)
+        .bind(task_id)
+        .execute(executor)
+        .await?;
+    } else {
+        sqlx::query(
+            "UPDATE thumbnail_tasks SET status = 'failed', last_error = ?, updated_at = datetime('now') WHERE id = ?"
+        )
+        .bind(error_message)
+        .bind(task_id)
+        .execute(executor)
+        .await?;
+    }
+    Ok(())
+}
+
+/// 统计 pending 状态的任务数（用于攻击防御）
+pub async fn count_pending_thumbnail_tasks<'e, E>(
+    executor: E,
+) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
+    sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM thumbnail_tasks WHERE status = 'pending'"
+    )
+    .fetch_one(executor)
+    .await
 }

@@ -13,6 +13,24 @@ expires_in_seconds = 900
 upload_dir = "uploads"
 max_upload_size_mb = 10
 
+[media.thumbnail]
+# 是否启用缩略图异步生成（生产环境应为 true）
+# 关闭后上传图片不会创建缩略图任务，已有缩略图仍可用
+enabled = true
+# 同时处理的缩略图任务数
+# 如何确定这个值：
+#   1. 确定单张缩略图的内存峰值：约 80MB（最坏情况 5000×4000 原图解码 + resize 缓冲区）
+#   2. 确定服务器可用内存：总内存 - 系统占用 - inkforge 基础占用（~200MB）
+#   3. concurrency = 可用内存 / 80MB（向下取整，至少为 1）
+#
+# 示例：
+#   1C2G 机器 → 1800MB / 80MB ≈ 22 → 但 CPU 只有 1 核，设 1
+#   4C8G 机器 → 7800MB / 80MB ≈ 97 → 受限于 CPU，设 3-4
+#   16C32G 机器 → 设 6-8（再高受限于 SQLite 写锁）
+#
+# 默认值 1 在所有机器上都是安全的
+concurrency = 1
+
 [theme]
 theme_dir = "themes"
 active_theme_fallback = "default"

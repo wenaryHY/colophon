@@ -1,7 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
 use crate::{
-    modules::media::thumbnail::{generate_thumbnails, ThumbnailGenerationConfig},
     shared::{
         auth::AuthUser,
         error::{AppError, AppResult},
@@ -12,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    domain::{MediaItem, MediaThumbnail},
+    domain::{MediaItem, MediaThumbnail, ThumbnailTask},
     dto::MediaQuery,
     repository,
 };
@@ -27,6 +26,10 @@ const ALLOWED_MIME_TYPES: &[&str] = &[
     "audio/wav",
     "audio/mp4",
 ];
+
+/// 最多允许堆积的 pending 缩略图任务数（攻击防御）
+/// 结合 max_upload_size_mb=10，单次攻击最多消耗 50×10MB=500MB 磁盘
+const MAX_PENDING_THUMBNAIL_TASKS: i64 = 50;
 
 fn classify_file(ext: &str) -> Option<(&'static str, &'static str)> {
     match ext {
@@ -120,9 +123,9 @@ pub async fn upload_media_raw(
         super::category::ensure_category_exists_or_resolve(&state, category.as_deref(), &ext)
             .await?;
 
-    // 确保 thumb 子目录存在
-    let thumb_dir = state.upload_dir.join("thumb");
-    tokio::fs::create_dir_all(&thumb_dir).await.ok();
+    // 确保 thumb 子目录存在（worker 写入缩略图时需要）
+    let _thumb_dir = state.upload_dir.join("thumb");
+    tokio::fs::create_dir_all(&_thumb_dir).await.ok();
 
     let stored_name = format!("{}.{}", uuid::Uuid::new_v4(), ext);
     let relative_path = PathBuf::from("media").join(&stored_name);
@@ -138,75 +141,34 @@ pub async fn upload_media_raw(
     // 先生成媒体 ID，以便缩略图关联
     let media_id = uuid::Uuid::new_v4().to_string();
 
-    // 生成缩略图（仅对非 GIF 图片）
-    let mut thumbnails: Vec<MediaThumbnail> = Vec::new();
+    // 异步缩略图：图片类型（非 GIF）且缩略图功能启用时，创建后台任务
+    let thumbnails: Vec<MediaThumbnail> = Vec::new();
+    let is_image = kind == "image";
     let is_gif = mime_type.contains("gif");
-    if kind == "image" && !is_gif {
-        let full_path = absolute_path.clone();
-        let thumb_output_dir = thumb_dir.clone();
-        let media_id_clone = media_id.clone();
 
-        let result = tokio::task::spawn_blocking(move || {
-            generate_thumbnails(
-                &full_path,
-                &thumb_output_dir,
-                &media_id_clone,
-                &ThumbnailGenerationConfig {
-                    widths: vec![400, 800, 1200],
-                    keep_original: true,
-                },
-            )
-        })
-        .await
-        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("spawn_blocking error: {}", e)))?;
-
-        match result {
-            Ok((0, 0, generated)) if generated.is_empty() => {
-                tracing::warn!(
-                    module = "media",
-                    event = "thumbnail_generation_prevented_crash",
-                    media_id = %media_id,
-                    "thumbnail generation skipped to prevent crash (file too large or image crate panicked)"
-                );
-            }
-            Ok((orig_w, orig_h, generated_thumbs)) => {
-                if generated_thumbs.is_empty() && orig_w > 0 && orig_h > 0 {
-                    let estimated_memory_mb = (orig_w as u64 * orig_h as u64 * 4) as f64 / 1_048_576.0;
-                    tracing::info!(
-                        module = "media",
-                        event = "thumbnail_skipped_large_image",
-                        media_id = %media_id,
-                        width = orig_w,
-                        height = orig_h,
-                        estimated_memory_mb = format_args!("{:.1}", estimated_memory_mb),
-                        "image too large for thumbnail generation (est. {:.1} MB RGBA), original preserved",
-                        estimated_memory_mb,
-                    );
-                }
-                for t in generated_thumbs {
-                    thumbnails.push(MediaThumbnail {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        media_id: media_id.clone(),
-                        size_label: t.size_label,
-                        width: t.width as i64,
-                        height: t.height as i64,
-                        storage_path: t.storage_path,
-                        public_url: t.public_url,
-                        size_bytes: t.size_bytes,
-                        created_at: chrono::Utc::now().to_rfc3339(),
-                    });
-                }
-            }
-            Err(e) => {
-                tracing::warn!(
-                    module = "media",
-                    event = "thumbnail_generation_failed",
-                    media_id = %media_id,
-                    error = %e,
-                    "failed to generate thumbnails, media uploaded without thumbnails"
-                );
-            }
+    if is_image && !is_gif && state.config.media.thumbnail.enabled {
+        // 防御：pending 任务数超限则拒绝上传（HTTP 429）
+        let pending_count =
+            repository::count_pending_thumbnail_tasks(&state.pool).await?;
+        if pending_count >= MAX_PENDING_THUMBNAIL_TASKS {
+            return Err(AppError::TooManyRequests(
+                "too many pending thumbnail tasks, try again later".into(),
+            ));
         }
+
+        let task = ThumbnailTask {
+            id: uuid::Uuid::new_v4().to_string(),
+            media_id: media_id.clone(),
+            status: "pending".to_string(),
+            retry_count: 0,
+            max_retries: 1,
+            last_error: None,
+            width: None,
+            height: None,
+            created_at: chrono::Utc::now().to_rfc3339(),
+            updated_at: chrono::Utc::now().to_rfc3339(),
+        };
+        repository::insert_thumbnail_task(&state.pool, &task).await?;
     }
 
     // 插入媒体记录（使用预生成的 ID）

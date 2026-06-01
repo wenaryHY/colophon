@@ -85,6 +85,8 @@ pub async fn serve() -> anyhow::Result<()> {
     }
     modules::backup::scheduler::start_backup_scheduler(state.clone()).await?;
     modules::trash::scheduler::start_trash_scheduler(state.clone()).await?;
+    // 启动异步缩略图 worker
+    crate::modules::media::thumbnail_worker::start_thumbnail_worker(state.clone());
     let app = build_router(state).await;
 
     let addr = SocketAddr::new(config.server.host.parse()?, config.server.port);

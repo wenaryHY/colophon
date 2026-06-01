@@ -40,3 +40,18 @@ pub struct MediaThumbnail {
     pub size_bytes: i64,
     pub created_at: String,
 }
+
+/// 异步缩略图任务（与 thumbnail_tasks 表对应）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ThumbnailTask {
+    pub id: String,
+    pub media_id: String,
+    pub status: String,
+    pub retry_count: i64,
+    pub max_retries: i64,
+    pub last_error: Option<String>,
+    pub width: Option<i64>,
+    pub height: Option<i64>,
+    pub created_at: String,
+    pub updated_at: String,
+}
