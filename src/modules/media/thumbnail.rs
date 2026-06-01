@@ -1,6 +1,12 @@
 use std::path::Path;
-use image::{self, imageops::FilterType, GenericImageView};
+use image::{self, imageops::FilterType};
+use image::ImageReader;
 use crate::shared::error::AppResult;
+
+/// 最大源图像素总数（宽×高），超过此值不生成缩略图
+/// 4000×3000 = 12,000,000 像素，解码后约 48MB RGBA；
+/// 阈值设为 20MP，覆盖 5000×4000 的常见大图，但不处理 10000×10000 的怪物
+const MAX_SOURCE_PIXEL_COUNT_FOR_THUMBNAIL_GENERATION: u64 = 20_000_000;
 
 /// 缩略图生成配置
 pub struct ThumbnailGenerationConfig {
@@ -34,10 +40,22 @@ pub fn generate_thumbnails(
     media_id: &str,
     config: &ThumbnailGenerationConfig,
 ) -> AppResult<(u32, u32, Vec<ThumbnailInfo>)> {
+    // 先只读尺寸（不完整解码，不占内存），超过阈值则跳过缩略图生成
+    let reader = ImageReader::open(source_path)
+        .map_err(|e| anyhow::anyhow!("Failed to open image: {}", e))?;
+    let (orig_w, orig_h) = reader.into_dimensions()
+        .map_err(|e| anyhow::anyhow!("Failed to read image dimensions: {}", e))?;
+
+    let pixel_count = orig_w as u64 * orig_h as u64;
+    if pixel_count > MAX_SOURCE_PIXEL_COUNT_FOR_THUMBNAIL_GENERATION {
+        // 返回原始尺寸但空缩略图列表——不崩溃，只是不生成
+        return Ok((orig_w, orig_h, Vec::new()));
+    }
+
+    // 然后完整解码（第二次打开文件走 OS 文件缓存，小图片上可接受）
     let img = image::open(source_path).map_err(|e| {
         anyhow::anyhow!("Failed to open image: {}", e)
     })?;
-    let (orig_w, orig_h) = img.dimensions();
 
     let mut thumbnails = Vec::new();
     for &target_width in &config.widths {
@@ -213,5 +231,36 @@ mod tests {
         }
 
         std::fs::remove_file(&source_path).ok();
+    }
+
+    /// 验证小图片不受像素上限阈值影响，正常生成缩略图
+    /// 阈值 20MP 远大于此测试的图片，此测试验证新的尺寸预检代码路径不会误杀正常图片
+    #[test]
+    fn test_small_image_passes_pixel_count_threshold() {
+        let png_data = create_test_png(200, 200);
+        let temp_dir = std::env::temp_dir();
+        let source_path = temp_dir.join("test_threshold_pass.png");
+        std::fs::write(&source_path, &png_data).unwrap();
+
+        let output_dir = temp_dir.clone();
+        let config = ThumbnailGenerationConfig {
+            widths: vec![100],
+            keep_original: true,
+        };
+
+        let (orig_w, orig_h, thumbs) = generate_thumbnails(
+            &source_path, &output_dir, "test-threshold", &config,
+        )
+        .unwrap();
+
+        // 200×200 = 40,000 像素，远小于 20MP 阈值，应正常生成
+        assert_eq!(orig_w, 200);
+        assert_eq!(orig_h, 200);
+        assert_eq!(thumbs.len(), 1);
+        assert_eq!(thumbs[0].width, 100);
+
+        let thumb_path = output_dir.join("test-threshold_thumb_100w.webp");
+        std::fs::remove_file(&source_path).ok();
+        std::fs::remove_file(&thumb_path).ok();
     }
 }

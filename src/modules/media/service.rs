@@ -161,7 +161,18 @@ pub async fn upload_media_raw(
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("spawn_blocking error: {}", e)))?;
 
         match result {
-            Ok((_orig_w, _orig_h, generated_thumbs)) => {
+            Ok((orig_w, orig_h, generated_thumbs)) => {
+                if generated_thumbs.is_empty() && orig_w > 0 && orig_h > 0 {
+                    tracing::info!(
+                        module = "media",
+                        event = "thumbnail_skipped_large_image",
+                        media_id = %media_id,
+                        width = orig_w,
+                        height = orig_h,
+                        pixel_count = orig_w as u64 * orig_h as u64,
+                        "image too large for thumbnail generation, original preserved"
+                    );
+                }
                 for t in generated_thumbs {
                     thumbnails.push(MediaThumbnail {
                         id: uuid::Uuid::new_v4().to_string(),
