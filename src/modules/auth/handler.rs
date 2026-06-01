@@ -33,7 +33,7 @@ pub async fn register(
         "received registration request"
     );
     let expires_in_seconds = state.config.auth.expires_in_seconds;
-    let (login_data, refresh_token) = service::register(state, body).await?;
+    let (login_data, refresh_token) = service::register(state, body, expires_in_seconds).await?;
     let access_token = login_data.access_token.clone();
     let refresh_cookie = build_refresh_cookie(&refresh_token, REMEMBER_ME_MAX_AGE);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
@@ -68,14 +68,15 @@ pub async fn login(
     );
     let expires_in_seconds = state.config.auth.expires_in_seconds;
     let remember_me = body.remember_me.unwrap_or(false);
-    let (login_data, refresh_token) = service::login(state, body).await?;
-    let access_token = login_data.access_token.clone();
 
     let (session_max_age, refresh_max_age) = if remember_me {
         (REMEMBER_ME_MAX_AGE as i64, REMEMBER_ME_MAX_AGE)
     } else {
         (expires_in_seconds, SHORT_MAX_AGE)
     };
+
+    let (login_data, refresh_token) = service::login(state, body, session_max_age).await?;
+    let access_token = login_data.access_token.clone();
 
     let refresh_cookie = build_refresh_cookie(&refresh_token, refresh_max_age);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
@@ -210,7 +211,7 @@ pub async fn refresh_token(
 
     let access_token = jwt::issue_token(
         &state.config.auth.secret,
-        state.config.auth.expires_in_seconds,
+        REMEMBER_ME_MAX_AGE as i64,
         user.id.clone(),
         user.username.clone(),
         user.role.clone(),
@@ -233,6 +234,15 @@ pub async fn refresh_token(
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
+    // 同步更新 session cookie，避免前端刷新后携带旧 JWT
+    let session_cookie = build_session_cookie(
+        &access_token,
+        REMEMBER_ME_MAX_AGE as i64,
+    );
+    resp_headers.append(
+        axum::http::header::SET_COOKIE,
+        axum::http::HeaderValue::from_str(&session_cookie).unwrap(),
+    );
     Ok((resp_headers, json).into_response())
 }
 

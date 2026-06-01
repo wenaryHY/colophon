@@ -19,7 +19,6 @@ interface LoginResponse {
 
 interface AuthContextValue {
   user: CurrentUser | null;
-  token: string;
   login: (login: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; message?: string }>;
   register: (data: RegisterData) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
@@ -27,13 +26,11 @@ interface AuthContextValue {
   isLoading: boolean;
 }
 
-const SESSION_TOKEN = 'session';
 const AUTH_STORAGE_KEY = 'inkforge_auth_user';
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
-  const [token, setTokenState] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const { setLang, t } = useI18n();
   /** 仅首次挂载运行一次 auth 校验 */
@@ -41,37 +38,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearAuth = useCallback(() => {
     clearAccessToken();
-    setTokenState('');
     setUser(null);
     try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch { /* ignore quota / priv errors */ }
-  }, []);
-
-  const applySession = useCallback(() => {
-    setTokenState(SESSION_TOKEN);
   }, []);
 
   const refreshUser = useCallback(async () => {
     const me = await apiData<CurrentUser>(`${API_PREFIX}/me`);
     setUser(me);
-    applySession();
     try { sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(me)); } catch { /* ignore */ }
     if (me.language) {
       setLang(me.language);
       saveLanguage(me.language);
     }
-  }, [applySession, setLang]);
+  }, [setLang]);
 
   useEffect(() => {
     if (authChecked.current) return;
     authChecked.current = true;
 
-    // 快速恢复：从 sessionStorage 还原，消除首次骨架
+    // 快速恢复：从 sessionStorage 还原 user，消除首次骨架
     const stored = sessionStorage.getItem(AUTH_STORAGE_KEY);
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as CurrentUser;
         setUser(parsed);
-        applySession();
         setIsLoading(false);
       } catch { /* 脏数据，忽略 */ }
     }
@@ -134,13 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(() => ({
     user,
-    token,
     login,
     register,
     logout,
     refreshUser,
     isLoading,
-  }), [user, token, login, register, logout, refreshUser, isLoading]);
+  }), [user, login, register, logout, refreshUser, isLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

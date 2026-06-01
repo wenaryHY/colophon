@@ -5,7 +5,7 @@ type WSEventType = 'comment_created' | 'comment_approved' | 'comment_deleted';
 type WSHandler = (event: { type: WSEventType }) => void;
 
 export function useWebSocket(onEvent?: WSHandler) {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const attemptsRef = useRef(0);
@@ -26,7 +26,7 @@ export function useWebSocket(onEvent?: WSHandler) {
 
   const connect = useCallback(() => {
     close();
-    if (!token) return;
+    if (!user) return;
 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     wsRef.current = new WebSocket(`${protocol}//${location.host}/ws/admin`);
@@ -53,7 +53,7 @@ export function useWebSocket(onEvent?: WSHandler) {
     wsRef.current.onclose = () => {
       console.log('[InkForge WS] 连接断开');
       wsRef.current = null;
-      if (!token || timerRef.current) return;
+      if (!user || timerRef.current) return;
       const delay = Math.min(1000 * Math.pow(2, attemptsRef.current), 30000);
       attemptsRef.current += 1;
       timerRef.current = setTimeout(() => {
@@ -61,7 +61,7 @@ export function useWebSocket(onEvent?: WSHandler) {
         connect();
       }, delay);
     };
-  }, [close, token]);
+  }, [close, user]);
 
   useEffect(() => {
     connect();

@@ -65,7 +65,6 @@ async function tryRefreshToken(): Promise<boolean> {
     return true;
   }
   clearAccessToken();
-  onAuthExpired?.();
   return false;
 }
 
@@ -79,34 +78,42 @@ function buildUrl(path: string): string {
 
 function buildHeaders(opts: RequestInit): Headers {
   const headers = new Headers(opts.headers as HeadersInit | undefined);
-  if (accessToken) {
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
+
+  // Content-Type 自动推断：有 body 且未显式设置时默认 JSON（FormData 除外——浏览器自动设 multipart）
   if (opts.body && !(opts.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
+
+  // 如果有内存中的 accessToken，用 Bearer header（快路径）
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  // 否则不设 Authorization——靠 cookie 兜底（方案 C）
+  // credentials: 'include' 已在 fetch 中设置
+
   return headers;
 }
 
-export async function api<T = unknown>(path: string, opts: RequestInit = {}): Promise<T> {
+export async function api<T = unknown>(path: string, opts: RequestInit = {}, isRetry = false): Promise<T> {
   const url = buildUrl(path);
 
-  let response = await fetch(url, {
+  const response = await fetch(url, {
     ...opts,
     credentials: 'include',
     headers: buildHeaders(opts),
   });
 
-  // 401 自动刷新（排除 refresh 自身避免死循环）
-  if (response.status === 401 && !path.includes('/auth/refresh')) {
+  // 401 自动刷新（isRetry 防止无限重试）
+  if (response.status === 401 && !isRetry) {
+    // 1. 尝试 refresh
     const refreshed = await tryRefreshToken();
     if (refreshed) {
-      response = await fetch(url, {
-        ...opts,
-        credentials: 'include',
-        headers: buildHeaders(opts),
-      });
+      // 2. refresh 成功 → 重试原请求（带新 token）
+      return api(path, opts, true);
     }
+    // 3. refresh 失败 → 触发过期回调
+    onAuthExpired?.();
+    throw new ApiClientError(401, 'Unauthorized');
   }
 
   if (!response.ok) {

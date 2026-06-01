@@ -107,3 +107,11 @@ export function logout() {
 export function getMe<T>() {
   return apiRequest<T>('/api/v1/me');
 }
+
+export async function checkLoginStatus<T>(): Promise<T | null> {
+  try {
+    return await getMe<T>();
+  } catch {
+    return null;
+  }
+}

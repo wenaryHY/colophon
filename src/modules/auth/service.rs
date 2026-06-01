@@ -14,7 +14,11 @@ use super::{
     repository,
 };
 
-pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<(LoginResponseData, String)> {
+pub async fn register(
+    state: Arc<AppState>,
+    body: RegisterRequest,
+    token_lifetime_seconds: i64,
+) -> AppResult<(LoginResponseData, String)> {
     ensure_public_registration_available(&state, &body).await?;
     validate_register_request(&body)?;
     ensure_identity_available(&state, &body).await?;
@@ -40,7 +44,7 @@ pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<
 
     let access_token = issue_token(
         &state.config.auth.secret,
-        state.config.auth.expires_in_seconds,
+        token_lifetime_seconds,
         user_id.clone(),
         username.clone(),
         role.to_string(),
@@ -74,7 +78,11 @@ pub async fn register(state: Arc<AppState>, body: RegisterRequest) -> AppResult<
     ))
 }
 
-pub async fn login(state: Arc<AppState>, body: LoginRequest) -> AppResult<(LoginResponseData, String)> {
+pub async fn login(
+    state: Arc<AppState>,
+    body: LoginRequest,
+    token_lifetime_seconds: i64,
+) -> AppResult<(LoginResponseData, String)> {
     ensure_setup_completed(&state).await?;
     tracing::debug!(
         module = "auth",
@@ -128,7 +136,7 @@ pub async fn login(state: Arc<AppState>, body: LoginRequest) -> AppResult<(Login
     );
     let access_token = issue_token(
         &state.config.auth.secret,
-        state.config.auth.expires_in_seconds,
+        token_lifetime_seconds,
         user.id.clone(),
         user.username.clone(),
         user.role.clone(),

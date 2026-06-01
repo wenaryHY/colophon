@@ -98,8 +98,17 @@
     return apiRequest('/api/v1/me');
   }
 
+  async function checkLoginStatus() {
+    try {
+      return await getMe();
+    } catch {
+      return null;
+    }
+  }
+
   window.InkForgeApi = {
     apiRequest,
+    checkLoginStatus,
     getMe,
     login,
     logout,

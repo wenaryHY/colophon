@@ -105,6 +105,11 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
       login: document.getElementById('login').value.trim(),
       password: document.getElementById('password').value,
     });
+    // 验证 cookie 已由后端 Set-Cookie 设置，通过 /me 确认登录态
+    const user = await window.InkForgeApi.checkLoginStatus();
+    if (!user) {
+      throw new Error(I18n.t('sessionError', '登录会话建立失败，请重试。'));
+    }
     window.location.href = redirectTo;
   } catch (error) {
     alertEl.textContent = error.message || I18n.t('loginError', '登录失败，请稍后重试。');

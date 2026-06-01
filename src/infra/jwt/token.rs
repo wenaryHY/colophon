@@ -15,12 +15,12 @@ pub struct Claims {
 /// 签发 JWT，不依赖 AppState — 解耦架构：infra 层不应了解 state 层
 pub fn issue_token(
     secret: &str,
-    expires_in_seconds: i64,
+    token_lifetime_seconds: i64,
     user_id: String,
     username: String,
     role: String,
 ) -> Result<String, AppError> {
-    let exp = chrono::Utc::now().timestamp() + expires_in_seconds;
+    let exp = chrono::Utc::now().timestamp() + token_lifetime_seconds;
     let claims = Claims {
         sub: user_id,
         username,

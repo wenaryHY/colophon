@@ -84,7 +84,7 @@ function AdminLayout() {
 }
 
 function AdminGate() {
-  const { token, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -94,7 +94,7 @@ function AdminGate() {
     );
   }
 
-  if (!token) {
+  if (!user) {
     return <Login />;
   }
 
