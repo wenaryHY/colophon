@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use slug::slugify;
-use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::{
@@ -168,40 +167,52 @@ fn infer_category_by_extension(ext: &str) -> String {
     .to_string()
 }
 
-async fn list_categories_repo(pool: &SqlitePool) -> Result<Vec<MediaCategory>, sqlx::Error> {
+async fn list_categories_repo<'e, E>(executor: E) -> Result<Vec<MediaCategory>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, MediaCategory>(
         "SELECT * FROM media_categories WHERE deleted_at IS NULL ORDER BY sort_order ASC, name ASC",
     )
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
 }
 
-async fn get_category(pool: &SqlitePool, id: &str) -> Result<Option<MediaCategory>, sqlx::Error> {
+async fn get_category<'e, E>(executor: E, id: &str) -> Result<Option<MediaCategory>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, MediaCategory>(
         "SELECT * FROM media_categories WHERE (id = ? OR slug = ?) AND deleted_at IS NULL LIMIT 1",
     )
     .bind(id)
     .bind(id)
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await
 }
 
-async fn resolve_category_slug(pool: &SqlitePool, id_or_slug: &str) -> Result<String, sqlx::Error> {
+async fn resolve_category_slug<'e, E>(executor: E, id_or_slug: &str) -> Result<String, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_scalar::<_, String>(
         "SELECT slug FROM media_categories WHERE (id = ? OR slug = ?) AND deleted_at IS NULL LIMIT 1",
     )
     .bind(id_or_slug)
     .bind(id_or_slug)
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await
 }
 
-async fn media_category_slug_or_name_exists(
-    pool: &SqlitePool,
+async fn media_category_slug_or_name_exists<'e, E>(
+    executor: E,
     slug: &str,
     name: &str,
     exclude_id: Option<&str>,
-) -> Result<bool, sqlx::Error> {
+) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     if let Some(exclude_id) = exclude_id {
         sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM media_categories WHERE (slug = ? OR name = ?) AND id != ? AND deleted_at IS NULL)",
@@ -209,7 +220,7 @@ async fn media_category_slug_or_name_exists(
         .bind(slug)
         .bind(name)
         .bind(exclude_id)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
     } else {
         sqlx::query_scalar(
@@ -217,20 +228,23 @@ async fn media_category_slug_or_name_exists(
         )
         .bind(slug)
         .bind(name)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
     }
 }
 
-async fn insert_category(
-    pool: &SqlitePool,
+async fn insert_category<'e, E>(
+    executor: E,
     name: &str,
     slug: &str,
     description: Option<&str>,
     icon: Option<&str>,
     color: Option<&str>,
     sort_order: i64,
-) -> Result<String, sqlx::Error> {
+) -> Result<String, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let id = Uuid::new_v4().to_string();
     sqlx::query(
         "INSERT INTO media_categories (id, name, slug, description, icon, color, sort_order)
@@ -243,13 +257,13 @@ async fn insert_category(
     .bind(icon)
     .bind(color)
     .bind(sort_order)
-    .execute(pool)
+    .execute(executor)
     .await?;
     Ok(id)
 }
 
-async fn update_category_repo(
-    pool: &SqlitePool,
+async fn update_category_repo<'e, E>(
+    executor: E,
     id: &str,
     name: &str,
     slug: &str,
@@ -257,7 +271,10 @@ async fn update_category_repo(
     icon: Option<&str>,
     color: Option<&str>,
     sort_order: i64,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query(
         "UPDATE media_categories
          SET name = ?, slug = ?, description = ?, icon = ?, color = ?, sort_order = ?, updated_at = datetime('now')
@@ -270,7 +287,7 @@ async fn update_category_repo(
     .bind(color)
     .bind(sort_order)
     .bind(id)
-    .execute(pool)
+    .execute(executor)
     .await?;
     Ok(())
 }

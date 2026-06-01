@@ -1,29 +1,37 @@
-use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use super::domain::Category;
 
-pub async fn list_categories(pool: &SqlitePool) -> Result<Vec<Category>, sqlx::Error> {
+pub async fn list_categories<'e, E>(executor: E) -> Result<Vec<Category>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, Category>(
         "SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY sort_order ASC, name ASC",
     )
-        .fetch_all(pool)
+        .fetch_all(executor)
         .await
 }
 
-pub async fn get_category(pool: &SqlitePool, id: &str) -> Result<Option<Category>, sqlx::Error> {
+pub async fn get_category<'e, E>(executor: E, id: &str) -> Result<Option<Category>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, Category>("SELECT * FROM categories WHERE id = ? AND deleted_at IS NULL LIMIT 1")
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await
 }
 
-pub async fn category_slug_or_name_exists(
-    pool: &SqlitePool,
+pub async fn category_slug_or_name_exists<'e, E>(
+    executor: E,
     slug: &str,
     name: &str,
     exclude_id: Option<&str>,
-) -> Result<bool, sqlx::Error> {
+) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     if let Some(exclude_id) = exclude_id {
         sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM categories WHERE (slug = ? OR name = ?) AND id != ? AND deleted_at IS NULL)",
@@ -31,7 +39,7 @@ pub async fn category_slug_or_name_exists(
         .bind(slug)
         .bind(name)
         .bind(exclude_id)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
     } else {
         sqlx::query_scalar(
@@ -39,19 +47,22 @@ pub async fn category_slug_or_name_exists(
         )
             .bind(slug)
             .bind(name)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await
     }
 }
 
-pub async fn insert_category(
-    pool: &SqlitePool,
+pub async fn insert_category<'e, E>(
+    executor: E,
     name: &str,
     slug: &str,
     description: Option<&str>,
     parent_id: Option<&str>,
     sort_order: i64,
-) -> Result<String, sqlx::Error> {
+) -> Result<String, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let id = Uuid::new_v4().to_string();
     sqlx::query(
         "INSERT INTO categories (id, name, slug, description, parent_id, sort_order)
@@ -63,20 +74,23 @@ pub async fn insert_category(
     .bind(description)
     .bind(parent_id)
     .bind(sort_order)
-    .execute(pool)
+    .execute(executor)
     .await?;
     Ok(id)
 }
 
-pub async fn update_category(
-    pool: &SqlitePool,
+pub async fn update_category<'e, E>(
+    executor: E,
     id: &str,
     name: &str,
     slug: &str,
     description: Option<&str>,
     parent_id: Option<&str>,
     sort_order: i64,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query(
         "UPDATE categories
          SET name = ?, slug = ?, description = ?, parent_id = ?, sort_order = ?, updated_at = datetime('now')
@@ -88,15 +102,18 @@ pub async fn update_category(
     .bind(parent_id)
     .bind(sort_order)
     .bind(id)
-    .execute(pool)
+    .execute(executor)
     .await?;
     Ok(())
 }
 
-pub async fn delete_category(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error> {
+pub async fn delete_category<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
     sqlx::query("UPDATE posts SET category_id = NULL WHERE category_id = ?")
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     sqlx::query(
         "UPDATE categories
@@ -104,7 +121,7 @@ pub async fn delete_category(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Er
          WHERE id = ?",
     )
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }

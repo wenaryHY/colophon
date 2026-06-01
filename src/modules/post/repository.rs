@@ -1,4 +1,4 @@
-use sqlx::{FromRow, SqlitePool};
+use sqlx::FromRow;
 use uuid::Uuid;
 
 use super::domain::{
@@ -7,10 +7,13 @@ use super::domain::{
 use crate::modules::tag::domain::Tag;
 
 #[allow(dead_code)]
-pub async fn list_recent_public_posts(
-    pool: &SqlitePool,
+pub async fn list_recent_public_posts<'e, E>(
+    executor: E,
     limit: i64,
-) -> Result<Vec<PublicPostSummary>, sqlx::Error> {
+) -> Result<Vec<PublicPostSummary>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, PublicPostSummary>(
         "SELECT
             p.id,
@@ -32,31 +35,37 @@ pub async fn list_recent_public_posts(
          LIMIT ?",
     )
     .bind(limit)
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
 }
 
-pub async fn list_for_sitemap(pool: &SqlitePool) -> Result<Vec<SitemapItem>, sqlx::Error> {
+pub async fn list_for_sitemap<'e, E>(executor: E) -> Result<Vec<SitemapItem>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, SitemapItem>(
         "SELECT slug, content_type, published_at, updated_at
          FROM posts
          WHERE status = 'published' AND visibility = 'public' AND deleted_at IS NULL
          ORDER BY published_at DESC",
     )
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
 }
 
 /// FTS5 trigram search with LIKE fallback (trigram tokenizer handles CJK better than unicode61).
 /// Returns PublicPostSummary items matching the keyword, optionally filtered by category/tag.
-pub async fn search_posts(
-    pool: &SqlitePool,
+pub async fn search_posts<'e, E>(
+    executor: E,
     keyword: &str,
     category_id: Option<&str>,
     tag_id: Option<&str>,
     limit: i64,
     offset: i64,
-) -> Result<Vec<PublicPostSummary>, sqlx::Error> {
+) -> Result<Vec<PublicPostSummary>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
     // First: try FTS5 trigram
     let fts_keyword = keyword.to_string();
     let fts_results = sqlx::query_as::<_, PublicPostSummary>(
@@ -82,7 +91,7 @@ pub async fn search_posts(
     .bind(tag_id)
     .bind(limit)
     .bind(offset)
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await?;
 
     if !fts_results.is_empty() {
@@ -114,16 +123,19 @@ pub async fn search_posts(
     .bind(tag_id)
     .bind(limit)
     .bind(offset)
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
 }
 
-pub async fn count_search_posts(
-    pool: &SqlitePool,
+pub async fn count_search_posts<'e, E>(
+    executor: E,
     keyword: &str,
     category_id: Option<&str>,
     tag_id: Option<&str>,
-) -> Result<i64, sqlx::Error> {
+) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
     // First: try FTS5 trigram count
     let fts_keyword = keyword.to_string();
     let fts_count: i64 = sqlx::query_scalar(
@@ -142,7 +154,7 @@ pub async fn count_search_posts(
     .bind(category_id)
     .bind(tag_id)
     .bind(tag_id)
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
 
     if fts_count > 0 {
@@ -167,16 +179,19 @@ pub async fn count_search_posts(
     .bind(category_id)
     .bind(tag_id)
     .bind(tag_id)
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await
 }
 
-pub async fn list_public_posts(
-    pool: &SqlitePool,
+pub async fn list_public_posts<'e, E>(
+    executor: E,
     keyword: Option<&str>,
     limit: i64,
     offset: i64,
-) -> Result<Vec<PublicPostSummary>, sqlx::Error> {
+) -> Result<Vec<PublicPostSummary>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     if let Some(keyword) = keyword {
         let like = format!("%{}%", keyword);
         sqlx::query_as::<_, PublicPostSummary>(
@@ -206,7 +221,7 @@ pub async fn list_public_posts(
         .bind(&like)
         .bind(limit)
         .bind(offset)
-        .fetch_all(pool)
+        .fetch_all(executor)
         .await
     } else {
         sqlx::query_as::<_, PublicPostSummary>(
@@ -232,15 +247,18 @@ pub async fn list_public_posts(
         )
         .bind(limit)
         .bind(offset)
-        .fetch_all(pool)
+        .fetch_all(executor)
         .await
     }
 }
 
-pub async fn count_public_posts(
-    pool: &SqlitePool,
+pub async fn count_public_posts<'e, E>(
+    executor: E,
     keyword: Option<&str>,
-) -> Result<i64, sqlx::Error> {
+) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     if let Some(keyword) = keyword {
         let like = format!("%{}%", keyword);
         sqlx::query_scalar(
@@ -253,21 +271,24 @@ pub async fn count_public_posts(
         .bind(&like)
         .bind(&like)
         .bind(&like)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
     } else {
         sqlx::query_scalar(
             "SELECT COUNT(*) FROM posts WHERE status = 'published' AND visibility = 'public' AND deleted_at IS NULL",
         )
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
     }
 }
 
-pub async fn get_public_post_by_slug(
-    pool: &SqlitePool,
+pub async fn get_public_post_by_slug<'e, E>(
+    executor: E,
     slug: &str,
-) -> Result<Option<PublicPostDetail>, sqlx::Error> {
+) -> Result<Option<PublicPostDetail>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, PublicPostDetail>(
         "SELECT
             p.id,
@@ -290,24 +311,30 @@ pub async fn get_public_post_by_slug(
          LIMIT 1",
     )
     .bind(slug)
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await
 }
 
-pub async fn find_comment_target(
-    pool: &SqlitePool,
+pub async fn find_comment_target<'e, E>(
+    executor: E,
     slug: &str,
-) -> Result<Option<CommentTargetPost>, sqlx::Error> {
+) -> Result<Option<CommentTargetPost>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, CommentTargetPost>(
         "SELECT id, title, status, visibility, allow_comment FROM posts WHERE slug = ? AND deleted_at IS NULL LIMIT 1",
     )
     .bind(slug)
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await
 }
 
 #[allow(dead_code)]
-pub async fn list_post_tags(pool: &SqlitePool, post_id: &str) -> Result<Vec<Tag>, sqlx::Error> {
+pub async fn list_post_tags<'e, E>(executor: E, post_id: &str) -> Result<Vec<Tag>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, Tag>(
         "SELECT t.*
          FROM tags t
@@ -316,18 +343,21 @@ pub async fn list_post_tags(pool: &SqlitePool, post_id: &str) -> Result<Vec<Tag>
          ORDER BY t.name ASC",
     )
     .bind(post_id)
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
 }
 
-pub async fn list_admin_posts(
-    pool: &SqlitePool,
+pub async fn list_admin_posts<'e, E>(
+    executor: E,
     status: Option<&str>,
     keyword: Option<&str>,
     content_type: Option<&str>,
     limit: i64,
     offset: i64,
-) -> Result<Vec<AdminPost>, sqlx::Error> {
+) -> Result<Vec<AdminPost>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     match (status, keyword, content_type) {
         (Some(status), Some(keyword), Some(ct)) => {
             let like = format!("%{}%", keyword);
@@ -344,7 +374,7 @@ pub async fn list_admin_posts(
             .bind(&like)
             .bind(limit)
             .bind(offset)
-            .fetch_all(pool)
+            .fetch_all(executor)
             .await
         }
         (Some(status), Some(keyword), None) => {
@@ -361,7 +391,7 @@ pub async fn list_admin_posts(
             .bind(&like)
             .bind(limit)
             .bind(offset)
-            .fetch_all(pool)
+            .fetch_all(executor)
             .await
         }
         (Some(status), None, Some(ct)) => {
@@ -375,7 +405,7 @@ pub async fn list_admin_posts(
             .bind(ct)
             .bind(limit)
             .bind(offset)
-            .fetch_all(pool)
+            .fetch_all(executor)
             .await
         }
         (Some(status), None, None) => {
@@ -388,7 +418,7 @@ pub async fn list_admin_posts(
             .bind(status)
             .bind(limit)
             .bind(offset)
-            .fetch_all(pool)
+            .fetch_all(executor)
             .await
         }
         (None, Some(keyword), Some(ct)) => {
@@ -405,7 +435,7 @@ pub async fn list_admin_posts(
             .bind(&like)
             .bind(limit)
             .bind(offset)
-            .fetch_all(pool)
+            .fetch_all(executor)
             .await
         }
         (None, Some(keyword), None) => {
@@ -421,7 +451,7 @@ pub async fn list_admin_posts(
             .bind(&like)
             .bind(limit)
             .bind(offset)
-            .fetch_all(pool)
+            .fetch_all(executor)
             .await
         }
         (None, None, Some(ct)) => {
@@ -434,7 +464,7 @@ pub async fn list_admin_posts(
             .bind(ct)
             .bind(limit)
             .bind(offset)
-            .fetch_all(pool)
+            .fetch_all(executor)
             .await
         }
         (None, None, None) => {
@@ -446,18 +476,21 @@ pub async fn list_admin_posts(
             )
             .bind(limit)
             .bind(offset)
-            .fetch_all(pool)
+            .fetch_all(executor)
             .await
         }
     }
 }
 
-pub async fn count_admin_posts(
-    pool: &SqlitePool,
+pub async fn count_admin_posts<'e, E>(
+    executor: E,
     status: Option<&str>,
     keyword: Option<&str>,
     content_type: Option<&str>,
-) -> Result<i64, sqlx::Error> {
+) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     match (status, keyword, content_type) {
         (Some(status), Some(keyword), Some(ct)) => {
             let like = format!("%{}%", keyword);
@@ -469,7 +502,7 @@ pub async fn count_admin_posts(
             .bind(&like)
             .bind(&like)
             .bind(&like)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await
         }
         (Some(status), Some(keyword), None) => {
@@ -481,20 +514,20 @@ pub async fn count_admin_posts(
             .bind(&like)
             .bind(&like)
             .bind(&like)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await
         }
         (Some(status), None, Some(ct)) => {
             sqlx::query_scalar("SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL AND status = ? AND content_type = ?")
                 .bind(status)
                 .bind(ct)
-                .fetch_one(pool)
+                .fetch_one(executor)
                 .await
         }
         (Some(status), None, None) => {
             sqlx::query_scalar("SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL AND status = ?")
                 .bind(status)
-                .fetch_one(pool)
+                .fetch_one(executor)
                 .await
         }
         (None, Some(keyword), Some(ct)) => {
@@ -506,7 +539,7 @@ pub async fn count_admin_posts(
             .bind(&like)
             .bind(&like)
             .bind(&like)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await
         }
         (None, Some(keyword), None) => {
@@ -517,51 +550,57 @@ pub async fn count_admin_posts(
             .bind(&like)
             .bind(&like)
             .bind(&like)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await
         }
         (None, None, Some(ct)) => {
             sqlx::query_scalar("SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL AND content_type = ?")
                 .bind(ct)
-                .fetch_one(pool)
+                .fetch_one(executor)
                 .await
         }
         (None, None, None) => {
             sqlx::query_scalar("SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL")
-                .fetch_one(pool)
+                .fetch_one(executor)
                 .await
         }
     }
 }
 
-pub async fn get_admin_post(pool: &SqlitePool, id: &str) -> Result<Option<AdminPost>, sqlx::Error> {
+pub async fn get_admin_post<'e, E>(executor: E, id: &str) -> Result<Option<AdminPost>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, AdminPost>("SELECT * FROM posts WHERE id = ? LIMIT 1")
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await
 }
 
-pub async fn slug_exists(
-    pool: &SqlitePool,
+pub async fn slug_exists<'e, E>(
+    executor: E,
     slug: &str,
     exclude_id: Option<&str>,
-) -> Result<bool, sqlx::Error> {
+) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     if let Some(exclude_id) = exclude_id {
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM posts WHERE slug = ? AND id != ?)")
             .bind(slug)
             .bind(exclude_id)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await
     } else {
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM posts WHERE slug = ?)")
             .bind(slug)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await
     }
 }
 
-pub async fn insert_post(
-    pool: &SqlitePool,
+pub async fn insert_post<'e, E>(
+    executor: E,
     author_id: &str,
     title: &str,
     slug: &str,
@@ -577,7 +616,10 @@ pub async fn insert_post(
     content_type: &str,
     custom_html_path: Option<&str>,
     page_render_mode: &str,
-) -> Result<String, sqlx::Error> {
+) -> Result<String, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let id = Uuid::new_v4().to_string();
     let published_at = if status == "published" {
         Some(chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string())
@@ -609,14 +651,14 @@ pub async fn insert_post(
     .bind(custom_html_path)
     .bind(page_render_mode)
     .bind(published_at)
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(id)
 }
 
-pub async fn update_post(
-    pool: &SqlitePool,
+pub async fn update_post<'e, E>(
+    executor: E,
     id: &str,
     title: &str,
     slug: &str,
@@ -633,7 +675,10 @@ pub async fn update_post(
     custom_html_path: Option<&str>,
     page_render_mode: &str,
     current_published_at: Option<&str>,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     // 只在从非 published 状态首次发布时才设置 published_at；
     // 若已发布则保留原时间；若切换回 draft/trashed 则清空。
     let published_at: Option<String> = if status == "published" {
@@ -670,35 +715,41 @@ pub async fn update_post(
     .bind(page_render_mode)
     .bind(published_at)
     .bind(id)
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(())
 }
 
-pub async fn replace_tags(
-    pool: &SqlitePool,
+pub async fn replace_tags<'e, E>(
+    executor: E,
     post_id: &str,
     tag_ids: &[String],
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
     sqlx::query("DELETE FROM post_tags WHERE post_id = ?")
         .bind(post_id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     for tag_id in tag_ids {
         sqlx::query("INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?)")
             .bind(post_id)
             .bind(tag_id)
-            .execute(pool)
+            .execute(executor)
             .await?;
     }
     Ok(())
 }
 
-pub async fn delete_post(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error> {
+pub async fn delete_post<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE posts SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }
@@ -717,16 +768,19 @@ pub struct PageCustomHtml {
     pub visibility: String,
 }
 
-pub async fn get_page_by_slug(
-    pool: &SqlitePool,
+pub async fn get_page_by_slug<'e, E>(
+    executor: E,
     slug: &str,
-) -> Result<Option<PageCustomHtml>, sqlx::Error> {
+) -> Result<Option<PageCustomHtml>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, PageCustomHtml>(
         "SELECT id, title, content_type, custom_html_path, page_render_mode,
                 content_md, content_html, status, visibility
          FROM posts WHERE slug = ? AND deleted_at IS NULL LIMIT 1",
     )
     .bind(slug)
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await
 }

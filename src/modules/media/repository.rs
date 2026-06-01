@@ -1,16 +1,18 @@
-use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use super::domain::MediaItem;
 
-pub async fn list_media(
-    pool: &SqlitePool,
+pub async fn list_media<'e, E>(
+    executor: E,
     kind: Option<&str>,
     keyword: Option<&str>,
     category: Option<&str>,
     limit: i64,
     offset: i64,
-) -> Result<Vec<MediaItem>, sqlx::Error> {
+) -> Result<Vec<MediaItem>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let like = keyword.map(|k| format!("%{}%", k));
 
     let mut sql = String::from("SELECT * FROM media WHERE deleted_at IS NULL");
@@ -36,15 +38,18 @@ pub async fn list_media(
         q = q.bind(c);
     }
     q = q.bind(limit).bind(offset);
-    q.fetch_all(pool).await
+    q.fetch_all(executor).await
 }
 
-pub async fn count_media(
-    pool: &SqlitePool,
+pub async fn count_media<'e, E>(
+    executor: E,
     kind: Option<&str>,
     keyword: Option<&str>,
     category: Option<&str>,
-) -> Result<i64, sqlx::Error> {
+) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let like = keyword.map(|k| format!("%{}%", k));
 
     let mut sql = String::from("SELECT COUNT(*) FROM media WHERE deleted_at IS NULL");
@@ -68,11 +73,11 @@ pub async fn count_media(
     if let Some(c) = category {
         q = q.bind(c);
     }
-    q.fetch_one(pool).await
+    q.fetch_one(executor).await
 }
 
-pub async fn insert_media(
-    pool: &SqlitePool,
+pub async fn insert_media<'e, E>(
+    executor: E,
     uploader_id: &str,
     kind: &str,
     mime_type: &str,
@@ -82,7 +87,10 @@ pub async fn insert_media(
     public_url: &str,
     size_bytes: i64,
     category: &str,
-) -> Result<String, sqlx::Error> {
+) -> Result<String, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let id = Uuid::new_v4().to_string();
     sqlx::query(
         "INSERT INTO media (
@@ -99,44 +107,56 @@ pub async fn insert_media(
     .bind(public_url)
     .bind(size_bytes)
     .bind(category)
-    .execute(pool)
+    .execute(executor)
     .await?;
     Ok(id)
 }
 
-pub async fn get_media(pool: &SqlitePool, id: &str) -> Result<Option<MediaItem>, sqlx::Error> {
+pub async fn get_media<'e, E>(executor: E, id: &str) -> Result<Option<MediaItem>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, MediaItem>("SELECT * FROM media WHERE id = ? AND deleted_at IS NULL LIMIT 1")
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await
 }
 
-pub async fn delete_media(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error> {
+pub async fn delete_media<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE media SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }
 
-pub async fn rename_media(pool: &SqlitePool, id: &str, new_name: &str) -> Result<(), sqlx::Error> {
+pub async fn rename_media<'e, E>(executor: E, id: &str, new_name: &str) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE media SET original_name = ?, updated_at = datetime('now') WHERE id = ?")
         .bind(new_name)
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }
 
-pub async fn update_media_category(
-    pool: &SqlitePool,
+pub async fn update_media_category<'e, E>(
+    executor: E,
     id: &str,
     category: Option<&str>,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE media SET category = ?, updated_at = datetime('now') WHERE id = ?")
         .bind(category)
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }

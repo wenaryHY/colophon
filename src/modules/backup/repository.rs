@@ -1,15 +1,17 @@
 use chrono::Utc;
-use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use super::domain::{Backup, BackupSchedule};
 
-pub async fn create_backup(
-    pool: &SqlitePool,
+pub async fn create_backup<'e, E>(
+    executor: E,
     provider: &str,
     size: i64,
     manifest_hash: &str,
-) -> Result<String, sqlx::Error> {
+) -> Result<String, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let id = Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
 
@@ -22,64 +24,79 @@ pub async fn create_backup(
     .bind(size)
     .bind(provider)
     .bind(manifest_hash)
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(id)
 }
 
-pub async fn list_backups(pool: &SqlitePool) -> Result<Vec<Backup>, sqlx::Error> {
+pub async fn list_backups<'e, E>(executor: E) -> Result<Vec<Backup>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, Backup>(
         "SELECT id, created_at, size, provider, status, manifest_hash, error_message
          FROM backups
          ORDER BY created_at DESC",
     )
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
 }
 
-pub async fn get_backup(pool: &SqlitePool, id: &str) -> Result<Option<Backup>, sqlx::Error> {
+pub async fn get_backup<'e, E>(executor: E, id: &str) -> Result<Option<Backup>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, Backup>(
         "SELECT id, created_at, size, provider, status, manifest_hash, error_message
          FROM backups
          WHERE id = ?",
     )
     .bind(id)
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await
 }
 
-pub async fn delete_backup(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error> {
+pub async fn delete_backup<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("DELETE FROM backups WHERE id = ?")
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }
 
 #[allow(dead_code)]
-pub async fn update_backup_status(
-    pool: &SqlitePool,
+pub async fn update_backup_status<'e, E>(
+    executor: E,
     id: &str,
     status: &str,
     error_message: Option<&str>,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE backups SET status = ?, error_message = ? WHERE id = ?")
         .bind(status)
         .bind(error_message)
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }
 
-pub async fn get_or_create_schedule(pool: &SqlitePool) -> Result<BackupSchedule, sqlx::Error> {
+pub async fn get_or_create_schedule<'e, E>(executor: E) -> Result<BackupSchedule, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
     let existing = sqlx::query_as::<_, BackupSchedule>(
         "SELECT id, enabled, frequency, hour, minute, provider, last_run_at, next_run_at, created_at, updated_at
          FROM backup_schedules
          LIMIT 1",
     )
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await?;
 
     if let Some(schedule) = existing {
@@ -96,7 +113,7 @@ pub async fn get_or_create_schedule(pool: &SqlitePool) -> Result<BackupSchedule,
     .bind(&id)
     .bind(&now)
     .bind(&now)
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(BackupSchedule {
@@ -113,14 +130,17 @@ pub async fn get_or_create_schedule(pool: &SqlitePool) -> Result<BackupSchedule,
     })
 }
 
-pub async fn update_schedule(
-    pool: &SqlitePool,
+pub async fn update_schedule<'e, E>(
+    executor: E,
     enabled: bool,
     frequency: &str,
     hour: i32,
     minute: i32,
     provider: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let now = Utc::now().to_rfc3339();
 
     sqlx::query(
@@ -134,17 +154,20 @@ pub async fn update_schedule(
     .bind(minute)
     .bind(provider)
     .bind(&now)
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(())
 }
 
-pub async fn update_schedule_run_time(
-    pool: &SqlitePool,
+pub async fn update_schedule_run_time<'e, E>(
+    executor: E,
     last_run_at: &str,
     next_run_at: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query(
         "UPDATE backup_schedules
          SET last_run_at = ?, next_run_at = ?
@@ -152,7 +175,7 @@ pub async fn update_schedule_run_time(
     )
     .bind(last_run_at)
     .bind(next_run_at)
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(())

@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 use semver::VersionReq;
-use sqlx::SqlitePool;
 
 use crate::shared::error::{AppError, AppResult};
 
@@ -115,9 +114,12 @@ impl PluginLoader {
         Ok(req.matches(&host_ver))
     }
 
-    pub async fn discover(&self, pool: &SqlitePool) -> AppResult<Vec<DiscoveredPlugin>> {
+    pub async fn discover<E>(&self, executor: E) -> AppResult<Vec<DiscoveredPlugin>>
+    where
+        for<'e> E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+    {
         let manifests = self.scan_manifests()?;
-        let enabled_ids = status::get_enabled_ids(pool).await?;
+        let enabled_ids = status::get_enabled_ids(executor).await?;
         let enabled_set: HashSet<String> = enabled_ids.into_iter().collect();
 
         let mut discovered = Vec::new();
@@ -155,7 +157,7 @@ impl PluginLoader {
             }
 
             status::ensure_installed(
-                pool,
+                executor,
                 &manifest.plugin.id,
                 &manifest.plugin.title,
                 &manifest.plugin.version,

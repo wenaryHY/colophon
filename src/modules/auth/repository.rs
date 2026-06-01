@@ -1,36 +1,44 @@
-use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use super::domain::UserRow;
 
-pub async fn user_count(pool: &SqlitePool) -> Result<i64, sqlx::Error> {
+pub async fn user_count<'e, E>(executor: E) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL")
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
 }
 
-pub async fn exists_by_username_or_email(
-    pool: &SqlitePool,
+pub async fn exists_by_username_or_email<'e, E>(
+    executor: E,
     username: &str,
     email: &str,
-) -> Result<bool, sqlx::Error> {
+) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM users WHERE (username = ? OR email = ?) AND deleted_at IS NULL)",
     )
         .bind(username)
         .bind(email)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
 }
 
-pub async fn insert_user(
-    pool: &SqlitePool,
+pub async fn insert_user<'e, E>(
+    executor: E,
     username: &str,
     email: &str,
     password_hash: &str,
     display_name: &str,
     role: &str,
-) -> Result<String, sqlx::Error> {
+) -> Result<String, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let id = Uuid::new_v4().to_string();
     sqlx::query(
         "INSERT INTO users (
@@ -43,40 +51,49 @@ pub async fn insert_user(
     .bind(password_hash)
     .bind(display_name)
     .bind(role)
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(id)
 }
 
-pub async fn find_by_login(pool: &SqlitePool, login: &str) -> Result<Option<UserRow>, sqlx::Error> {
+pub async fn find_by_login<'e, E>(executor: E, login: &str) -> Result<Option<UserRow>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, UserRow>(
         "SELECT * FROM users WHERE (username = ? OR email = ?) AND deleted_at IS NULL LIMIT 1",
     )
         .bind(login)
         .bind(login)
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await
 }
 
-pub async fn touch_last_login(pool: &SqlitePool, user_id: &str) -> Result<(), sqlx::Error> {
+pub async fn touch_last_login<'e, E>(executor: E, user_id: &str) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE users SET last_login_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
         .bind(user_id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }
 
 // ── Refresh token operations ──
 
-pub async fn save_refresh_token(
-    pool: &SqlitePool,
+pub async fn save_refresh_token<'e, E>(
+    executor: E,
     id: &str,
     user_id: &str,
     token_hash: &str,
     expires_at: &str,
     family_id: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query(
         "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, family_id) VALUES (?, ?, ?, ?, ?)",
     )
@@ -85,52 +102,64 @@ pub async fn save_refresh_token(
     .bind(token_hash)
     .bind(expires_at)
     .bind(family_id)
-    .execute(pool)
+    .execute(executor)
     .await?;
     Ok(())
 }
 
-pub async fn find_valid_refresh_token(
-    pool: &SqlitePool,
+pub async fn find_valid_refresh_token<'e, E>(
+    executor: E,
     token_hash: &str,
-) -> Result<Option<(String, String, Option<String>, Option<String>)>, sqlx::Error> {
+) -> Result<Option<(String, String, Option<String>, Option<String>)>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(
         "SELECT user_id, expires_at, family_id, used_at FROM refresh_tokens WHERE token_hash = ? AND revoked = 0 AND expires_at > datetime('now') LIMIT 1",
     )
     .bind(token_hash)
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await
 }
 
-pub async fn revoke_refresh_token(
-    pool: &SqlitePool,
+pub async fn revoke_refresh_token<'e, E>(
+    executor: E,
     token_hash: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE refresh_tokens SET revoked = 1 WHERE token_hash = ?")
         .bind(token_hash)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }
 
-pub async fn mark_token_used(
-    pool: &SqlitePool,
+pub async fn mark_token_used<'e, E>(
+    executor: E,
     token_hash: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE refresh_tokens SET used_at = datetime('now') WHERE token_hash = ?")
         .bind(token_hash)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }
 
-pub async fn revoke_family(
-    pool: &SqlitePool,
+pub async fn revoke_family<'e, E>(
+    executor: E,
     family_id: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE refresh_tokens SET revoked = 1 WHERE family_id = ?")
         .bind(family_id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }

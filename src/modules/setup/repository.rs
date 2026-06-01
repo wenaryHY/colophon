@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::modules::{
@@ -38,10 +37,13 @@ pub struct SetupWriteModel {
     pub password_hash: String,
 }
 
-pub async fn load_snapshot(pool: &SqlitePool) -> Result<SetupSnapshot, sqlx::Error> {
-    let setup_completed = setting_repository::get_bool(pool, "setup_completed", false).await?;
-    let user_count = user_count(pool).await?;
-    let persisted_stage = setting_repository::get_optional_string(pool, "setup_stage")
+pub async fn load_snapshot<'e, E>(executor: E) -> Result<SetupSnapshot, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
+    let setup_completed = setting_repository::get_bool(executor, "setup_completed", false).await?;
+    let user_count = user_count(executor).await?;
+    let persisted_stage = setting_repository::get_optional_string(executor, "setup_stage")
         .await?
         .and_then(|value| SetupStage::from_str(&value).ok());
     let stage = persisted_stage.unwrap_or_else(|| SetupStage::infer_legacy(setup_completed, user_count));
@@ -51,18 +53,21 @@ pub async fn load_snapshot(pool: &SqlitePool) -> Result<SetupSnapshot, sqlx::Err
         persisted_stage,
         setup_completed,
         user_count,
-        site_title: setting_repository::get_string(pool, "site_title", "InkForge").await?,
-        site_description: setting_repository::get_string(pool, "site_description", "").await?,
-        site_url: setting_repository::get_string(pool, "site_url", "").await?,
-        admin_url: setting_repository::get_string(pool, "admin_url", "").await?,
-        allow_register: setting_repository::get_bool(pool, "allow_register", true).await?,
+        site_title: setting_repository::get_string(executor, "site_title", "InkForge").await?,
+        site_description: setting_repository::get_string(executor, "site_description", "").await?,
+        site_url: setting_repository::get_string(executor, "site_url", "").await?,
+        admin_url: setting_repository::get_string(executor, "admin_url", "").await?,
+        allow_register: setting_repository::get_bool(executor, "allow_register", true).await?,
     })
 }
 
-pub async fn persist_stage(pool: &SqlitePool, stage: SetupStage) -> Result<(), sqlx::Error> {
-    setting_repository::upsert(pool, "setup_stage", stage.as_str()).await?;
+pub async fn persist_stage<'e, E>(executor: E, stage: SetupStage) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
+    setting_repository::upsert(executor, "setup_stage", stage.as_str()).await?;
     setting_repository::upsert(
-        pool,
+        executor,
         "setup_completed",
         if stage.is_completed() { "true" } else { "false" },
     )
@@ -70,7 +75,7 @@ pub async fn persist_stage(pool: &SqlitePool, stage: SetupStage) -> Result<(), s
 }
 
 pub async fn create_installation(
-    pool: &SqlitePool,
+    pool: &sqlx::SqlitePool,
     model: &SetupWriteModel,
 ) -> Result<String, sqlx::Error> {
     let mut tx = pool.begin().await?;
@@ -89,28 +94,31 @@ pub async fn create_installation(
     .execute(&mut *tx)
     .await?;
 
-    upsert_setting(&mut tx, "site_title", &model.site_title).await?;
-    upsert_setting(&mut tx, "site_description", &model.site_description).await?;
-    upsert_setting(&mut tx, "site_url", &model.site_url).await?;
-    upsert_setting(&mut tx, "admin_url", &model.admin_url).await?;
+    upsert_setting(&mut *tx, "site_title", &model.site_title).await?;
+    upsert_setting(&mut *tx, "site_description", &model.site_description).await?;
+    upsert_setting(&mut *tx, "site_url", &model.site_url).await?;
+    upsert_setting(&mut *tx, "admin_url", &model.admin_url).await?;
     upsert_setting(
-        &mut tx,
+        &mut *tx,
         "allow_register",
         if model.allow_register { "true" } else { "false" },
     )
     .await?;
-    upsert_setting(&mut tx, "setup_stage", SetupStage::Completed.as_str()).await?;
-    upsert_setting(&mut tx, "setup_completed", "true").await?;
+    upsert_setting(&mut *tx, "setup_stage", SetupStage::Completed.as_str()).await?;
+    upsert_setting(&mut *tx, "setup_completed", "true").await?;
 
     tx.commit().await?;
     Ok(user_id)
 }
 
-async fn upsert_setting(
-    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+async fn upsert_setting<'e, E>(
+    executor: E,
     key: &str,
     value: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query(
         "INSERT INTO settings (key, value, updated_at)
          VALUES (?, ?, datetime('now'))
@@ -118,13 +126,16 @@ async fn upsert_setting(
     )
     .bind(key)
     .bind(value)
-    .execute(&mut **tx)
+    .execute(executor)
     .await?;
     Ok(())
 }
 
-async fn user_count(pool: &SqlitePool) -> Result<i64, sqlx::Error> {
+async fn user_count<'e, E>(executor: E) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_scalar("SELECT COUNT(*) FROM users")
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
 }

@@ -1,27 +1,35 @@
-use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use super::domain::Tag;
 
-pub async fn list_tags(pool: &SqlitePool) -> Result<Vec<Tag>, sqlx::Error> {
+pub async fn list_tags<'e, E>(executor: E) -> Result<Vec<Tag>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, Tag>("SELECT * FROM tags WHERE deleted_at IS NULL ORDER BY name ASC")
-        .fetch_all(pool)
+        .fetch_all(executor)
         .await
 }
 
-pub async fn get_tag(pool: &SqlitePool, id: &str) -> Result<Option<Tag>, sqlx::Error> {
+pub async fn get_tag<'e, E>(executor: E, id: &str) -> Result<Option<Tag>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, Tag>("SELECT * FROM tags WHERE id = ? AND deleted_at IS NULL LIMIT 1")
         .bind(id)
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await
 }
 
-pub async fn tag_slug_or_name_exists(
-    pool: &SqlitePool,
+pub async fn tag_slug_or_name_exists<'e, E>(
+    executor: E,
     slug: &str,
     name: &str,
     exclude_id: Option<&str>,
-) -> Result<bool, sqlx::Error> {
+) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     if let Some(id) = exclude_id {
         sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM tags WHERE (slug = ? OR name = ?) AND id != ? AND deleted_at IS NULL)",
@@ -29,7 +37,7 @@ pub async fn tag_slug_or_name_exists(
         .bind(slug)
         .bind(name)
         .bind(id)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
     } else {
         sqlx::query_scalar(
@@ -37,63 +45,75 @@ pub async fn tag_slug_or_name_exists(
         )
             .bind(slug)
             .bind(name)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await
     }
 }
 
-pub async fn insert_tag(pool: &SqlitePool, name: &str, slug: &str) -> Result<String, sqlx::Error> {
+pub async fn insert_tag<'e, E>(executor: E, name: &str, slug: &str) -> Result<String, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let id = Uuid::new_v4().to_string();
     sqlx::query("INSERT INTO tags (id, name, slug) VALUES (?, ?, ?)")
         .bind(&id)
         .bind(name)
         .bind(slug)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(id)
 }
 
-pub async fn update_tag(
-    pool: &SqlitePool,
+pub async fn update_tag<'e, E>(
+    executor: E,
     id: &str,
     name: Option<&str>,
     slug: Option<&str>,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     if let Some(name) = name {
         if let Some(slug) = slug {
             sqlx::query("UPDATE tags SET name = ?, slug = ?, updated_at = datetime('now') WHERE id = ?")
                 .bind(name)
                 .bind(slug)
                 .bind(id)
-                .execute(pool)
+                .execute(executor)
                 .await?;
         } else {
             sqlx::query("UPDATE tags SET name = ?, updated_at = datetime('now') WHERE id = ?")
                 .bind(name)
                 .bind(id)
-                .execute(pool)
+                .execute(executor)
                 .await?;
         }
     } else if let Some(slug) = slug {
         sqlx::query("UPDATE tags SET slug = ?, updated_at = datetime('now') WHERE id = ?")
             .bind(slug)
             .bind(id)
-            .execute(pool)
+            .execute(executor)
             .await?;
     }
     Ok(())
 }
 
-pub async fn delete_tag(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error> {
+pub async fn delete_tag<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE tags SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }
 
 #[allow(dead_code)]
-pub async fn list_post_tags(pool: &SqlitePool, post_id: &str) -> Result<Vec<Tag>, sqlx::Error> {
+pub async fn list_post_tags<'e, E>(executor: E, post_id: &str) -> Result<Vec<Tag>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, Tag>(
         "SELECT t.*
          FROM tags t
@@ -102,26 +122,29 @@ pub async fn list_post_tags(pool: &SqlitePool, post_id: &str) -> Result<Vec<Tag>
          ORDER BY t.name ASC",
     )
     .bind(post_id)
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
 }
 
 #[allow(dead_code)]
-pub async fn replace_post_tags(
-    pool: &SqlitePool,
+pub async fn replace_post_tags<'e, E>(
+    executor: E,
     post_id: &str,
     tag_ids: &[String],
-) -> Result<(), sqlx::Error> {
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
     sqlx::query("DELETE FROM post_tags WHERE post_id = ?")
         .bind(post_id)
-        .execute(pool)
+        .execute(executor)
         .await?;
 
     for tag_id in tag_ids {
         sqlx::query("INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?)")
             .bind(post_id)
             .bind(tag_id)
-            .execute(pool)
+            .execute(executor)
             .await?;
     }
 

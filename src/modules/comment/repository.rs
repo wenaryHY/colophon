@@ -1,5 +1,4 @@
 use serde::Serialize;
-use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use super::domain::{AdminCommentItem, CommentItem};
@@ -15,10 +14,13 @@ pub struct CommentEventData {
     pub created_at: String,
 }
 
-pub async fn list_approved_for_post(
-    pool: &SqlitePool,
+pub async fn list_approved_for_post<'e, E>(
+    executor: E,
     post_id: &str,
-) -> Result<Vec<CommentItem>, sqlx::Error> {
+) -> Result<Vec<CommentItem>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, CommentItem>(
         "SELECT
             c.id,
@@ -37,16 +39,19 @@ pub async fn list_approved_for_post(
          ORDER BY c.created_at ASC",
     )
     .bind(post_id)
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
 }
 
-pub async fn list_by_user(
-    pool: &SqlitePool,
+pub async fn list_by_user<'e, E>(
+    executor: E,
     user_id: &str,
     limit: i64,
     offset: i64,
-) -> Result<Vec<AdminCommentItem>, sqlx::Error> {
+) -> Result<Vec<AdminCommentItem>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, AdminCommentItem>(
         "SELECT
             c.id,
@@ -72,32 +77,41 @@ pub async fn list_by_user(
     .bind(user_id)
     .bind(limit)
     .bind(offset)
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
 }
 
-pub async fn count_by_user(pool: &SqlitePool, user_id: &str) -> Result<i64, sqlx::Error> {
+pub async fn count_by_user<'e, E>(executor: E, user_id: &str) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_scalar("SELECT COUNT(*) FROM comments WHERE user_id = ?")
         .bind(user_id)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
 }
 
-pub async fn count_approved_by_user(pool: &SqlitePool, user_id: &str) -> Result<i64, sqlx::Error> {
+pub async fn count_approved_by_user<'e, E>(executor: E, user_id: &str) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_scalar("SELECT COUNT(*) FROM comments WHERE user_id = ? AND status = 'approved'")
         .bind(user_id)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await
 }
 
-pub async fn insert_comment(
-    pool: &SqlitePool,
+pub async fn insert_comment<'e, E>(
+    executor: E,
     post_id: &str,
     user_id: &str,
     content: &str,
     parent_id: Option<&str>,
     status: &str,
-) -> Result<(String, String), sqlx::Error> {
+) -> Result<(String, String), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
     let id = Uuid::new_v4().to_string();
     sqlx::query(
         "INSERT INTO comments (id, post_id, user_id, content, status, parent_id)
@@ -109,24 +123,27 @@ pub async fn insert_comment(
     .bind(content)
     .bind(status)
     .bind(parent_id)
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     // 取回实际插入的 created_at（SQLite datetime('now') 格式）
     let created_at: String = sqlx::query_scalar("SELECT created_at FROM comments WHERE id = ?")
         .bind(&id)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await?;
 
     Ok((id, created_at))
 }
 
-pub async fn list_admin(
-    pool: &SqlitePool,
+pub async fn list_admin<'e, E>(
+    executor: E,
     status: Option<&str>,
     limit: i64,
     offset: i64,
-) -> Result<Vec<AdminCommentItem>, sqlx::Error> {
+) -> Result<Vec<AdminCommentItem>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     if let Some(status) = status {
         sqlx::query_as::<_, AdminCommentItem>(
             "SELECT
@@ -153,7 +170,7 @@ pub async fn list_admin(
         .bind(status)
         .bind(limit)
         .bind(offset)
-        .fetch_all(pool)
+        .fetch_all(executor)
         .await
     } else {
         sqlx::query_as::<_, AdminCommentItem>(
@@ -180,38 +197,47 @@ pub async fn list_admin(
         )
         .bind(limit)
         .bind(offset)
-        .fetch_all(pool)
+        .fetch_all(executor)
         .await
     }
 }
 
-pub async fn count_admin(pool: &SqlitePool, status: Option<&str>) -> Result<i64, sqlx::Error> {
+pub async fn count_admin<'e, E>(executor: E, status: Option<&str>) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     if let Some(status) = status {
         sqlx::query_scalar("SELECT COUNT(*) FROM comments WHERE status = ?")
             .bind(status)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await
     } else {
         sqlx::query_scalar("SELECT COUNT(*) FROM comments WHERE status != 'deleted'")
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await
     }
 }
 
-pub async fn update_status(pool: &SqlitePool, id: &str, status: &str) -> Result<(), sqlx::Error> {
+pub async fn update_status<'e, E>(executor: E, id: &str, status: &str) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query("UPDATE comments SET status = ?, updated_at = datetime('now') WHERE id = ?")
         .bind(status)
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(())
 }
 
-pub async fn soft_delete_owned(
-    pool: &SqlitePool,
+pub async fn soft_delete_owned<'e, E>(
+    executor: E,
     id: &str,
     user_id: &str,
-) -> Result<bool, sqlx::Error> {
+) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let result = sqlx::query(
         "UPDATE comments
          SET status = 'deleted', deleted_at = datetime('now'), updated_at = datetime('now')
@@ -219,48 +245,60 @@ pub async fn soft_delete_owned(
     )
     .bind(id)
     .bind(user_id)
-    .execute(pool)
+    .execute(executor)
     .await?;
     Ok(result.rows_affected() > 0)
 }
 
-pub async fn soft_delete_admin(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error> {
+pub async fn soft_delete_admin<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query(
         "UPDATE comments
          SET status = 'deleted', deleted_at = datetime('now'), updated_at = datetime('now')
          WHERE id = ?",
     )
     .bind(id)
-    .execute(pool)
+    .execute(executor)
     .await?;
     Ok(())
 }
 
-pub async fn restore_deleted_admin(pool: &SqlitePool, id: &str) -> Result<bool, sqlx::Error> {
+pub async fn restore_deleted_admin<'e, E>(executor: E, id: &str) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let result = sqlx::query(
         "UPDATE comments
          SET status = 'pending', deleted_at = NULL, updated_at = datetime('now')
          WHERE id = ? AND status = 'deleted'",
     )
     .bind(id)
-    .execute(pool)
+    .execute(executor)
     .await?;
     Ok(result.rows_affected() > 0)
 }
 
-pub async fn purge_admin(pool: &SqlitePool, id: &str) -> Result<bool, sqlx::Error> {
+pub async fn purge_admin<'e, E>(executor: E, id: &str) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let result = sqlx::query("DELETE FROM comments WHERE id = ?")
         .bind(id)
-        .execute(pool)
+        .execute(executor)
         .await?;
     Ok(result.rows_affected() > 0)
 }
 
 /// 查询单条评论用于 WS 事件广播（包含作者显示名）
-pub async fn find_by_id_for_event(
-    pool: &SqlitePool,
+pub async fn find_by_id_for_event<'e, E>(
+    executor: E,
     id: &str,
-) -> Result<Option<CommentEventData>, sqlx::Error> {
+) -> Result<Option<CommentEventData>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     sqlx::query_as::<_, CommentEventData>(
         "SELECT
             c.id,
@@ -274,6 +312,6 @@ pub async fn find_by_id_for_event(
          WHERE c.id = ?",
     )
     .bind(id)
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await
 }

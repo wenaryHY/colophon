@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use chrono::{NaiveDateTime, Utc};
-use sqlx::SqlitePool;
 
 use crate::{
     modules::{post::repository as post_repository, setting::repository as setting_repository},
@@ -319,12 +318,15 @@ pub async fn purge_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_js
 }
 
 /// 查询该用户最后一条评论的时间，若距现在不足 10 秒则拒绝
-async fn check_rate_limit(pool: &SqlitePool, user_id: &str) -> AppResult<()> {
+async fn check_rate_limit<'e, E>(executor: E, user_id: &str) -> AppResult<()>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     let last_time: Option<String> = sqlx::query_scalar(
         "SELECT created_at FROM comments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
     )
     .bind(user_id)
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await?;
 
     if let Some(ref last_time) = last_time {
