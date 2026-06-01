@@ -47,11 +47,13 @@ export function MediaPicker({ open, onClose }: Props) {
   }, [open, keyword, kind, category, page, fetchItems]);
 
   function insert(item: MediaItem) {
-    const url = item.public_url;
+    // 使用最小缩略图（或原图 fallback）
+    const url = item.thumbnails?.[0]?.public_url ?? item.public_url;
+    const originalUrl = item.public_url;
     const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(item.original_name);
     const markdown = isImage
-      ? `\n![${item.original_name}](${url})\n`
-      : `\n[${item.original_name}](${url})\n`;
+      ? `\n![${item.original_name}](${originalUrl})\n`
+      : `\n[${item.original_name}](${originalUrl})\n`;
     const fn = (window as any).inkforgeInsertMarkdown;
     if (fn) fn(markdown);
     else navigator.clipboard.writeText(markdown);
@@ -100,9 +102,14 @@ export function MediaPicker({ open, onClose }: Props) {
                 }}
               >
                 {item.kind === 'image' ? (
-                  <img src={item.public_url} alt={item.original_name}
-                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: 'none' }}
-                  />
+                  (() => {
+                    const thumbnailUrl = item.thumbnails?.[0]?.public_url ?? item.public_url;
+                    return (
+                      <img src={thumbnailUrl} alt={item.original_name}
+                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: 'none' }}
+                      />
+                    );
+                  })()
                 ) : (
                   <div style={{ width: '80px', height: '80px', borderRadius: 'var(--radius-sm)', background: 'var(--md-surface-container-lowest)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}>
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--md-outline)" strokeWidth="1.6"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

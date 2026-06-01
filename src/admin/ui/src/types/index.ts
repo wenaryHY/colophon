@@ -136,6 +136,18 @@ export interface UpdateMediaCategoryRequest {
   sort_order?: number;
 }
 
+export interface MediaThumbnail {
+  id: string;
+  media_id: string;
+  size_label: string;
+  width: number;
+  height: number;
+  storage_path: string;
+  public_url: string;
+  size_bytes: number;
+  created_at: string;
+}
+
 export interface MediaItem {
   id: string;
   uploader_id: string;
@@ -152,6 +164,7 @@ export interface MediaItem {
   alt_text: string | null;
   category: string | null;
   created_at: string;
+  thumbnails?: MediaThumbnail[];
 }
 
 export interface SelectOption {
