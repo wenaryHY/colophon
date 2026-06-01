@@ -146,31 +146,6 @@ pub async fn upload_media_raw(
     let is_image = kind == "image";
     let is_gif = mime_type.contains("gif");
 
-    if is_image && !is_gif && state.config.media.thumbnail.enabled {
-        // 防御：pending 任务数超限则拒绝上传（HTTP 429）
-        let pending_count =
-            repository::count_pending_thumbnail_tasks(&state.pool).await?;
-        if pending_count >= MAX_PENDING_THUMBNAIL_TASKS {
-            return Err(AppError::TooManyRequests(
-                "too many pending thumbnail tasks, try again later".into(),
-            ));
-        }
-
-        let task = ThumbnailTask {
-            id: uuid::Uuid::new_v4().to_string(),
-            media_id: media_id.clone(),
-            status: "pending".to_string(),
-            retry_count: 0,
-            max_retries: 1,
-            last_error: None,
-            width: None,
-            height: None,
-            created_at: chrono::Utc::now().to_rfc3339(),
-            updated_at: chrono::Utc::now().to_rfc3339(),
-        };
-        repository::insert_thumbnail_task(&state.pool, &task).await?;
-    }
-
     // 插入媒体记录（使用预生成的 ID）
     let storage_path_for_db = storage_path.clone();
     let public_url_for_db = public_url.clone();
@@ -200,6 +175,33 @@ pub async fn upload_media_raw(
     let mut media = repository::get_media(&state.pool, &media_id)
         .await?
         .ok_or(AppError::NotFound)?;
+
+    // 异步缩略图：在 media 记录插入后创建任务，确保 FK 约束满足
+    if is_image && !is_gif && state.config.media.thumbnail.enabled {
+        // 防御：pending 任务数超限则拒绝上传（HTTP 429）
+        let pending_count =
+            repository::count_pending_thumbnail_tasks(&state.pool).await?;
+        if pending_count >= MAX_PENDING_THUMBNAIL_TASKS {
+            return Err(AppError::TooManyRequests(
+                "too many pending thumbnail tasks, try again later".into(),
+            ));
+        }
+
+        let task = ThumbnailTask {
+            id: uuid::Uuid::new_v4().to_string(),
+            media_id: media_id.clone(),
+            status: "pending".to_string(),
+            retry_count: 0,
+            max_retries: 1,
+            last_error: None,
+            width: None,
+            height: None,
+            created_at: chrono::Utc::now().to_rfc3339(),
+            updated_at: chrono::Utc::now().to_rfc3339(),
+        };
+        repository::insert_thumbnail_task(&state.pool, &task).await?;
+    }
+
     media.thumbnails = Some(thumbnails);
     Ok(media)
 }
