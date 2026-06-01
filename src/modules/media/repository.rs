@@ -400,3 +400,30 @@ where
     .fetch_one(executor)
     .await
 }
+
+/// 启动时将崩溃残留的 processing 状态重置为 pending
+/// 在 worker 启动时调用一次，防止 OOM 崩溃产生僵尸任务
+pub async fn reset_stale_processing_thumbnail_tasks_to_pending_for_crash_recovery<'e, E>(
+    executor: E,
+) -> Result<u64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
+    let result = sqlx::query(
+        "UPDATE thumbnail_tasks SET status = 'pending', updated_at = datetime('now') 
+         WHERE status = 'processing'"
+    )
+    .execute(executor)
+    .await?;
+
+    let count = result.rows_affected();
+    if count > 0 {
+        tracing::warn!(
+            module = "media",
+            event = "thumbnail_worker_crash_recovery",
+            stale_tasks_reset = count,
+            "reset stale processing tasks to pending (previous worker crash detected)"
+        );
+    }
+    Ok(count)
+}

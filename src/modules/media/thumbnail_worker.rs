@@ -34,6 +34,31 @@ pub fn start_thumbnail_worker(state: Arc<AppState>) {
             "thumbnail worker started"
         );
 
+        // 崩溃恢复：启动时重置残留 processing 任务为 pending
+        match repository::reset_stale_processing_thumbnail_tasks_to_pending_for_crash_recovery(
+            &state.pool,
+        )
+        .await
+        {
+            Ok(count) => {
+                if count == 0 {
+                    tracing::debug!(
+                        module = "media",
+                        event = "thumbnail_worker_no_stale_tasks",
+                        "no stale processing tasks found on startup"
+                    );
+                }
+            }
+            Err(e) => {
+                tracing::error!(
+                    module = "media",
+                    event = "thumbnail_worker_crash_recovery_failed",
+                    error = %e,
+                    "failed to reset stale processing tasks on startup"
+                );
+            }
+        }
+
         loop {
             sleep(Duration::from_secs(WORKER_POLL_INTERVAL_SECS)).await;
 

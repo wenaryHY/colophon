@@ -8,9 +8,13 @@ use crate::shared::error::AppResult;
 /// 超过此大小的文件不解码缩略图——即使解码成功开销也太高
 const MAX_SOURCE_FILE_SIZE_BYTES_FOR_THUMBNAIL_GENERATION: u64 = 5_000_000;
 
-/// 缩略图处理的源图内存上限（字节）: 100MB
-/// 覆盖到 5000×5000 RGBA ≈ 100MB 以内的常见尺寸
-const MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION: u64 = 100_000_000;
+/// 缩略图处理的源图内存上限（字节）: 50MB
+/// 1C2G 机器上，图片解码 + 多次 resize（Lanczos3 需要额外缓冲区）+ WebP 编码
+/// 峰值可能达到估算值的 2-3 倍，因此保守设置为 50MB
+const MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION: u64 = 50_000_000;
+
+/// 原始图像内存估算超过此阈值时，仅生成最小缩略图尺寸以减少峰值内存
+const MEMORY_THRESHOLD_BYTES_FOR_SINGLE_THUMBNAIL_ONLY_STRATEGY: u64 = 50_000_000;
 
 /// 缩略图生成配置
 pub struct ThumbnailGenerationConfig {
@@ -42,7 +46,7 @@ pub struct ThumbnailInfo {
 /// 多层兜底：
 /// 1. 文件大小 > 5MB → 直接跳过，不碰解码器
 /// 2. `catch_unwind` 包裹 → image crate 内部 panic 也不崩溃
-/// 3. 仅读尺寸不完整解码 → 内存估算阈值 30MB 跳过
+/// 3. 仅读尺寸不完整解码 → 内存估算阈值 50MB 跳过
 pub fn generate_thumbnails(
     source_path: &Path,
     output_dir: &Path,
@@ -102,8 +106,16 @@ fn generate_thumbnails_impl(
         anyhow::anyhow!("Failed to open image: {}", e)
     })?;
 
+    // 大图只生成最小缩略图尺寸，减少峰值内存压力
+    // 1C2G 机器上，解码 + 多次 resize + WebP 编码的峰值可能达到估算值的 2-3 倍
+    let effective_widths: Vec<u32> = if estimated_memory_bytes > MEMORY_THRESHOLD_BYTES_FOR_SINGLE_THUMBNAIL_ONLY_STRATEGY {
+        config.widths.iter().take(1).copied().collect()
+    } else {
+        config.widths.clone()
+    };
+
     let mut thumbnails = Vec::new();
-    for &target_width in &config.widths {
+    for &target_width in &effective_widths {
         // 不放大：源图宽度 <= 目标宽度时跳过
         if target_width >= orig_w {
             continue;
@@ -125,6 +137,8 @@ fn generate_thumbnails_impl(
                 .map_err(|e| anyhow::anyhow!("Failed to encode WebP: {}", e))?;
             cursor.into_inner()
         };
+        // 显式释放 resize 后的图像内存，避免累积到下一次迭代
+        drop(resized);
 
         let size_bytes = webp_bytes.len() as i64;
         std::fs::write(&output_path, &webp_bytes)?;
@@ -135,6 +149,8 @@ fn generate_thumbnails_impl(
         });
         let actual_width = thumb_img.width();
         let actual_height = thumb_img.height();
+        // 显式释放重新读取的缩略图内存
+        drop(thumb_img);
 
         // 构建 storage_path（相对于 uploads 目录）
         let storage_path = format!("thumb/{}", filename);
@@ -279,7 +295,7 @@ mod tests {
     }
 
     /// 验证小图片不受内存上限阈值影响，正常生成缩略图
-    /// 200×200×4 = 160KB，远小于 30MB 阈值，应正常生成
+    /// 200×200×4 = 160KB，远小于 50MB 阈值，应正常生成
     #[test]
     fn test_small_image_passes_memory_threshold() {
         let png_data = create_test_png(200, 200);
@@ -298,7 +314,7 @@ mod tests {
         )
         .unwrap();
 
-        // 200×200×4 = 160KB，远小于 30MB 阈值，应正常生成
+        // 200×200×4 = 160KB，远小于 50MB 阈值，应正常生成
         assert_eq!(orig_w, 200);
         assert_eq!(orig_h, 200);
         assert_eq!(thumbs.len(), 1);
@@ -309,8 +325,8 @@ mod tests {
         std::fs::remove_file(&thumb_path).ok();
     }
 
-    /// 验证超大图片的内存估算超过 100MB 阈值
-    /// 6000×5000×4 = 120MB > 100MB 阈值，应被跳过
+    /// 验证超大图片的内存估算超过 50MB 阈值
+    /// 6000×5000×4 = 120MB > 50MB 阈值，应被跳过
     #[test]
     fn test_image_above_memory_threshold_estimation() {
         // 不实际创建大图（耗内存），只验证阈值计算逻辑
@@ -322,7 +338,7 @@ mod tests {
             MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION
         );
 
-        // 验证 4000×3000 现在可以通过（48MB < 100MB）
+        // 验证 4000×3000 现在可以通过（48MB < 50MB）
         let medium_estimated = 4000u64 * 3000 * 4; // 48_000_000 bytes
         assert!(
             medium_estimated < MAX_SOURCE_IMAGE_MEMORY_BYTES_FOR_THUMBNAIL_GENERATION,
