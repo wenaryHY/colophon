@@ -54,6 +54,11 @@ pub fn generate_thumbnails(
         .map(|m| m.len())
         .unwrap_or(0);
     if file_size > MAX_SOURCE_FILE_SIZE_BYTES_FOR_THUMBNAIL_GENERATION {
+        tracing::info!(
+            "thumbnail skipped: file too large ({} bytes > {} limit)",
+            file_size,
+            MAX_SOURCE_FILE_SIZE_BYTES_FOR_THUMBNAIL_GENERATION
+        );
         return Ok((0, 0, Vec::new()));
     }
 
@@ -67,6 +72,7 @@ pub fn generate_thumbnails(
         Ok(Err(e)) => Err(e),
         Err(_panic) => {
             // image crate 内部 panic → 返回空缩略图，不崩溃
+            tracing::error!("thumbnail generation panicked, returning empty result");
             Ok((0, 0, Vec::new()))
         }
     }

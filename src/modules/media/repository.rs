@@ -251,7 +251,15 @@ pub async fn insert_thumbnail_task<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
 {
-    sqlx::query(
+    tracing::debug!(
+        module = "media",
+        event = "thumbnail_task_inserting",
+        task_id = %task.id,
+        media_id = %task.media_id,
+        "executing INSERT INTO thumbnail_tasks"
+    );
+
+    let result = sqlx::query(
         "INSERT INTO thumbnail_tasks (id, media_id, status, retry_count, max_retries, last_error) VALUES (?, ?, ?, ?, ?, ?)"
     )
     .bind(&task.id)
@@ -261,8 +269,14 @@ where
     .bind(task.max_retries)
     .bind(&task.last_error)
     .execute(executor)
-    .await?;
-    Ok(())
+    .await;
+
+    match &result {
+        Ok(_) => tracing::debug!("thumbnail_task_inserted: {}", task.id),
+        Err(e) => tracing::error!(error = %e, "thumbnail_task_insert_failed: {}", task.id),
+    }
+
+    result.map(|_| ())
 }
 
 /// 取出一个 pending 任务并原子性地标记为 processing
@@ -292,14 +306,33 @@ where
         return Ok(None);
     }
 
-    let task = sqlx::query_as::<_, ThumbnailTask>(
+    let result = sqlx::query_as::<_, ThumbnailTask>(
         "SELECT * FROM thumbnail_tasks WHERE status = 'processing'
          ORDER BY created_at ASC LIMIT 1"
     )
     .fetch_optional(executor)
-    .await?;
+    .await;
 
-    Ok(task)
+    match &result {
+        Ok(Some(t)) => tracing::info!(
+            module = "media",
+            event = "thumbnail_task_taken",
+            task_id = %t.id,
+            media_id = %t.media_id,
+            "took pending thumbnail task"
+        ),
+        Ok(None) => {
+            // 不做记录——每分钟会有高频空轮询，避免日志洪水
+        }
+        Err(e) => tracing::error!(
+            module = "media",
+            event = "thumbnail_task_take_failed",
+            error = %e,
+            "failed to take pending thumbnail task"
+        ),
+    }
+
+    result
 }
 
 /// 标记任务为完成，记录原图尺寸

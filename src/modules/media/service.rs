@@ -181,7 +181,24 @@ pub async fn upload_media_raw(
         // 防御：pending 任务数超限则拒绝上传（HTTP 429）
         let pending_count =
             repository::count_pending_thumbnail_tasks(&state.pool).await?;
+
+        tracing::info!(
+            module = "media",
+            event = "thumbnail_task_about_to_create",
+            media_id = %media_id,
+            pending_count = pending_count,
+            file_size_bytes = bytes.len(),
+            "creating thumbnail task"
+        );
+
         if pending_count >= MAX_PENDING_THUMBNAIL_TASKS {
+            tracing::warn!(
+                module = "media",
+                event = "thumbnail_task_rejected_queue_full",
+                media_id = %media_id,
+                pending_count = pending_count,
+                "thumbnail task rejected: queue full"
+            );
             return Err(AppError::TooManyRequests(
                 "too many pending thumbnail tasks, try again later".into(),
             ));
@@ -199,7 +216,30 @@ pub async fn upload_media_raw(
             created_at: chrono::Utc::now().to_rfc3339(),
             updated_at: chrono::Utc::now().to_rfc3339(),
         };
-        repository::insert_thumbnail_task(&state.pool, &task).await?;
+
+        let insert_result = repository::insert_thumbnail_task(&state.pool, &task).await;
+        match &insert_result {
+            Ok(_) => {
+                tracing::info!(
+                    module = "media",
+                    event = "thumbnail_task_created",
+                    media_id = %media_id,
+                    task_id = %task.id,
+                    "thumbnail task created successfully"
+                );
+            }
+            Err(e) => {
+                tracing::error!(
+                    module = "media",
+                    event = "thumbnail_task_create_failed",
+                    media_id = %media_id,
+                    task_id = %task.id,
+                    error = %e,
+                    "failed to create thumbnail task"
+                );
+            }
+        }
+        insert_result?;
     }
 
     media.thumbnails = Some(thumbnails);

@@ -117,6 +117,14 @@ async fn process_one_thumbnail_task(
     state: &AppState,
     task: &ThumbnailTask,
 ) -> AppResult<(u32, u32)> {
+    tracing::info!(
+        module = "media",
+        event = "thumbnail_task_processing_start",
+        task_id = %task.id,
+        media_id = %task.media_id,
+        "starting thumbnail processing"
+    );
+
     // 1. 从 media 表获取源文件信息
     let media = repository::get_media(&state.pool, &task.media_id)
         .await?
@@ -133,6 +141,13 @@ async fn process_one_thumbnail_task(
         widths: THUMBNAIL_TARGET_WIDTHS.to_vec(),
         keep_original: true,
     };
+
+    tracing::info!(
+        module = "media",
+        event = "thumbnail_task_spawning_blocking",
+        task_id = %task.id,
+        "entering spawn_blocking for thumbnail generation"
+    );
 
     let result = tokio::task::spawn_blocking(move || {
         generate_thumbnails(&source_path, &output_dir, &media_id, &config)
