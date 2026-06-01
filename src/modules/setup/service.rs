@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
 use sqlx::SqlitePool;
+use uuid::Uuid;
 
 use crate::{
+    infra::jwt,
     modules::{
         setting::{
             repository as setting_repository,
@@ -54,7 +56,7 @@ pub async fn get_status(state: Arc<AppState>) -> AppResult<SetupStatusResponse> 
 pub async fn initialize(
     state: Arc<AppState>,
     body: SetupInitializeRequest,
-) -> AppResult<SetupInitializeResponse> {
+) -> AppResult<(SetupInitializeResponse, String)> {
     let snapshot = load_and_reconcile_snapshot(&state.pool).await?;
     ensure_not_installed(snapshot.stage)?;
     ensure_setup_can_run(&snapshot)?;
@@ -62,6 +64,22 @@ pub async fn initialize(
     let model = build_write_model(body).await?;
     let user_id = repository::create_installation(&state.pool, &model).await?;
     refresh_runtime_cache(&state, &model).await;
+
+    // 签发 refresh token，确保初始化时管理员自动获得刷新能力
+    let refresh_token = jwt::generate_refresh_token();
+    let refresh_token_hash = jwt::hash_token(&refresh_token);
+    let refresh_token_id = Uuid::new_v4().to_string();
+    let refresh_expires_at = (chrono::Utc::now() + chrono::Duration::days(7)).to_rfc3339();
+
+    crate::modules::auth::repository::save_refresh_token(
+        &state.pool,
+        &refresh_token_id,
+        &user_id,
+        &refresh_token_hash,
+        &refresh_expires_at,
+        "setup",
+    )
+    .await?;
 
     let token = issue_token(
         &state.config.auth.secret,
@@ -71,10 +89,13 @@ pub async fn initialize(
         "admin".to_string(),
     )?;
 
-    Ok(SetupInitializeResponse {
-        token,
-        redirect_to: model.admin_url,
-    })
+    Ok((
+        SetupInitializeResponse {
+            token,
+            redirect_to: model.admin_url,
+        },
+        refresh_token,
+    ))
 }
 
 async fn build_write_model(body: SetupInitializeRequest) -> AppResult<SetupWriteModel> {

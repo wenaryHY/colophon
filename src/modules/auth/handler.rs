@@ -211,7 +211,7 @@ pub async fn refresh_token(
 
     let access_token = jwt::issue_token(
         &state.config.auth.secret,
-        REMEMBER_ME_MAX_AGE as i64,
+        state.config.auth.expires_in_seconds,
         user.id.clone(),
         user.username.clone(),
         user.role.clone(),
@@ -234,10 +234,11 @@ pub async fn refresh_token(
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
-    // 同步更新 session cookie，避免前端刷新后携带旧 JWT
+    // 同步更新 session cookie。JWT 内容是新签发的 15 分钟有效期，
+    // 但 cookie 本身的 Max-Age 仍沿用登录时的设定（refresh 不改 cookie 存活长度）。
     let session_cookie = build_session_cookie(
         &access_token,
-        REMEMBER_ME_MAX_AGE as i64,
+        state.config.auth.expires_in_seconds,
     );
     resp_headers.append(
         axum::http::header::SET_COOKIE,
