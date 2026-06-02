@@ -25,10 +25,22 @@
 {% if seo_meta.twitter_image %}<meta name="twitter:image" content="{{ seo_meta.twitter_image }}">{% endif %}
 <!-- noinspection JsonStandardCompliance -->
 <script type="application/ld+json">{{ json_ld | safe }}</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Noto+Serif+SC:wght@400&display=swap" rel="stylesheet">
 <style>
+/* 自托管字体 — 消除 render-blocking 外部 CSS */
+@font-face {
+  font-family: 'Noto Sans SC';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/themes/default/fonts/noto-sans-sc-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Sans SC';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/themes/default/fonts/noto-sans-sc-700.woff2') format('woff2');
+}
 *,*::before,*::after{box-sizing:border-box}
 :root{
   --accent:#ff6b35;--accent-dark:#e55a28;--accent-light:#fff0eb;
@@ -74,7 +86,7 @@ a{color:var(--accent);text-decoration:none}
   font-size:12px;font-weight:600;margin-bottom:18px
 }
 .article-title{
-  font-family:'Noto Serif SC',serif;
+  font-family:'Noto Sans SC',serif;
   font-size:38px;font-weight:700;line-height:1.2;
   letter-spacing:-0.02em;margin:0 0 16px;
   color:var(--text)
@@ -94,7 +106,7 @@ a{color:var(--accent);text-decoration:none}
 /* Content */
 .article-content{font-size:16px;line-height:1.85;color:var(--text)}
 .article-content h1,.article-content h2,.article-content h3,.article-content h4{
-  font-family:'Noto Serif SC',serif;font-weight:700;margin:1.5em 0 0.75em;line-height:1.3;color:var(--text)
+  font-family:'Noto Sans SC',serif;font-weight:700;margin:1.5em 0 0.75em;line-height:1.3;color:var(--text)
 }
 .article-content h1{font-size:28px}.article-content h2{font-size:24px}.article-content h3{font-size:20px}
 .article-content p{margin:0 0 1.2em}
@@ -129,7 +141,7 @@ a{color:var(--accent);text-decoration:none}
   box-shadow:0 4px 20px rgba(0,0,0,0.04)
 }
 .comments-title{
-  font-family:'Noto Serif SC',serif;
+  font-family:'Noto Sans SC',serif;
   font-size:22px;font-weight:700;margin:0 0 28px;
   display:flex;align-items:center;gap:10px
 }
@@ -162,7 +174,7 @@ a{color:var(--accent);text-decoration:none}
 /* Comment Form */
 .comment-form-wrap{margin-top:28px;padding-top:28px;border-top:1px solid var(--border)}
 .comment-form-title{
-  font-family:'Noto Serif SC',serif;
+  font-family:'Noto Sans SC',serif;
   font-size:17px;font-weight:700;margin:0 0 18px;color:var(--text)
 }
 .comment-form{display:flex;flex-direction:column;gap:12px}
