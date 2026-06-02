@@ -16,6 +16,7 @@ import Setup from './pages/Setup';
 // ── 13 个管理页面全部 lazy 加载，按路由分 chunk ──
 const Posts = lazy(() => import('./pages/Posts'));
 const PostEditor = lazy(() => import('./pages/PostEditor'));
+const PostEditorMobile = lazy(() => import('./pages/PostEditorMobile'));
 const Categories = lazy(() => import('./pages/Categories'));
 const Tags = lazy(() => import('./pages/Tags'));
 const Comments = lazy(() => import('./pages/CommentsV2'));
@@ -64,12 +65,24 @@ function getActivePage(pathname: string): string {
   return 'posts';
 }
 
+function ResponsivePostEditor() {
+  const { isMobile } = useResponsive();
+  return isMobile ? <PostEditorMobile /> : <PostEditor />;
+}
+
+const POST_EDITOR_ROUTE_PATTERN = /\/posts\/(?:new|[^/]+\/edit)/;
+
+function isPostEditorRoute(pathname: string): boolean {
+  return POST_EDITOR_ROUTE_PATTERN.test(pathname);
+}
+
 function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const activePage = getActivePage(location.pathname);
   const { isMobile, isTablet, isDesktop } = useResponsive();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isEditorRoute = isPostEditorRoute(location.pathname);
 
   // 切换路由时关闭移动端侧边栏
   useEffect(() => {
@@ -88,8 +101,8 @@ function AdminLayout() {
         isDesktop={isDesktop}
       />
 
-      {/* 移动端 hamburger 按钮 */}
-      {isMobile && (
+      {/* 移动端 hamburger 按钮 — 编辑器页面自身有 AppBar，为避免重叠此处隐藏 */}
+      {isMobile && !isEditorRoute && (
         <button
           onClick={() => setMobileOpen(true)}
           style={{
@@ -141,7 +154,8 @@ function AdminLayout() {
         </Suspense>
       </main>
 
-      <FabContainer />
+      {/* FAB 仅在桌面/平板端显示，移动端工具栏由各页面自行提供 */}
+      {!isMobile && <FabContainer />}
     </div>
   );
 }
@@ -185,8 +199,8 @@ export default function App() {
         <Route path="/" element={<AdminGate />}>
           <Route index element={<Navigate to="posts" replace />} />
           <Route path="posts" element={<Posts />} />
-          <Route path="posts/new" element={<PostEditor />} />
-          <Route path="posts/:id/edit" element={<PostEditor />} />
+          <Route path="posts/new" element={<ResponsivePostEditor />} />
+          <Route path="posts/:id/edit" element={<ResponsivePostEditor />} />
           <Route path="categories" element={<Categories />} />
           <Route path="tags" element={<Tags />} />
           <Route path="comments" element={<Comments />} />

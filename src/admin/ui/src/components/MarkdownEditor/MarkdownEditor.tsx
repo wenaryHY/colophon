@@ -1,23 +1,41 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { CodeMirrorPanel } from './CodeMirrorPanel';
 import { TiptapPanel } from './TiptapPanel';
 import { MediaPicker } from '../MediaPicker';
 import { useI18n } from '../../i18n';
 
-type Mode = 'source' | 'wysiwyg';
+export type EditorMode = 'source' | 'wysiwyg';
 
 interface Props {
   value: string;
   onChange: (value: string) => void;
   onHtmlChange?: (html: string) => void;
+  /** 编辑器模式变化回调，用于父组件感知当前模式 */
+  onModeChange?: (mode: EditorMode) => void;
+  /** 是否显示顶部源码/可视化 Tab 栏，默认 true */
+  showTabBar?: boolean;
+  /** 从外部控制的模式。设置此 prop 时，切换按钮仍然可用，但初始值由 prop 决定。变化时 MarkdownEditor 会跟随切换。 */
+  forcedMode?: EditorMode;
 }
 
-export function MarkdownEditor({ value, onChange, onHtmlChange }: Props) {
+export function MarkdownEditor({ value, onChange, onHtmlChange, onModeChange, showTabBar = true, forcedMode }: Props) {
   const { t } = useI18n();
-  const [mode, setMode] = useState<Mode>('source');
+  const [mode, setMode] = useState<EditorMode>(forcedMode || 'source');
   const [mediaOpen, setMediaOpen] = useState(false);
   const cmViewRef = useRef<EditorView | null>(null);
+
+  // 当外部 forcedMode 变化时，跟进切换
+  useEffect(() => {
+    if (forcedMode && forcedMode !== mode) {
+      setMode(forcedMode);
+    }
+  }, [forcedMode]);
+
+  const handleModeChange = useCallback((newMode: EditorMode) => {
+    setMode(newMode);
+    onModeChange?.(newMode);
+  }, [onModeChange]);
 
   const handleChange = useCallback((newValue: string) => {
     onChange(newValue);
@@ -39,7 +57,8 @@ export function MarkdownEditor({ value, onChange, onHtmlChange }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {/* Tab Bar */}
+      {/* Tab Bar — 仅在 showTabBar 时渲染 */}
+      {showTabBar && (
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -47,13 +66,13 @@ export function MarkdownEditor({ value, onChange, onHtmlChange }: Props) {
         padding: '8px 10px 0',
         borderBottom: '1px solid var(--border-light)',
       }}>
-        <TabButton active={mode === 'source'} onClick={() => setMode('source')}>
+        <TabButton active={mode === 'source'} onClick={() => handleModeChange('source')}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
           </svg>
           {t('sourceCode')}
         </TabButton>
-        <TabButton active={mode === 'wysiwyg'} onClick={() => setMode('wysiwyg')}>
+        <TabButton active={mode === 'wysiwyg'} onClick={() => handleModeChange('wysiwyg')}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
           </svg>
@@ -96,6 +115,7 @@ export function MarkdownEditor({ value, onChange, onHtmlChange }: Props) {
           {mode === 'source' ? t('markdownSource') : t('wysiwyg')}
         </span>
       </div>
+      )}
 
       {/* Editor Panels */}
       <div style={{ flex: 1, overflow: 'hidden', minHeight: '320px' }}>

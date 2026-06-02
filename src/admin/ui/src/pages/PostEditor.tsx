@@ -18,7 +18,6 @@ import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
 import { useAutoSaveDraft, type DraftData } from '../hooks/useAutoSaveDraft';
 import { usePreview } from '../preview';
-import { useResponsive } from '../hooks/useResponsive';
 
 type PageEditMode = 'editor' | 'custom_html';
 
@@ -43,7 +42,6 @@ export default function PostEditor() {
   const navigate = useNavigate();
   const { t, format } = useI18n();
   const toast = useToast();
-  const { isMobile } = useResponsive();
 
   const isEdit = !!id;
   const [saving, setSaving] = useState(false);
@@ -100,8 +98,6 @@ export default function PostEditor() {
   useEffect(() => {
     preview.refresh();
   }, [content, preview.refresh]);
-
-  const showFullToolbar = !isMobile;
 
   // 字数统计
   const wordCountInfo = countWords(content);
@@ -331,7 +327,7 @@ export default function PostEditor() {
           </button>
           <div>
             <h1 style={{
-              fontSize: isMobile ? '16px' : '20px', fontWeight: 800, color: 'var(--md-on-surface)',
+              fontSize: '20px', fontWeight: 800, color: 'var(--md-on-surface)',
               fontFamily: "'Manrope', sans-serif", letterSpacing: '-0.3px', lineHeight: 1.2,
             }}>
               {isEdit ? t('editPostTitle') : (contentType === 'page' ? t('newPage') : t('createPostTitle'))}
@@ -340,7 +336,7 @@ export default function PostEditor() {
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {/* 内容类型切换（仅新建时） */}
-          {!isEdit && showFullToolbar && (
+          {!isEdit && (
             <div style={{
               display: 'inline-flex', gap: '0',
               background: 'var(--md-surface-container)', padding: '3px', borderRadius: 'var(--radius-full)',
@@ -375,35 +371,17 @@ export default function PostEditor() {
               </button>
             </div>
           )}
-          {/* 移动端预览按钮 */}
-          {isMobile && (
-            <button
-              onClick={() => preview.openInNewTab('content')}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: '40px', height: '40px', border: 'none', background: 'transparent',
-                color: 'var(--md-on-surface-variant)', cursor: 'pointer',
-                borderRadius: 'var(--radius-full)',
-              }}
-              aria-label={t('preview')}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            </button>
-          )}
-          {showFullToolbar && <Button variant="ghost" onClick={() => navigate('/posts')}>{t('cancel')}</Button>}
+          <Button variant="ghost" onClick={() => navigate('/posts')}>{t('cancel')}</Button>
           <Button onClick={() => handleSave()} disabled={saving} loading={saving}>
-            <IconCheck size={14} /> {!isMobile && t('save')}
+            <IconCheck size={14} /> {t('save')}
           </Button>
           {/* 自动保存状态指示 */}
-          {showFullToolbar && isAutoSaving && (
+          {isAutoSaving && (
             <span style={{ fontSize: '12px', color: 'var(--md-on-surface-variant)', marginLeft: '8px' }}>
               {t('saving')}
             </span>
           )}
-          {showFullToolbar && !isAutoSaving && lastSavedAt && (Date.now() - lastSavedAt < 30000) && (
+          {!isAutoSaving && lastSavedAt && (Date.now() - lastSavedAt < 30000) && (
             <span style={{ fontSize: '12px', color: 'var(--md-on-surface-variant)', marginLeft: '8px' }}>
               {t('saved')}
             </span>
@@ -412,9 +390,9 @@ export default function PostEditor() {
       </div>
 
       {/* ── 编辑器主体 ── */}
-      <div style={{ flex: 1, display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined, gridTemplateColumns: isMobile ? undefined : '1fr 260px', gap: isMobile ? '8px' : '20px', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 260px', gap: '20px', minHeight: 0 }}>
         {/* 左侧：标题 + 编辑器 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '8px' : '16px', minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
           <Input
             label={t('titleLabel')}
             placeholder={t('titlePlaceholder')}
@@ -428,7 +406,7 @@ export default function PostEditor() {
                 <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--md-on-surface-variant)', marginBottom: '6px' }}>
                   {t('postContentLabel')}
                 </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: isMobile ? '200px' : 0 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   <MarkdownEditor value={content} onChange={setContent} onHtmlChange={setContentHtml} />
                 </div>
                 {/* 字数统计 + 阅读时间 */}
@@ -441,49 +419,12 @@ export default function PostEditor() {
                   <span>{format('readTime', { minutes: wordCountInfo.readMinutes.toString() })}</span>
                 </div>
               </div>
-              {!isMobile && (
-                <Input
-                  label={t('excerptLabel')}
-                  placeholder={t('excerptPlaceholder')}
-                  value={excerpt}
-                  onChange={(e) => setExcerpt(e.target.value)}
-                />
-              )}
-              {isMobile && (
-                <details className="md3-details excerpt-details" style={{ marginTop: '8px' }}>
-                  <summary style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '8px 4px', fontSize: '13px', color: 'var(--md-on-surface-variant)',
-                    cursor: 'pointer', userSelect: 'none',
-                    borderRadius: 'var(--radius-sm)',
-                  }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                      <line x1="3" y1="14" x2="21" y2="14"/><line x1="3" y1="18" x2="21" y2="18"/>
-                    </svg>
-                    <span>{t('excerptLabel')}</span>
-                    <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--md-outline)' }}>
-                      {excerpt.length}/300
-                    </span>
-                  </summary>
-                  <textarea
-                    value={excerpt}
-                    onChange={e => setExcerpt(e.target.value)}
-                    placeholder={t('excerptPlaceholder')}
-                    maxLength={300}
-                    rows={3}
-                    style={{
-                      width: '100%', padding: '12px', boxSizing: 'border-box',
-                      fontSize: '14px', lineHeight: 1.5, resize: 'vertical',
-                      background: 'var(--md-surface-container-low)',
-                      border: '1px solid var(--md-outline-variant)',
-                      borderRadius: 'var(--radius-sm)',
-                      color: 'var(--md-on-surface)',
-                      outline: 'none', fontFamily: 'inherit',
-                    }}
-                  />
-                </details>
-              )}
+              <Input
+                label={t('excerptLabel')}
+                placeholder={t('excerptPlaceholder')}
+                value={excerpt}
+                onChange={(e) => setExcerpt(e.target.value)}
+              />
             </>
           ) : (
             /* MD3 Drop zone */
@@ -551,7 +492,6 @@ export default function PostEditor() {
         </div>
 
         {/* 右侧：发布设置 */}
-        {!isMobile ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
           {/* 页面显示内容切换 — 仅页面类型 */}
           {(contentType === 'page') && (
@@ -668,143 +608,7 @@ export default function PostEditor() {
 
             <SlotRenderer target="post_editor.sidebar" context={id ? { post_id: id } : undefined} />
           </div>
-          </div>
-        ) : null}
-        {/* 移动端：折叠面板 */}
-        {isMobile && (
-          <details style={{ marginTop: '8px' }}>
-            <summary style={{
-              padding: '14px 16px',
-              background: 'var(--md-surface-container)',
-              borderRadius: 'var(--radius-lg)',
-              cursor: 'pointer',
-              userSelect: 'none',
-              WebkitTapHighlightColor: 'transparent',
-              fontWeight: 600,
-              fontSize: '14px',
-              color: 'var(--md-on-surface)',
-              listStyle: 'none',
-            }}>
-              {t('publishSettings')}
-            </summary>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 0' }}>
-              {/* 页面显示内容切换 — 仅页面类型 */}
-              {(contentType === 'page') && (
-                <div style={{
-                  background: 'var(--md-secondary-container)',
-                  borderRadius: 'var(--radius-lg)', padding: '16px',
-                }}>
-                  <div style={{
-                    fontSize: '11.5px', fontWeight: 800, color: 'var(--md-on-secondary-container)',
-                    textTransform: 'uppercase', letterSpacing: '0.07em',
-                    marginBottom: '10px',
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                  }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--md-on-secondary-container)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                      <line x1="9" y1="3" x2="9" y2="21"/>
-                    </svg>
-                    {t('pageDisplayContent')}
-                  </div>
-                  <div style={{
-                    display: 'flex', gap: '0',
-                    background: 'var(--md-surface-container)', padding: '4px', borderRadius: 'var(--radius-full)',
-                  }}>
-                    <button
-                      onClick={() => setPageEditMode('editor')}
-                      style={{
-                        flex: 1, padding: '7px 12px', borderRadius: 'var(--radius-full)',
-                        border: 'none', cursor: 'pointer',
-                        fontSize: '12.5px', fontWeight: pageEditMode === 'editor' ? 600 : 400,
-                        background: pageEditMode === 'editor' ? 'var(--md-surface-container-lowest)' : 'transparent',
-                        color: pageEditMode === 'editor' ? 'var(--md-on-surface)' : 'var(--md-on-surface-variant)',
-                        transition: 'all var(--transition-fast)',
-                      }}
-                    >
-                      {t('markdownEditor')}
-                    </button>
-                    <button
-                      onClick={() => setPageEditMode('custom_html')}
-                      style={{
-                        flex: 1, padding: '7px 12px', borderRadius: 'var(--radius-full)',
-                        border: 'none', cursor: 'pointer',
-                        fontSize: '12.5px', fontWeight: pageEditMode === 'custom_html' ? 600 : 400,
-                        background: pageEditMode === 'custom_html' ? 'var(--md-surface-container-lowest)' : 'transparent',
-                        color: pageEditMode === 'custom_html' ? 'var(--md-on-surface)' : 'var(--md-on-surface-variant)',
-                        transition: 'all var(--transition-fast)',
-                      }}
-                    >
-                      {t('customHtml')}
-                    </button>
-                  </div>
-                  {post?.page_render_mode && (
-                    <div style={{
-                      marginTop: '10px', padding: '6px 10px', borderRadius: 'var(--radius-full)',
-                      background: post.page_render_mode === 'custom_html'
-                        ? 'var(--md-secondary-container)' : 'var(--md-primary-container)',
-                      fontSize: '11.5px', color: post.page_render_mode === 'custom_html'
-                        ? 'var(--md-on-secondary-container)' : 'var(--md-on-primary-container)',
-                      display: 'flex', alignItems: 'center', gap: '5px',
-                    }}>
-                      <span style={{
-                        width: '6px', height: '6px', borderRadius: '50%',
-                        background: post.page_render_mode === 'custom_html' ? 'var(--md-secondary)' : 'var(--md-primary)',
-                      }} />
-                      {format('currentFrontDisplay', { mode: post.page_render_mode === 'custom_html' ? t('customHtml') : t('markdownEditor') })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 发布设置 */}
-              <div style={{
-                background: 'var(--md-surface-container)',
-                borderRadius: 'var(--radius-lg)', padding: '16px',
-              }}>
-                <div style={{
-                  fontSize: '11.5px', fontWeight: 800, color: 'var(--md-on-surface-variant)',
-                  textTransform: 'uppercase', letterSpacing: '0.07em',
-                  marginBottom: '12px',
-                }}>{t('publishSettings')}</div>
-                <Select label={t('statusLabel')} value={status} onChange={(e) => setStatus(e.target.value as 'published' | 'draft')}>
-                  <option value="draft">{t('draftOption')}</option>
-                  <option value="published">{t('publishedOption')}</option>
-                </Select>
-              </div>
-
-              {/* 分类和标签 */}
-              <div style={{
-                background: 'var(--md-surface-container)',
-                borderRadius: 'var(--radius-lg)', padding: '16px',
-              }}>
-                <div style={{
-                  fontSize: '11.5px', fontWeight: 800, color: 'var(--md-on-surface-variant)',
-                  textTransform: 'uppercase', letterSpacing: '0.07em',
-                  marginBottom: '12px',
-                }}>{t('categoryAndTags')}</div>
-                <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                  <option value="">{t('noCategory')}</option>
-                  {categories.map((cat) => (<option key={cat.id} value={cat.id}>{esc(cat.name)}</option>))}
-                </Select>
-                {contentType === 'post' && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px', marginTop: '14px' }}>
-                    {tags.length > 0 ? tags.map((tag) => (
-                      <button key={tag.id} type="button" onClick={() => toggleTag(tag.id)} style={{
-                        border: 'none',
-                        padding: '6px 14px', borderRadius: 'var(--radius-full)',
-                        fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-                        background: selectedTagIds.includes(tag.id) ? 'var(--md-primary)' : 'var(--md-surface-container)',
-                        color: selectedTagIds.includes(tag.id) ? 'var(--md-on-primary)' : 'var(--md-on-surface-variant)',
-                        transition: 'all var(--transition-normal)',
-                      }}>{esc(tag.name)}</button>
-                    )) : <span style={{ fontSize: '12px', color: 'var(--md-outline)' }}>{t('noTagsAvailable')}</span>}
-                  </div>
-                )}
-                <SlotRenderer target="post_editor.sidebar" context={id ? { post_id: id } : undefined} />
-              </div>
-            </div>
-          </details>
-        )}
+        </div>
       </div>
 
       {/* 渲染模式选择弹窗 */}
