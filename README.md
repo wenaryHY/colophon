@@ -218,4 +218,26 @@ export INKFORGE__DATABASE__URL=sqlite:///data/inkforge.db?mode=rwc
 
 ---
 
+## 🛡️ 已知安全审计记录（2026-06-02）
+
+`cargo audit` 扫描 760 个 crate 的结果。**服务器二进制无关键漏洞。**
+
+| 漏洞 | 严重度 | 路径 | 状态 |
+|------|--------|------|------|
+| `sqlx` 二进制协议溢出 | 中 | sqlx-mysql/sqlx-postgres（SQLite 不走此路径） | 🟢 无害 |
+| `rsa` 时序攻击 | 中 | rsa → sqlx-mysql（仅 MySQL） | 🟢 无害 |
+| `rustls-webpki` 证书 CRL panic | 高 | aws-sdk-s3（当前未启用） | 🟢 无害 |
+| `rustls-webpki` 通配符证书 | 高 | aws-sdk-s3（当前未启用） | 🟢 无害 |
+| `glib` 不安全迭代器 | 未定义 | tauri → webkit2gtk（仅桌面端） | 🟢 无害 |
+| `lru` 悬空指针 | 未定义 | aws-sdk-s3（当前未启用） | 🟢 无害 |
+| `rand` 自定义 logger | 未定义 | tauri-utils（仅桌面端） | 🟢 无害 |
+| 12 个未维护警告 | — | gtk-rs 系列（仅桌面端） | 🟢 无关 |
+
+### 如果启用以下功能，需要先修复
+- **PostgreSQL/MySQL 后端** → 升级 sqlx 到 ≥0.8.1
+- **S3 对象存储** → 升级 rustls-webpki 到 ≥0.103.13
+- **Tauri 桌面端** → 升级整个 tauri 工具链
+
+---
+
 **License**: MIT
