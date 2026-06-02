@@ -10,15 +10,20 @@
 - 📁 **分类 & 标签** — 层级分类，多标签关联
 - 💬 **评论系统** — 审核流程，WebSocket 实时推送
 - 🖼️ **媒体管理** — 本地存储，分类整理，支持图片 / 音频
-- 🔐 **用户认证** — Argon2 密码加密 + JWT / Session
+- 🔐 **统一认证** — Argon2 + JWT / Session + API Key 三重体系，7 天免登录，前后台统一
 - 🎨 **主题系统** — MiniJinja 模板引擎，支持可视化配置与 ZIP 上传
+- 👁️ **实时预览** — FAB 浮动按钮，inline / modal / 新标签页三种模式，主题预览
 - 🔍 **全文搜索** — FTS5 增量索引
 - 🗑️ **统一回收站** — 文章 / 分类 / 标签 / 评论统一管理，定时清理
 - 📡 **SEO** — Sitemap、Robots.txt、OpenGraph / JSON-LD 元数据
+- 🪝 **Webhook 回调** — 文章发布/更新事件通知，可配置回调 URL
 - 💾 **备份与恢复** — 本地备份，一键还原，定时备份调度
 - 🌐 **API 版本化** — `/api/v1/` 正式路由，旧路由兼容过渡
+- 📱 **响应式管理后台** — 侧边栏三断点，表格流式卡片化，编辑器折叠面板
 - 🌍 **i18n** — 管理后台多语言支持
 - 🧩 **插件系统** — Rust trait 插件：路由 / 模板函数 / 前端资产 / Hooks / 配置面板 / 前端插槽
+- 🚢 **一键部署** — WSL 交叉编译，dos2unix，单二进制 tar 打包
+- 🔧 **数据库泛型抽象** — SqlitePool → Executor trait，提升可测试性与扩展性
 
 ## 🛠️ 技术栈
 
@@ -28,7 +33,7 @@
 | 运行时 | Tokio |
 | 数据库 | SQLite (`sqlx` 0.7) |
 | 模板引擎 | MiniJinja |
-| 认证 | JWT + Argon2 + Cookie Session |
+| 认证 | JWT + Argon2 + Session + API Key |
 | Markdown 渲染 | `pulldown-cmark` + `ammonia` |
 | 全文搜索 | SQLite FTS5 |
 | 管理后台 | React 19 + TypeScript + Vite 8 |
@@ -130,6 +135,7 @@ inkforge/
 │   ├── bootstrap/           # 配置加载 & 路由组装
 │   ├── infra/               # 基础设施（错误处理等）
 │   ├── modules/
+│   │   ├── api_key/         # API Key 认证（headless CMS 外部访问）
 │   │   ├── auth/            # 认证（handler → service → repository）
 │   │   ├── setup/           # 安装向导
 │   │   ├── post/            # 文章 / 页面
@@ -143,7 +149,8 @@ inkforge/
 │   │   ├── setting/         # 系统设置
 │   │   ├── backup/          # 备份恢复（含定时调度）
 │   │   ├── trash/           # 统一回收站（含过期清理调度）
-│   │   └── user/            # 用户管理
+│   │   ├── user/            # 用户管理
+│   │   └── webhook/         # Webhook 事件回调
 │   └── admin/ui/            # React 管理后台源码
 ├── migrations/              # SQLite 迁移文件（001–015）
 ├── config/                  # TOML 配置文件
@@ -151,6 +158,7 @@ inkforge/
 ├── themes/default/          # 默认前台主题（MiniJinja 模板）
 ├── src-tauri/               # Tauri 桌面壳（In-Process 已落地）
 ├── uploads/                 # 上传文件目录
+├── scripts/                # 运维脚本（部署、图标转换、依赖版本治理）
 └── docker/                  # Docker 入口脚本
 ```
 
@@ -194,25 +202,19 @@ export INKFORGE__DATABASE__URL=sqlite:///data/inkforge.db?mode=rwc
 
 ---
 
-## 🔮 路线图
+## 🗺️ Roadmap
 
-- [x] WebSocket 实时评论通知
-- [x] React 管理后台（Orange 玻璃拟态风格）
-- [x] 页面双内容模型（Markdown + 自定义 HTML）
-- [x] Tiptap 编辑器
-- [x] 全文搜索（FTS5）
-- [x] 统一回收站
-- [x] SEO（Sitemap + OpenGraph + JSON-LD）
-- [x] 备份与恢复（含定时调度）
-- [x] API 版本化
-- [x] Docker 部署 + Litestream
-- [x] 安装向导（Web）
-- [x] 插件系统（Rust trait：路由 / Hooks / 配置面板 / 前端插槽）
-- [ ] 插件系统 WASM 运行时（热加载 / 沙箱 / 远程安装）
-- [ ] S3/OSS 对象存储适配
-- [ ] 多语言前台支持
-- [x] Tauri In-Process 启动模型与单窗口状态路由
-- [ ] Tauri 桌面端打包验收闭环
+### 近期
+- [ ] 自定义内容类型（posts 表加 `custom_fields` JSON 列）
+- [ ] GraphQL API（async-graphql 映射现有 REST）
+
+### 中期
+- [ ] 媒体统一格式压缩（只存原图，前端框架处理优化）
+- [ ] 图片懒加载（blur-up placeholder）
+
+### 无限延期
+- [ ] **Material Design 4 重写管理后台**
+  移动端优先设计，从 375px 起步向上适配。推翻现有 inline style 架构，改用 Geist 风格的 design token + Tailwind。工作量巨大，优先级低。
 
 ---
 
