@@ -48,7 +48,7 @@ export function MediaPicker({ open, onClose }: Props) {
 
   function insert(item: MediaItem) {
     // 使用最小缩略图（或原图 fallback）
-    const url = item.thumbnails?.[0]?.public_url ?? item.public_url;
+    const url = item.public_url;
     const originalUrl = item.public_url;
     const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(item.original_name);
     const markdown = isImage
@@ -103,9 +103,9 @@ export function MediaPicker({ open, onClose }: Props) {
               >
                 {item.kind === 'image' ? (
                   (() => {
-                    const thumbnailUrl = item.thumbnails?.[0]?.public_url ?? item.public_url;
+                    const url = item.public_url;
                     return (
-                      <img src={thumbnailUrl} alt={item.original_name}
+                      <img src={url} alt={item.original_name}
                         style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: 'none' }}
                       />
                     );

@@ -8,8 +8,6 @@ pub struct AppConfig {
     pub database: DatabaseConfig,
     pub auth: AuthConfig,
     pub storage: StorageConfig,
-    #[serde(default)]
-    pub media: MediaConfig,
     pub theme: ThemeConfig,
     pub paths: PathsConfig,
     pub runtime: RuntimeConfig,
@@ -38,47 +36,6 @@ pub struct AuthConfig {
 pub struct StorageConfig {
     pub upload_dir: String,
     pub max_upload_size_mb: u64,
-}
-
-fn default_thumbnail_enabled() -> bool {
-    true
-}
-fn default_thumbnail_concurrency() -> u32 {
-    1
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct MediaConfig {
-    #[serde(default)]
-    pub thumbnail: ThumbnailConfig,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ThumbnailConfig {
-    #[serde(default = "default_thumbnail_enabled")]
-    pub enabled: bool,
-    #[serde(default = "default_thumbnail_concurrency")]
-    pub concurrency: u32,
-}
-
-impl Default for ThumbnailConfig {
-    fn default() -> Self {
-        Self {
-            enabled: default_thumbnail_enabled(),
-            concurrency: default_thumbnail_concurrency(),
-        }
-    }
-}
-
-impl Default for MediaConfig {
-    fn default() -> Self {
-        Self {
-            thumbnail: ThumbnailConfig {
-                enabled: default_thumbnail_enabled(),
-                concurrency: default_thumbnail_concurrency(),
-            },
-        }
-    }
 }
 
 #[allow(dead_code)]
@@ -113,8 +70,6 @@ impl AppConfig {
             .set_default("auth.allow_insecure_default_secret", false)?
             .set_default("storage.upload_dir", "uploads")?
             .set_default("storage.max_upload_size_mb", 10)?
-            .set_default("media.thumbnail.enabled", true)?
-            .set_default("media.thumbnail.concurrency", 1)?
             .set_default("theme.theme_dir", "themes")?
             .set_default("theme.active_theme_fallback", "default")?
             .set_default("theme.default_mode", "system")?
