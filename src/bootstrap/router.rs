@@ -129,6 +129,29 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         false
     });
 
+    let cors_layer = CorsLayer::new()
+        .allow_origin(allow_origin)
+        .allow_credentials(true)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([
+            header::AUTHORIZATION,
+            header::CONTENT_TYPE,
+            header::ACCEPT,
+            header::ORIGIN,
+            "x-client-request-id".parse().unwrap(),
+            "x-api-key".parse().unwrap(),
+        ])
+        .expose_headers([
+            "x-client-request-id".parse().unwrap(),
+            "x-request-id".parse().unwrap(),
+        ]);
+
     let auth_v1 = Router::new()
         .route("/api/v1/auth/register", post(modules::auth::handler::register))
         .route("/api/v1/auth/logout", post(modules::auth::handler::logout))
@@ -140,7 +163,8 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                     state.clone(),
                     crate::shared::security::login_rate_limit,
                 )),
-        );
+        )
+        .layer(cors_layer.clone());
 
     let v1 = Router::new()
         .route("/api/v1/health", get(health_check))
@@ -301,7 +325,8 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             patch(crate::modules::api_key::handler::update_api_key)
                 .delete(crate::modules::api_key::handler::revoke_api_key),
         )
-        .merge(state.plugin_manager.read().await.collect_routes(&state));
+        .merge(state.plugin_manager.read().await.collect_routes(&state))
+        .layer(cors_layer.clone());
 
     Router::new()
         .route("/", get(render_home_entry))
@@ -334,31 +359,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())
-                .layer(CompressionLayer::new())
-                .layer(
-                    CorsLayer::new()
-                        .allow_origin(allow_origin)
-                        .allow_credentials(true)
-                        .allow_methods([
-                            Method::GET,
-                            Method::POST,
-                            Method::PATCH,
-                            Method::DELETE,
-                            Method::OPTIONS,
-                        ])
-                        .allow_headers([
-                            header::AUTHORIZATION,
-                            header::CONTENT_TYPE,
-                            header::ACCEPT,
-                            header::ORIGIN,
-                            "x-client-request-id".parse().unwrap(),
-                            "x-api-key".parse().unwrap(),
-                        ])
-                        .expose_headers([
-                            "x-client-request-id".parse().unwrap(),
-                            "x-request-id".parse().unwrap(),
-                        ]),
-                ),
+                .layer(CompressionLayer::new()),
         )
         .layer(axum::middleware::from_fn(
             crate::shared::security::security_headers,

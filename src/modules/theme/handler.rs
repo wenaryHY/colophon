@@ -418,7 +418,7 @@ pub async fn serve_active_static(
     };
 
     match tokio::fs::read(&full_path).await {
-        Ok(d) => ([(header::CONTENT_TYPE, mime)], d).into_response(),
+        Ok(d) => ([(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, "public, max-age=31536000, immutable")], d).into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
     }
 }
@@ -452,7 +452,7 @@ pub async fn serve_upload_static(
     };
 
     match tokio::fs::read(&full_path).await {
-        Ok(d) => ([(header::CONTENT_TYPE, mime)], d).into_response(),
+        Ok(d) => ([(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, "public, max-age=31536000, immutable")], d).into_response(),
         Err(_) => {
             let is_image = matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "svg" | "webp");
             if is_image {
@@ -503,7 +503,7 @@ pub async fn serve_plugin_static(
     };
 
     match tokio::fs::read(&full_path).await {
-        Ok(d) => ([(header::CONTENT_TYPE, mime)], d).into_response(),
+        Ok(d) => ([(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, "public, max-age=31536000, immutable")], d).into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
     }
 }
