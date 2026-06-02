@@ -136,6 +136,24 @@ export interface UpdateMediaCategoryRequest {
   sort_order?: number;
 }
 
+export interface MediaItem {
+  id: string;
+  uploader_id: string;
+  kind: 'image' | 'audio';
+  mime_type: string;
+  original_name: string;
+  stored_name: string;
+  storage_path: string;
+  public_url: string;
+  size_bytes: number;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  alt_text: string | null;
+  category: string | null;
+  created_at: string;
+}
+
 export interface SelectOption {
   label: string;
   value: string;

@@ -47,8 +47,6 @@ export function MediaPicker({ open, onClose }: Props) {
   }, [open, keyword, kind, category, page, fetchItems]);
 
   function insert(item: MediaItem) {
-    // 使用最小缩略图（或原图 fallback）
-    const url = item.public_url;
     const originalUrl = item.public_url;
     const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(item.original_name);
     const markdown = isImage
