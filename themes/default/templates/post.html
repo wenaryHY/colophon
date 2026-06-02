@@ -26,7 +26,9 @@
 <!-- noinspection JsonStandardCompliance -->
 <script type="application/ld+json">{{ json_ld | safe }}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'; this.onload=null;">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet"></noscript>
 <style>
 *,*::before,*::after{box-sizing:border-box}
 :root{
@@ -221,7 +223,7 @@ a{color:var(--accent);text-decoration:none}
   <!-- Nav -->
   <nav class="site-nav">
     <a href="/" class="nav-logo">
-      <img src="/static/themes/default/logo.svg" alt="InkForge" style="height: 28px;">
+      <img src="/static/themes/default/logo.svg" alt="InkForge" width="28" height="28" style="height: 28px;">
     </a>
     <a href="/" class="nav-back">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
