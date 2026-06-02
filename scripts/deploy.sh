@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# 加载 Rust 环境（WSL 新终端不会自动 source .bashrc）
+if [ -f "$HOME/.cargo/env" ]; then
+    source "$HOME/.cargo/env"
+fi
+
 echo "=== InkForge Deploy $(date) ==="
 
 # 1. 换行符统一（WSL 和服务器之间 CRLF/LF 差异会导致 sqlx migration hash 不同）
