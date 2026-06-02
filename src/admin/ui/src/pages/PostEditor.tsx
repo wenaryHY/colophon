@@ -375,6 +375,24 @@ export default function PostEditor() {
               </button>
             </div>
           )}
+          {/* 移动端预览按钮 */}
+          {isMobile && (
+            <button
+              onClick={() => preview.openInNewTab('content')}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: '40px', height: '40px', border: 'none', background: 'transparent',
+                color: 'var(--md-on-surface-variant)', cursor: 'pointer',
+                borderRadius: 'var(--radius-full)',
+              }}
+              aria-label={t('preview')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          )}
           {showFullToolbar && <Button variant="ghost" onClick={() => navigate('/posts')}>{t('cancel')}</Button>}
           <Button onClick={() => handleSave()} disabled={saving} loading={saving}>
             <IconCheck size={14} /> {!isMobile && t('save')}
@@ -394,7 +412,7 @@ export default function PostEditor() {
       </div>
 
       {/* ── 编辑器主体 ── */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 260px', gap: '20px', minHeight: 0 }}>
+      <div style={{ flex: 1, display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined, gridTemplateColumns: isMobile ? undefined : '1fr 260px', gap: isMobile ? '8px' : '20px', minHeight: 0 }}>
         {/* 左侧：标题 + 编辑器 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '8px' : '16px', minHeight: 0 }}>
           <Input
@@ -423,12 +441,49 @@ export default function PostEditor() {
                   <span>{format('readTime', { minutes: wordCountInfo.readMinutes.toString() })}</span>
                 </div>
               </div>
-              <Input
-                label={t('excerptLabel')}
-                placeholder={t('excerptPlaceholder')}
-                value={excerpt}
-                onChange={(e) => setExcerpt(e.target.value)}
-              />
+              {!isMobile && (
+                <Input
+                  label={t('excerptLabel')}
+                  placeholder={t('excerptPlaceholder')}
+                  value={excerpt}
+                  onChange={(e) => setExcerpt(e.target.value)}
+                />
+              )}
+              {isMobile && (
+                <details className="md3-details excerpt-details" style={{ marginTop: '8px' }}>
+                  <summary style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '8px 4px', fontSize: '13px', color: 'var(--md-on-surface-variant)',
+                    cursor: 'pointer', userSelect: 'none',
+                    borderRadius: 'var(--radius-sm)',
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                      <line x1="3" y1="14" x2="21" y2="14"/><line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                    <span>{t('excerptLabel')}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--md-outline)' }}>
+                      {excerpt.length}/300
+                    </span>
+                  </summary>
+                  <textarea
+                    value={excerpt}
+                    onChange={e => setExcerpt(e.target.value)}
+                    placeholder={t('excerptPlaceholder')}
+                    maxLength={300}
+                    rows={3}
+                    style={{
+                      width: '100%', padding: '12px', boxSizing: 'border-box',
+                      fontSize: '14px', lineHeight: 1.5, resize: 'vertical',
+                      background: 'var(--md-surface-container-low)',
+                      border: '1px solid var(--md-outline-variant)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--md-on-surface)',
+                      outline: 'none', fontFamily: 'inherit',
+                    }}
+                  />
+                </details>
+              )}
             </>
           ) : (
             /* MD3 Drop zone */
