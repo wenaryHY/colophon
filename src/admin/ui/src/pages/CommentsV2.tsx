@@ -24,6 +24,7 @@ import {
 } from '../components/Icons';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
+import { useResponsive } from '../hooks/useResponsive';
 
 const TH = {
   padding: '14px 16px',
@@ -60,6 +61,7 @@ export default function CommentsV2() {
   const toast = useToast();
   const navigate = useNavigate();
   const { t, format } = useI18n();
+  const { isMobile } = useResponsive();
   const [page, setPage] = useState(1);
 
   const [deleteTarget, setDeleteTarget] = useState<Comment | null>(null);
@@ -198,7 +200,7 @@ export default function CommentsV2() {
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
         <StatsCard icon={<IconMessageSquare size={20} />} value={total} label={t('commentsTotal')} theme="blue" />
         <StatsCard icon={<IconClock size={20} />} value={pendingCount} label={t('pendingReview')} theme="amber" />
       </div>
@@ -249,6 +251,100 @@ export default function CommentsV2() {
         </button>
       </div>
 
+      {/* 移动端：卡片列表 */}
+      {isMobile ? (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {items.length > 0 ? items.map((cmt) => (
+              <div
+                key={cmt.id}
+                style={{
+                  background: 'var(--md-surface-container)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--md-on-surface)' }}>
+                      {esc(cmt.display_name)}
+                    </span>
+                    <span style={{ fontSize: '12px', color: 'var(--md-outline)' }}>
+                      @{esc(cmt.username)}
+                    </span>
+                  </div>
+                  <StatusBadge status={cmt.status} />
+                </div>
+                <p style={{
+                  fontSize: '13px', color: 'var(--md-on-surface-variant)',
+                  lineHeight: 1.55, margin: 0,
+                  display: '-webkit-box', WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}>
+                  {esc(cmt.content)}
+                </p>
+                {cmt.post_title ? (
+                  <a
+                    href={`/${cmt.post_content_type === 'page' ? 'pages' : 'posts'}/${cmt.post_slug || ''}`}
+                    target="_blank" rel="noreferrer"
+                    style={{
+                      fontSize: '12px', color: 'var(--md-primary)',
+                      textDecoration: 'none', display: 'inline-flex',
+                      alignItems: 'center', gap: '4px',
+                    }}
+                  >
+                    <IconExternalLink size={11} />
+                    {esc(cmt.post_title)}
+                  </a>
+                ) : (
+                  <span style={{ fontSize: '12px', color: 'var(--md-outline)', textDecoration: 'line-through' }}>
+                    {t('deletedPost')}
+                  </span>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--md-outline)', fontFamily: 'monospace' }}>
+                    {cmt.created_at?.slice(0, 16).replace('T', ' ') || '-'}
+                  </span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {cmt.status === 'pending' && (
+                      <>
+                        <button
+                          title={t('approveAction')}
+                          style={{ ...iconBtn, color: '#10b981' }}
+                          onClick={(e) => { e.stopPropagation(); approveMutation.mutate(cmt.id); }}
+                        >
+                          <IconCheckCircle size={16} />
+                        </button>
+                        <button
+                          title={t('rejectAction')}
+                          style={{ ...iconBtn, color: '#f59e0b' }}
+                          onClick={(e) => { e.stopPropagation(); rejectMutation.mutate(cmt.id); }}
+                        >
+                          <IconBan size={16} />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      title={t('moveToTrash')}
+                      style={{ ...iconBtn, color: '#ef4444' }}
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(cmt); }}
+                    >
+                      <IconTrash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <EmptyState icon={<IconMessageSquare size={28} />} message={t('noComments')} />
+            )}
+          </div>
+          <Pagination page={page} pages={pages} onPageChange={setPage} />
+        </>
+      ) : (
+        /* 桌面端：表格布局 */
       <Card style={{ overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -422,6 +518,7 @@ export default function CommentsV2() {
 
         <Pagination page={page} pages={pages} onPageChange={setPage} />
       </Card>
+      )}
 
       <ConfirmDialog
         open={!!deleteTarget}

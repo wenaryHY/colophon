@@ -21,6 +21,7 @@ import { NumberWheelPicker } from '../components/NumberWheelPicker';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
 import { useAuth } from '../contexts/AuthContext';
+import { useResponsive } from '../hooks/useResponsive';
 
 const sectionStyle: React.CSSProperties = {
   background: 'var(--md-surface-container-lowest)',
@@ -36,6 +37,7 @@ const secTitleStyle: React.CSSProperties = {
 const secDescStyle: React.CSSProperties = { fontSize: '12.5px', color: 'var(--md-outline)', marginTop: '3px' };
 const secBodyStyle: React.CSSProperties = { padding: '24px', display: 'flex', flexDirection: 'column' as const, gap: '18px' };
 const formRowStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: '160px 1fr', gap: '12px', alignItems: 'start' };
+const formRowMobileStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column' as const, gap: '6px' };
 const labelStyle: React.CSSProperties = { fontSize: '13.5px', fontWeight: 600, color: 'var(--md-on-surface-variant)', paddingTop: '10px' };
 const hintStyle: React.CSSProperties = { fontSize: '12px', color: 'var(--md-outline)', opacity: 0.8 };
 const preferenceGridStyle: React.CSSProperties = {
@@ -63,7 +65,30 @@ const preferenceHintStyle: React.CSSProperties = {
   color: 'var(--md-on-surface-variant)',
 };
 
-function SettingSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+function SettingSection({ title, description, children, isMobile: mobile }: { title: string; description?: string; children: React.ReactNode; isMobile?: boolean }) {
+  if (mobile) {
+    return (
+      <details open style={sectionStyle}>
+        <summary style={{
+          ...secHeadStyle,
+          cursor: 'pointer',
+          listStyle: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          userSelect: 'none',
+        }}>
+          <div>
+            <h3 style={secTitleStyle}>{title}</h3>
+            {description && <p style={secDescStyle}>{description}</p>}
+          </div>
+          <span style={{ fontSize: '12px', color: 'var(--md-outline)', transition: 'transform 0.2s ease' }}>▼</span>
+        </summary>
+        <div style={secBodyStyle}>{children}</div>
+      </details>
+    );
+  }
+
   return (
     <div style={sectionStyle}>
       <div style={secHeadStyle}>
@@ -75,9 +100,9 @@ function SettingSection({ title, description, children }: { title: string; descr
   );
 }
 
-function FormRow({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
+function FormRow({ label, children, hint, isMobile: mobile }: { label: string; children: React.ReactNode; hint?: string; isMobile?: boolean }) {
   return (
-    <div style={formRowStyle}>
+    <div style={mobile ? formRowMobileStyle : formRowStyle}>
       <span style={labelStyle}>{label}</span>
       <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '5px' }}>
         {children}
@@ -111,6 +136,7 @@ export default function Settings() {
   const toast = useToast();
   const { t, lang, setLang, format } = useI18n();
   const { user, refreshUser } = useAuth();
+  const { isMobile } = useResponsive();
   const restoreInputRef = useRef<HTMLInputElement>(null);
   const [kv, setKv] = useState<Record<string, string>>({});
   const [downloadingBackupId, setDownloadingBackupId] = useState<string | null>(null);
@@ -264,57 +290,57 @@ export default function Settings() {
       <PageHeader title={t('title')} subtitle={t('subtitle')}
         actions={<Button onClick={() => saveSettingsMutation.mutate()} disabled={saveSettingsMutation.isPending} loading={saveSettingsMutation.isPending}>{t('saveChanges')}</Button>} />
 
-      <SettingSection title={t('basicInfo')} description={t('basicInfoDesc')}>
-        <FormRow label={t('siteTitle')}>
+      <SettingSection title={t('basicInfo')} description={t('basicInfoDesc')} isMobile={isMobile}>
+        <FormRow label={t('siteTitle')} isMobile={isMobile}>
           <Input value={kv.site_title || ''} onChange={(e) => update('site_title', e.target.value)} placeholder="InkForge" />
         </FormRow>
-        <FormRow label={t('siteDescription')} hint={t('siteDescHint')}>
+        <FormRow label={t('siteDescription')} hint={t('siteDescHint')} isMobile={isMobile}>
           <Input value={kv.site_description || ''} onChange={(e) => update('site_description', e.target.value)} placeholder="A personal blog powered by InkForge" />
         </FormRow>
-        <FormRow label={t('siteUrl')} hint={t('siteUrlHintFull')}>
+        <FormRow label={t('siteUrl')} hint={t('siteUrlHintFull')} isMobile={isMobile}>
           <Input value={kv.site_url || ''} onChange={(e) => update('site_url', e.target.value)} placeholder="https://example.com" />
         </FormRow>
-        <FormRow label={t('adminUrlLabel')} hint={t('adminUrlHint')}>
+        <FormRow label={t('adminUrlLabel')} hint={t('adminUrlHint')} isMobile={isMobile}>
           <Input value={kv.admin_url || ''} disabled placeholder="https://example.com/admin" />
         </FormRow>
       </SettingSection>
 
-      <SettingSection title={t('commentsAndReg')} description={t('commentsAndRegDesc')}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+      <SettingSection title={t('commentsAndReg')} description={t('commentsAndRegDesc')} isMobile={isMobile}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '32px' }}>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
-            <FormRow label={t('allowRegister')}>
+            <FormRow label={t('allowRegister')} isMobile={isMobile}>
               <Select value={kv.allow_register || 'true'} onChange={(e) => update('allow_register', e.target.value)}>
                 <option value="true">{t('allowRegisterOption1')}</option><option value="false">{t('allowRegisterOption2')}</option>
               </Select>
             </FormRow>
-            <FormRow label={t('allowComment')}>
+            <FormRow label={t('allowComment')} isMobile={isMobile}>
               <Select value={kv.allow_comment || 'true'} onChange={(e) => update('allow_comment', e.target.value)}>
                 <option value="true">{t('allowCommentOption1')}</option><option value="false">{t('allowCommentOption2')}</option>
               </Select>
             </FormRow>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
-            <FormRow label={t('commentRequireLogin')}>
+            <FormRow label={t('commentRequireLogin')} isMobile={isMobile}>
               <Select value={kv.comment_require_login || 'true'} onChange={(e) => update('comment_require_login', e.target.value)}>
                 <option value="true">{t('requireLoginOption1')}</option><option value="false">{t('requireLoginOption2')}</option>
               </Select>
             </FormRow>
-            <FormRow label={t('moderationMode')}>
+            <FormRow label={t('moderationMode')} isMobile={isMobile}>
               <Select value={kv.comment_moderation_mode || 'all'} onChange={(e) => update('comment_moderation_mode', e.target.value)}>
                 <option value="all">{t('moderationAll')}</option><option value="first_comment">{t('moderationFirst')}</option><option value="none">{t('moderationNone')}</option>
               </Select>
             </FormRow>
           </div>
         </div>
-        <FormRow label={t('commentMaxLength')} hint={t('maxLengthHint')}>
+        <FormRow label={t('commentMaxLength')} hint={t('maxLengthHint')} isMobile={isMobile}>
           <Input type="number" value={kv.comment_max_length || '2000'} onChange={(e) => update('comment_max_length', e.target.value)} />
         </FormRow>
       </SettingSection>
 
-      <SettingSection title={t('themeAppearance')} description={t('themeAppearanceDesc')}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+      <SettingSection title={t('themeAppearance')} description={t('themeAppearanceDesc')} isMobile={isMobile}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '32px' }}>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
-            <FormRow label={t('currentTheme')}>
+            <FormRow label={t('currentTheme')} isMobile={isMobile}>
               <Select value={kv.active_theme || activeThemeOptions[0]?.value || 'default'}
                 onChange={(e) => update('active_theme', e.target.value)}>
                 {activeThemeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -322,7 +348,7 @@ export default function Settings() {
             </FormRow>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
-            <FormRow label={t('defaultMode')}>
+            <FormRow label={t('defaultMode')} isMobile={isMobile}>
               <Select value={kv.theme_default_mode || 'system'} onChange={(e) => update('theme_default_mode', e.target.value)}>
                 <option value="system">{t('modeSystem')}</option><option value="light">{t('modeLight')}</option><option value="dark">{t('modeDark')}</option>
               </Select>
@@ -381,7 +407,7 @@ export default function Settings() {
         </div>
       </SettingSection>
 
-      <SettingSection title={t('trashCleanup')} description={t('trashCleanupDesc')}>
+      <SettingSection title={t('trashCleanup')} description={t('trashCleanupDesc')} isMobile={isMobile}>
         <div style={preferenceGridStyle}>
           <PreferenceCard label={t('retentionDays')} hint={t('retentionDaysHint')}>
             <NumberWheelPicker
@@ -406,8 +432,8 @@ export default function Settings() {
         </div>
       </SettingSection>
 
-      <SettingSection title={t('uiSettings')} description={t('uiSettingsDesc')}>
-        <FormRow label={t('interfaceLanguage')}>
+      <SettingSection title={t('uiSettings')} description={t('uiSettingsDesc')} isMobile={isMobile}>
+        <FormRow label={t('interfaceLanguage')} isMobile={isMobile}>
           <Select value={lang} onChange={(e) => languageMutation.mutate(e.target.value as 'zh' | 'en')}>
             <option value="zh">{t('languageZh')}</option>
             <option value="en">{t('languageEn')}</option>

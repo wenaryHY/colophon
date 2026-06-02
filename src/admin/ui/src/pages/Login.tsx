@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
 import { useNavigate } from 'react-router-dom';
+import { useResponsive } from '../hooks/useResponsive';
 
 type Tab = 'login' | 'register';
 
@@ -15,6 +16,7 @@ export default function Login() {
   const { login, register } = useAuth();
   const toast = useToast();
   const { t, lang, setLang } = useI18n();
+  const { isMobile } = useResponsive();
 
   const [loginValue, setLoginValue] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -222,7 +224,7 @@ export default function Login() {
           background: 'var(--md-surface-container-lowest)',
           borderRadius: 'var(--radius-xl)',
           boxShadow: 'var(--elevation-2)',
-          width: '420px',
+          width: isMobile ? 'calc(100vw - 32px)' : '420px',
           maxWidth: '100%',
           position: 'relative',
           zIndex: 1,

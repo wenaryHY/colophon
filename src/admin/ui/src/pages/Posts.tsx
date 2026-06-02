@@ -19,6 +19,7 @@ import {
 } from '../components/Icons';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
+import { useResponsive } from '../hooks/useResponsive';
 
 interface DeleteTarget { id: string; title: string; }
 type ContentTypeTab = 'post' | 'page';
@@ -95,6 +96,7 @@ function PostEmptyState({ t }: { t: (key: string) => string }) {
 export default function Posts() {
   const { t, format } = useI18n();
   const toast = useToast();
+  const { isMobile } = useResponsive();
   const [page, setPage] = useState(1);
   const navigate = useNavigate();
 
@@ -194,7 +196,7 @@ export default function Posts() {
   return (
     <>
       {/* 统计卡片 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
         <StatsCard icon={<IconFileText size={20} />} value={total} label={t('postsTotal')} theme="orange" />
         <StatsCard icon={<IconCheckCircle size={20} />} value={publishedCount} label={t('publishedCount')} theme="emerald" />
         <StatsCard icon={<IconEdit size={20} />} value={draftCount} label={t('draftCount')} theme="amber" />
@@ -276,6 +278,58 @@ export default function Posts() {
 
       <SlotRenderer target="post_list.action_bar" />
 
+      {/* 移动端：卡片列表 */}
+      {isMobile ? (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {posts.length > 0 ? posts.map((post) => {
+              const category = categories.find((item) => item.id === post.category_id);
+              return (
+                <div
+                  key={post.id}
+                  style={{
+                    background: 'var(--md-surface-container)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                  onClick={() => navigate(`/posts/${post.id}/edit`)}
+                >
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, color: 'var(--md-on-surface)', lineHeight: 1.4 }}>
+                    {esc(post.title)}
+                  </h3>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <StatusBadge status={post.status} />
+                    {category && (
+                      <span style={T.catBadge}>{category.name}</span>
+                    )}
+                    <span style={{ fontSize: '12px', color: 'var(--md-on-surface-variant)' }}>
+                      {post.created_at?.slice(0, 10)}
+                    </span>
+                  </div>
+                </div>
+              );
+            }) : (
+              <PostEmptyState t={t} />
+            )}
+          </div>
+          {posts.length > 0 && (
+            <div style={{
+              padding: '14px 0',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: '12.5px', color: 'var(--md-outline)' }}>
+                {format('paginationInfo', { start: (page - 1) * 10 + 1, end: Math.min(page * 10, total), total })}
+              </span>
+              <Pagination page={page} pages={pages} onPageChange={setPage} />
+            </div>
+          )}
+        </>
+      ) : (
+        /* 桌面端：表格布局 */
       <Card style={{ overflow: 'hidden' }}>
         {/* 批量操作栏 */}
         {selectedIds.size > 0 && (
@@ -423,6 +477,7 @@ export default function Posts() {
           </div>
         )}
       </Card>
+      )}
 
       {/* 单个删除确认 */}
       <ConfirmDialog

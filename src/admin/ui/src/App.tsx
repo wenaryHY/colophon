@@ -1,11 +1,13 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { useResponsive } from './hooks/useResponsive';
 import { Sidebar } from './components/Sidebar';
 import { PostsSkeleton } from './components/Skeleton';
 import { SlotsContext, type SlotInfo } from './lib/slots';
 import { PreviewProvider } from './preview';
 import { FabContainer } from './fab';
+import { IconMenu } from './components/Icons';
 
 // 关键首屏页面保持 eager，Login 是非登录态的首屏、Setup 是首次安装
 import Login from './pages/Login';
@@ -66,18 +68,79 @@ function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const activePage = getActivePage(location.pathname);
+  const { isMobile, isTablet, isDesktop } = useResponsive();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // 切换路由时关闭移动端侧边栏
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar
         activePage={activePage}
         onNavigate={(page) => navigate(pageToRoute[page] || '/posts')}
+        mobileOpen={mobileOpen}
+        setMobileOpen={setMobileOpen}
+        isMobile={isMobile}
+        isTablet={isTablet}
+        isDesktop={isDesktop}
       />
-      <main className="flex-1 overflow-y-auto" style={{ padding: '20px 24px', background: 'var(--bg-base)' }}>
+
+      {/* 移动端 hamburger 按钮 */}
+      {isMobile && (
+        <button
+          onClick={() => setMobileOpen(true)}
+          style={{
+            position: 'fixed',
+            top: '12px',
+            left: '12px',
+            zIndex: 999,
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            background: 'var(--md-surface-container)',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--md-on-surface)',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+          }}
+        >
+          <IconMenu size={20} />
+        </button>
+      )}
+
+      {/* 移动端 overlay 蒙层 */}
+      {isMobile && mobileOpen && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999,
+            background: 'rgba(0,0,0,0.5)',
+          }}
+        />
+      )}
+
+      {/* 主内容区 */}
+      <main style={{
+        flex: 1,
+        padding: isMobile ? '16px' : '32px',
+        background: 'var(--bg-base)',
+        overflow: 'auto',
+        minHeight: 0,
+        marginLeft: isMobile ? 0 : undefined,
+      }}>
         <Suspense fallback={<PostsSkeleton />}>
           <Outlet />
         </Suspense>
       </main>
+
       <FabContainer />
     </div>
   );

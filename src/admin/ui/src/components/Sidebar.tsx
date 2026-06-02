@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import { useSlots } from '../lib/slots';
 import {
   IconFileText, IconFolderOpen, IconTag, IconMessageSquare,
-  IconUpload, IconSettings, IconUser, IconLogOut, IconPalette, IconTrash2, IconPackage, IconZap, IconWebhook, IconKey,
+  IconUpload, IconSettings, IconUser, IconLogOut, IconPalette,
+  IconTrash2, IconPackage, IconZap, IconWebhook, IconKey, IconX,
 } from './Icons';
 
 // 导航配置类型
@@ -65,46 +67,101 @@ const navConfig: NavGroupConfig[] = [
 interface SidebarProps {
   activePage: string;
   onNavigate: (page: string) => void;
+  mobileOpen: boolean;
+  setMobileOpen: (open: boolean) => void;
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
 }
 
-export function Sidebar({ activePage, onNavigate }: SidebarProps) {
+/** 计算侧边栏当前 CSS 宽度 */
+function getSidebarWidth({
+  isMobile, isTablet, mobileOpen, isExpanded,
+}: {
+  isMobile: boolean; isTablet: boolean; mobileOpen: boolean; isExpanded: boolean;
+}): string {
+  if (isMobile) {
+    return mobileOpen ? '280px' : '0px';
+  }
+  if (isTablet) {
+    return isExpanded ? '248px' : '64px';
+  }
+  return '248px';
+}
+
+/** 侧边栏 —— 桌面全宽 | 平板仅图标 hover 展开 | 移动端 overlay drawer */
+export function Sidebar({
+  activePage,
+  onNavigate,
+  mobileOpen,
+  setMobileOpen,
+  isMobile,
+  isTablet,
+  isDesktop,
+}: SidebarProps) {
   const { user, logout } = useAuth();
   const { lang, setLang, t } = useI18n();
   const { slots } = useSlots();
   const menuSlots = slots.filter(s => s.target === 'sidebar.menu_item');
 
+  // 平板 hover 展开状态
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const sidebarWidth = getSidebarWidth({ isMobile, isTablet, mobileOpen, isExpanded });
+
+  // 是否显示文字内容：桌面全宽 / 平板展开 / 移动端始终显示
+  const showText = isDesktop || (isTablet && isExpanded) || isMobile;
+
   return (
     <aside
       style={{
-        width: '288px',
+        width: sidebarWidth,
         background: 'var(--sidebar-bg)',
         color: 'var(--md-on-surface)',
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
         height: '100vh',
-        overflowY: 'auto',
+        overflowY: isMobile || isTablet || isExpanded ? 'auto' : 'hidden',
         overflowX: 'hidden',
         position: 'relative',
         zIndex: 10,
         borderRight: 'none',
+        transition: 'width 0.2s ease',
+        ...(isMobile && mobileOpen
+          ? {
+              position: 'fixed',
+              zIndex: 1000,
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: '280px',
+              boxShadow: '4px 0 24px rgba(0,0,0,0.25)',
+            }
+          : {}),
+      }}
+      onMouseEnter={() => {
+        if (isTablet) setIsExpanded(true);
+      }}
+      onMouseLeave={() => {
+        if (isTablet) setIsExpanded(false);
       }}
     >
       {/* ── 顶部品牌区 ── */}
       <div
-        onClick={() => onNavigate('posts')}
+        onClick={() => { onNavigate('posts'); if (isMobile) setMobileOpen(false); }}
         style={{
-          padding: '24px 20px',
+          padding: showText ? '24px 20px' : '24px 12px',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
+          gap: showText ? '12px' : '0',
           cursor: 'pointer',
           transition: 'background 0.15s ease',
         }}
         onMouseEnter={e => (e.currentTarget.style.background = 'var(--sidebar-hover)')}
         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
       >
-        {/* Logo — 使用实际 logo-icon.svg，自带完整色彩 */}
+        {/* Logo */}
         <div style={{
           width: '40px', height: '40px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -112,59 +169,91 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
         }}>
           <img src="/static/themes/default/logo-icon.svg" alt="InkForge" style={{ width: '36px', height: '36px' }} />
         </div>
-        <div>
-          <div style={{
-            fontSize: '16px',
-            fontWeight: 900,
-            color: 'var(--md-on-surface)',
-            lineHeight: 1.2,
-            fontFamily: "'Manrope', sans-serif",
-            letterSpacing: '-0.3px',
-          }}>
-            InkForge
+        {showText && (
+          <div>
+            <div style={{
+              fontSize: '16px',
+              fontWeight: 900,
+              color: 'var(--md-on-surface)',
+              lineHeight: 1.2,
+              fontFamily: "'Manrope', sans-serif",
+              letterSpacing: '-0.3px',
+            }}>
+              InkForge
+            </div>
+            <div style={{
+              fontSize: '10px',
+              color: 'var(--md-on-surface-variant)',
+              marginTop: '2px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+              fontWeight: 500,
+            }}>
+              {t('adminPanel')}
+            </div>
           </div>
-          <div style={{
-            fontSize: '10px',
-            color: 'var(--md-on-surface-variant)',
-            marginTop: '2px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.12em',
-            fontWeight: 500,
-          }}>
-            {t('adminPanel')}
-          </div>
-        </div>
+        )}
       </div>
 
+      {/* ── 移动端关闭按钮 ── */}
+      {isMobile && mobileOpen && (
+        <button
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            width: '32px',
+            height: '32px',
+            borderRadius: 'var(--radius-full)',
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--md-on-surface-variant)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'background 0.15s ease',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--sidebar-hover)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+          <IconX />
+        </button>
+      )}
+
       {/* ── 导航 — Pill 风格，无左侧指示条 ── */}
-      <nav style={{ flex: 1, padding: '4px 12px', overflowY: 'auto' }}>
+      <nav style={{ flex: 1, padding: showText ? '4px 12px' : '4px 6px', overflowY: 'auto' }}>
         {navConfig.map(group => (
           <div key={group.sectionKey} style={{ marginBottom: '4px' }}>
             {/* 分组标题 */}
-            <div style={{
-              padding: '16px 12px 8px',
-              fontSize: '11px',
-              fontWeight: 700,
-              color: 'var(--md-on-surface-variant)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-            }}>
-              {t(group.sectionKey)}
-            </div>
-            {/* 菜单项 — Pill 形状 */}
+            {showText && (
+              <div style={{
+                padding: '16px 12px 8px',
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--md-on-surface-variant)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+              }}>
+                {t(group.sectionKey)}
+              </div>
+            )}
+            {/* 菜单项 */}
             {group.items.map(item => {
               const isActive = activePage === item.key;
               const IconComponent = item.icon;
               return (
                 <button
                   key={item.key}
-                  onClick={() => onNavigate(item.key)}
+                  onClick={() => { onNavigate(item.key); if (isMobile) setMobileOpen(false); }}
                   style={{
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '12px',
-                    padding: '10px 16px',
+                    justifyContent: showText ? 'flex-start' : 'center',
+                    gap: showText ? '12px' : '0',
+                    padding: showText ? '10px 16px' : '10px 0',
                     borderRadius: 'var(--radius-full)',
                     border: 'none',
                     background: isActive ? 'var(--md-primary-container)' : 'transparent',
@@ -173,7 +262,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
                     fontWeight: isActive ? 600 : 400,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
-                    textAlign: 'left',
+                    textAlign: showText ? 'left' : 'center',
                     marginBottom: '2px',
                     position: 'relative',
                   }}
@@ -201,7 +290,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
                   }}>
                     <IconComponent />
                   </span>
-                  <span>{t(item.labelKey)}</span>
+                  {showText && <span>{t(item.labelKey)}</span>}
                 </button>
               );
             })}
@@ -209,41 +298,44 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
         ))}
       </nav>
 
-      {/* ── 底部用户区 — 无 border-top，靠间距分隔 ── */}
-      <div style={{ padding: '16px 12px' }}>
-        {/* 语言切换 — pill 按钮 */}
-        <div style={{
-          display: 'flex',
-          gap: '4px',
-          padding: '0 8px 16px',
-          justifyContent: 'center',
-        }}>
-          {(['zh', 'en'] as const).map((l) => (
-            <button
-              key={l}
-              onClick={() => setLang(l)}
-              style={{
-                padding: '6px 16px',
-                borderRadius: 'var(--radius-full)',
-                border: 'none',
-                background: lang === l ? 'var(--md-primary-container)' : 'transparent',
-                color: lang === l ? 'var(--md-on-primary-container)' : 'var(--md-on-surface-variant)',
-                fontSize: '12px',
-                fontWeight: lang === l ? 600 : 400,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {l === 'zh' ? t('langZh') : t('langEn')}
-            </button>
-          ))}
-        </div>
+      {/* ── 底部用户区 ── */}
+      <div style={{ padding: showText ? '16px 12px' : '8px 6px' }}>
+        {/* 语言切换 */}
+        {showText && (
+          <div style={{
+            display: 'flex',
+            gap: '4px',
+            padding: '0 8px 16px',
+            justifyContent: 'center',
+          }}>
+            {(['zh', 'en'] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLang(l)}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: 'var(--radius-full)',
+                  border: 'none',
+                  background: lang === l ? 'var(--md-primary-container)' : 'transparent',
+                  color: lang === l ? 'var(--md-on-primary-container)' : 'var(--md-on-surface-variant)',
+                  fontSize: '12px',
+                  fontWeight: lang === l ? 600 : 400,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {l === 'zh' ? t('langZh') : t('langEn')}
+              </button>
+            ))}
+          </div>
+        )}
         {/* 用户信息 */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
-          padding: '10px 12px',
+          gap: showText ? '12px' : '0',
+          justifyContent: showText ? 'flex-start' : 'center',
+          padding: showText ? '10px 12px' : '8px 0',
           marginBottom: '4px',
         }}>
           <div style={{
@@ -255,22 +347,25 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           }}>
             <IconUser size={16} />
           </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{
-              fontSize: '13px',
-              fontWeight: 600,
-              color: 'var(--md-on-surface)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
-              {user?.display_name || t('admin')}
+          {showText && (
+            <div style={{ minWidth: 0 }}>
+              <div style={{
+                fontSize: '13px',
+                fontWeight: 600,
+                color: 'var(--md-on-surface)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {user?.display_name || t('admin')}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--md-on-surface-variant)' }}>
+                {user?.role === 'admin' ? t('admin') : t('member')}
+              </div>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--md-on-surface-variant)' }}>
-              {user?.role === 'admin' ? t('admin') : t('member')}
-            </div>
-          </div>
+          )}
         </div>
+        {/* 访问前台 */}
         <a
           href={window.location.origin + '/'}
           target="_blank"
@@ -279,8 +374,9 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
             width: '100%',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '8px 12px',
+            justifyContent: showText ? 'flex-start' : 'center',
+            gap: showText ? '8px' : '0',
+            padding: showText ? '8px 12px' : '8px 0',
             borderRadius: 'var(--radius-full)',
             border: 'none',
             background: 'transparent',
@@ -290,7 +386,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
             cursor: 'pointer',
             textDecoration: 'none',
             transition: 'all 0.15s ease',
-            textAlign: 'left',
+            textAlign: showText ? 'left' : 'center',
             marginBottom: '4px',
           }}
           onMouseEnter={e => {
@@ -307,7 +403,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
             <polyline points="15 3 21 3 21 9"/>
             <line x1="10" y1="14" x2="21" y2="3"/>
           </svg>
-          <span>{t('visitSite')}</span>
+          {showText && <span>{t('visitSite')}</span>}
         </a>
         {/* 插件菜单项 */}
         {menuSlots.map(s => (
@@ -320,8 +416,9 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
               width: '100%',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
+              justifyContent: showText ? 'flex-start' : 'center',
+              gap: showText ? '8px' : '0',
+              padding: showText ? '8px 12px' : '8px 0',
               borderRadius: 'var(--radius-full)',
               textDecoration: 'none',
               color: 'var(--md-on-surface-variant)',
@@ -340,18 +437,19 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
               e.currentTarget.style.color = 'var(--md-on-surface-variant)';
             }}
           >
-            {s.label}
+            {showText ? s.label : (s.label.charAt(0).toUpperCase())}
           </a>
         ))}
-        {/* 退出按钮 — 文字链接风格 */}
+        {/* 退出 */}
         <button
           onClick={() => void logout()}
           style={{
             width: '100%',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '8px 12px',
+            justifyContent: showText ? 'flex-start' : 'center',
+            gap: showText ? '8px' : '0',
+            padding: showText ? '8px 12px' : '8px 0',
             borderRadius: 'var(--radius-full)',
             border: 'none',
             background: 'transparent',
@@ -360,7 +458,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
             fontWeight: 500,
             cursor: 'pointer',
             transition: 'all 0.15s ease',
-            textAlign: 'left',
+            textAlign: showText ? 'left' : 'center',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.background = 'var(--sidebar-hover)';
@@ -372,7 +470,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           }}
         >
           <IconLogOut />
-          <span>{t('logout')}</span>
+          {showText && <span>{t('logout')}</span>}
         </button>
       </div>
     </aside>
