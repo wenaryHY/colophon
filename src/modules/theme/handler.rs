@@ -196,17 +196,26 @@ pub async fn render_home(
     );
     let ctx = TemplateContext::load(&state).await?;
 
+    // 兜底：如果数据库 site_url 为空，从 Host header 推断
+    let fallback_site_url =
+        crate::modules::seo::infer_site_url_from_host_header(&headers);
+    let effective_site_url = if ctx.site_url.trim().is_empty() {
+        &fallback_site_url
+    } else {
+        &ctx.site_url
+    };
+
     let seo_meta = crate::modules::seo::meta::build_home_meta(
         &ctx.site_title,
         &ctx.site_description,
-        &ctx.site_url,
+        effective_site_url,
         "",  // seo_keywords
         "",
     );
     let json_ld = crate::modules::seo::meta::build_home_json_ld(
         &ctx.site_title,
         &ctx.site_description,
-        &ctx.site_url,
+        effective_site_url,
     );
 
     let plugin_guard = state.plugin_manager.read().await;
@@ -278,6 +287,15 @@ pub async fn render_post(
 
     let ctx = TemplateContext::load(&state).await?;
 
+    // 兜底：如果数据库 site_url 为空，从 Host header 推断
+    let fallback_site_url =
+        crate::modules::seo::infer_site_url_from_host_header(&headers);
+    let effective_site_url = if ctx.site_url.trim().is_empty() {
+        &fallback_site_url
+    } else {
+        &ctx.site_url
+    };
+
     let hook_registry = state.plugin_manager.read().await.hook_registry().clone();
     let mut render_ctx = HookContext {
         hook_name: "post.before_render".into(),
@@ -301,12 +319,12 @@ pub async fn render_post(
     let og_image = p
         .cover_media_id
         .as_ref()
-        .map(|id| format!("{}/uploads/{}", ctx.site_url, id))
+        .map(|id| format!("{}/uploads/{}", effective_site_url, id))
         .unwrap_or_default();
 
     let seo_meta = crate::modules::seo::meta::build_post_meta_with_content_type(
         &ctx.site_title,
-        &ctx.site_url,
+        effective_site_url,
         &p.title,
         &p.slug,
         p.excerpt.as_deref(),
@@ -318,7 +336,7 @@ pub async fn render_post(
 
     let json_ld = crate::modules::seo::meta::build_post_json_ld_with_content_type(
         &ctx.site_title,
-        &ctx.site_url,
+        effective_site_url,
         &p.title,
         &p.slug,
         p.excerpt.as_deref().unwrap_or(""),

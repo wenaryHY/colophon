@@ -1,17 +1,51 @@
 use std::sync::Arc;
 
-use axum::{extract::State, http::header, response::IntoResponse};
+use axum::{
+    extract::State,
+    http::{header, HeaderMap},
+    response::IntoResponse,
+};
 
 use crate::{
     modules::{post::repository as post_repository, setting::repository as setting_repository},
     state::AppState,
 };
 
+/// 从 Host header 推断 site_url，用于数据库 site_url 为空时的兜底
+pub fn infer_site_url_from_host_header(headers: &HeaderMap) -> String {
+    let host = headers
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("localhost");
+    let scheme = if host.starts_with("localhost") || host.starts_with("127.") {
+        "http"
+    } else {
+        "https"
+    };
+    format!("{}://{}", scheme, host)
+}
+
 /// 生成 sitemap.xml 字符串（供 handler 和测试调用）
 pub async fn generate_sitemap_xml(state: &AppState) -> Result<String, String> {
     let site_url = setting_repository::get_string(&state.pool, "site_url", "")
         .await
         .map_err(|e| e.to_string())?;
+    // 如果 site_url 为空，在 Handler 层传入 fallback，这里仍保留测试兼容
+    build_sitemap_xml_inner(site_url.trim_end_matches('/'), state).await
+}
+
+/// 生成 sitemap.xml 字符串，支持 fallback site_url 兜底
+pub async fn generate_sitemap_xml_with_fallback(
+    state: &AppState,
+    fallback_site_url: &str,
+) -> Result<String, String> {
+    let site_url = setting_repository::get_string(&state.pool, "site_url", fallback_site_url)
+        .await
+        .map_err(|e| e.to_string())?;
+    build_sitemap_xml_inner(site_url.trim_end_matches('/'), state).await
+}
+
+async fn build_sitemap_xml_inner(site_url: &str, state: &AppState) -> Result<String, String> {
     let posts = post_repository::list_for_sitemap(&state.pool)
         .await
         .map_err(|e| e.to_string())?;
@@ -54,8 +88,12 @@ pub async fn generate_sitemap_xml(state: &AppState) -> Result<String, String> {
 }
 
 /// Handler for GET /sitemap.xml
-pub async fn serve_sitemap(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    match generate_sitemap_xml(&state).await {
+pub async fn serve_sitemap(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    let fallback_site_url = infer_site_url_from_host_header(&headers);
+    match generate_sitemap_xml_with_fallback(&state, &fallback_site_url).await {
         Ok(xml) => (
             [
                 (header::CONTENT_TYPE, "application/xml; charset=utf-8"),
