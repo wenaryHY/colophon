@@ -331,7 +331,7 @@ export default function PostEditor() {
           </button>
           <div>
             <h1 style={{
-              fontSize: '20px', fontWeight: 800, color: 'var(--md-on-surface)',
+              fontSize: isMobile ? '16px' : '20px', fontWeight: 800, color: 'var(--md-on-surface)',
               fontFamily: "'Manrope', sans-serif", letterSpacing: '-0.3px', lineHeight: 1.2,
             }}>
               {isEdit ? t('editPostTitle') : (contentType === 'page' ? t('newPage') : t('createPostTitle'))}
@@ -377,7 +377,7 @@ export default function PostEditor() {
           )}
           {showFullToolbar && <Button variant="ghost" onClick={() => navigate('/posts')}>{t('cancel')}</Button>}
           <Button onClick={() => handleSave()} disabled={saving} loading={saving}>
-            <IconCheck size={14} /> {t('save')}
+            <IconCheck size={14} /> {!isMobile && t('save')}
           </Button>
           {/* 自动保存状态指示 */}
           {showFullToolbar && isAutoSaving && (
@@ -396,7 +396,7 @@ export default function PostEditor() {
       {/* ── 编辑器主体 ── */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 260px', gap: '20px', minHeight: 0 }}>
         {/* 左侧：标题 + 编辑器 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '8px' : '16px', minHeight: 0 }}>
           <Input
             label={t('titleLabel')}
             placeholder={t('titlePlaceholder')}
@@ -410,7 +410,7 @@ export default function PostEditor() {
                 <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--md-on-surface-variant)', marginBottom: '6px' }}>
                   {t('postContentLabel')}
                 </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: isMobile ? '200px' : 0 }}>
                   <MarkdownEditor value={content} onChange={setContent} onHtmlChange={setContentHtml} />
                 </div>
                 {/* 字数统计 + 阅读时间 */}
@@ -619,10 +619,12 @@ export default function PostEditor() {
         {isMobile && (
           <details style={{ marginTop: '8px' }}>
             <summary style={{
-              padding: '12px 16px',
+              padding: '14px 16px',
               background: 'var(--md-surface-container)',
               borderRadius: 'var(--radius-lg)',
               cursor: 'pointer',
+              userSelect: 'none',
+              WebkitTapHighlightColor: 'transparent',
               fontWeight: 600,
               fontSize: '14px',
               color: 'var(--md-on-surface)',

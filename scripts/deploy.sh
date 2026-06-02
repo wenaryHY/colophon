@@ -27,8 +27,12 @@ cd /mnt/d/codes/inkforge
 echo "[4/4] Deploying to server..."
 ssh root@162.243.28.76 "systemctl stop inkforge"
 scp target/release/inkforge root@162.243.28.76:/opt/inkforge/inkforge
-scp -r src/admin/dist/* root@162.243.28.76:/opt/inkforge/src/admin/dist/
-scp src/admin/admin.html root@162.243.28.76:/opt/inkforge/src/admin/admin.html
+# 打包前端文件（admin.html 暂存进 dist 目录），单文件 SCP 上传再解压
+cp src/admin/admin.html src/admin/dist/admin.html
+tar -czf /tmp/inkforge-dist.tar.gz -C src/admin/dist .
+scp /tmp/inkforge-dist.tar.gz root@162.243.28.76:/tmp/
+ssh root@162.243.28.76 "tar -xzf /tmp/inkforge-dist.tar.gz -C /opt/inkforge/src/admin/dist/ && cp /opt/inkforge/src/admin/dist/admin.html /opt/inkforge/src/admin/admin.html && chown -R inkforge:inkforge /opt/inkforge/src/admin && rm /tmp/inkforge-dist.tar.gz"
+rm /tmp/inkforge-dist.tar.gz
 ssh root@162.243.28.76 "chown -R inkforge:inkforge /opt/inkforge && systemctl start inkforge && sleep 2 && curl -s http://127.0.0.1:2000/api/v1/health"
 
 echo "=== Deploy SUCCESS ==="
