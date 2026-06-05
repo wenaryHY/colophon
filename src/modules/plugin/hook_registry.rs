@@ -3,17 +3,20 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
 
+use super::action_registry::ActionRegistry;
 use super::hook::{Hook, HookContext, HookType};
 use crate::shared::error::AppResult;
 
 pub struct HookRegistry {
     hooks: Arc<RwLock<HashMap<String, Vec<Hook>>>>,
+    pub action_registry: Arc<ActionRegistry>,
 }
 
 impl HookRegistry {
     pub fn new() -> Self {
         Self {
             hooks: Arc::new(RwLock::new(HashMap::new())),
+            action_registry: Arc::new(ActionRegistry::new()),
         }
     }
 
@@ -107,24 +110,34 @@ impl HookRegistry {
             let handler = hook.handler.clone();
             let plugin_name = hook.plugin_name.clone();
             let hook_name = name.to_string();
+            let action_registry = self.action_registry.clone();
+            let action_id = action_registry.track(&hook_name, &plugin_name).await;
+
             tokio::spawn(async move {
+                action_registry.mark_running(&action_id).await;
                 let mut action_ctx = (*ctx).clone();
                 match timeout(Duration::from_secs(5), handler.run(&mut action_ctx)).await {
-                    Ok(Ok(())) => {}
+                    Ok(Ok(())) => {
+                        action_registry.mark_done(&action_id).await;
+                    }
                     Ok(Err(e)) => {
+                        action_registry.mark_failed(&action_id, &e.to_string()).await;
                         tracing::error!(
                             module = "hook",
                             hook = hook_name,
                             plugin = plugin_name,
+                            action_id = %action_id,
                             error = %e,
                             "action hook failed"
                         );
                     }
                     Err(_) => {
+                        action_registry.mark_timeout(&action_id).await;
                         tracing::warn!(
                             module = "hook",
                             hook = hook_name,
                             plugin = plugin_name,
+                            action_id = %action_id,
                             "action hook timed out after 5s"
                         );
                     }

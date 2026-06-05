@@ -9,6 +9,7 @@ use minijinja::Environment;
 use crate::shared::error::AppResult;
 use crate::state::AppState;
 
+use super::action_registry::ActionRegistry;
 use super::asset::PluginAsset;
 use super::hook_registry::HookRegistry;
 use super::loader::DiscoveredPlugin;
@@ -83,6 +84,10 @@ impl PluginManager {
 
     pub fn hook_registry(&self) -> &Arc<HookRegistry> {
         &self.hook_registry
+    }
+
+    pub fn action_registry(&self) -> &Arc<ActionRegistry> {
+        &self.hook_registry.action_registry
     }
 
     pub fn discovered_manifests(&self) -> Vec<PluginManifest> {

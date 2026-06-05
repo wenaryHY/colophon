@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::shared::error::AppResult;
 use crate::state::AppState;
 
+pub mod action_registry;
 pub mod asset;
 pub mod hook;
 pub mod hook_registry;
