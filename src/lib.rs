@@ -79,7 +79,7 @@ pub async fn serve() -> anyhow::Result<()> {
     state.plugin_manager.write().await.init_all(&state).await?;
     // 初始化 Webhook 分发器，注册到全局 HookRegistry
     {
-        let dispatcher = modules::webhook::service::WebhookDispatcher::new(state.pool.clone());
+        let dispatcher = modules::webhook::service::WebhookDispatcher::new(state.pool.clone(), config.webhook.clone());
         let hooks = dispatcher.into_hooks();
         state.plugin_manager.read().await.hook_registry().register("webhook", hooks).await;
     }

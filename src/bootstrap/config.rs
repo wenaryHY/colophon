@@ -11,6 +11,7 @@ pub struct AppConfig {
     pub theme: ThemeConfig,
     pub paths: PathsConfig,
     pub runtime: RuntimeConfig,
+    pub webhook: WebhookConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -59,6 +60,17 @@ pub struct RuntimeConfig {
     pub mode: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct WebhookConfig {
+    #[serde(default = "default_webhook_max_concurrency")]
+    pub max_concurrency: usize,
+    #[serde(default = "default_webhook_timeout_seconds")]
+    pub timeout_seconds: u64,
+}
+
+fn default_webhook_max_concurrency() -> usize { 5 }
+fn default_webhook_timeout_seconds() -> u64 { 60 }
+
 impl AppConfig {
     pub fn load() -> Result<Self> {
         Ok(config::Config::builder()
@@ -79,6 +91,8 @@ impl AppConfig {
             .set_default("theme.default_mode", "system")?
             .set_default("paths.admin_dist_dir", "src/admin/dist")?
             .set_default("runtime.mode", "development")?
+            .set_default("webhook.max_concurrency", 5)?
+            .set_default("webhook.timeout_seconds", 60)?
             .build()?
             .try_deserialize()?)
     }

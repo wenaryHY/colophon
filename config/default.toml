@@ -19,5 +19,9 @@ theme_dir = "themes"
 active_theme_fallback = "default"
 default_mode = "system"
 
+[webhook]
+max_concurrency = 5    # webhook 发送最大并发数
+timeout_seconds = 60   # 全部 webhook 总超时秒数
+
 [paths]
 admin_dist_dir = "src/admin/dist"

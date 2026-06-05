@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use chrono::Utc;
+use futures_util::future;
 use hmac::{Hmac, Mac};
 use reqwest::Client;
 use sha2::Sha256;
@@ -10,6 +11,7 @@ use sqlx::SqlitePool;
 use tokio::time::sleep;
 
 use crate::{
+    bootstrap::config::WebhookConfig,
     modules::plugin::hook::{Hook, HookContext, HookData, HookHandler},
     shared::error::{AppError, AppResult},
     state::AppState,
@@ -40,11 +42,12 @@ fn get_webhook_http_client() -> &'static reqwest::Client {
 #[derive(Clone)]
 pub struct WebhookDispatcher {
     pool: SqlitePool,
+    config: WebhookConfig,
 }
 
 impl WebhookDispatcher {
-    pub fn new(pool: SqlitePool) -> Self {
-        Self { pool }
+    pub fn new(pool: SqlitePool, config: WebhookConfig) -> Self {
+        Self { pool, config }
     }
 
     /// 将本分发器包装为 action hooks
@@ -64,8 +67,9 @@ impl HookHandler for WebhookDispatcher {
         let payload = serialize_hook_data_to_json(&event, &ctx.data);
         let pool = self.pool.clone();
 
+        let config = self.config.clone();
         tokio::spawn(async move {
-            dispatch_webhooks_for_event(&pool, get_webhook_http_client(), &event, &payload).await;
+            dispatch_webhooks_for_event(&pool, get_webhook_http_client(), &event, &payload, &config).await;
         });
 
         Ok(())
@@ -120,12 +124,13 @@ fn serialize_hook_data_to_json(event: &str, data: &HookData) -> serde_json::Valu
     })
 }
 
-/// 查询匹配的 webhook 并逐个分发
+/// 查询匹配的 webhook 并通过有界并发分发
 async fn dispatch_webhooks_for_event(
     pool: &SqlitePool,
     client: &Client,
     event: &str,
     payload: &serde_json::Value,
+    config: &WebhookConfig,
 ) {
     let webhooks = match repository::list_enabled_webhooks_for_event(pool, event).await {
         Ok(list) => list,
@@ -136,7 +141,6 @@ async fn dispatch_webhooks_for_event(
                 error = %e,
                 "failed to list enabled webhooks for event"
             );
-            // 插入事件级失败记录，防止事件静默丢失
             let payload_str = payload.to_string();
             if let Err(insert_err) = repository::insert_failed_webhook_event(
                 pool,
@@ -157,38 +161,66 @@ async fn dispatch_webhooks_for_event(
         }
     };
 
+    if webhooks.is_empty() {
+        return;
+    }
+
     let payload_str = payload.to_string();
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_concurrency));
+    let mut handles = Vec::with_capacity(webhooks.len());
 
     for webhook in webhooks {
-        let start = Instant::now();
-        let (success, status, response_body) =
-            send_webhook_with_retry(client, &webhook, &payload_str).await;
-        let duration_ms = start.elapsed().as_millis() as i64;
+        let permit = match semaphore.clone().acquire_owned().await {
+            Ok(p) => p,
+            Err(_) => continue, // semaphore closed
+        };
+        let pool = pool.clone();
+        let client = client.clone();
+        let webhook = webhook.clone();
+        let payload_str = payload_str.clone();
+        let event = event.to_string();
 
-        record_delivery(
-            pool,
-            &webhook.id,
-            event,
-            &webhook.url,
-            &payload_str,
-            status,
-            Some(response_body.as_str()),
-            duration_ms,
-            success,
-        )
-        .await;
+        handles.push(tokio::spawn(async move {
+            let _permit = permit; // 持有许可直到当前 webhook 完成
 
-        // 更新最后触发时间
-        let now = Utc::now().to_rfc3339();
-        let last_error = if success { None } else { Some(response_body.as_str()) };
-        let _ = repository::update_webhook_last_trigger(
-            pool,
-            &webhook.id,
-            &now,
-            last_error,
-        )
-        .await;
+            let start = Instant::now();
+            let (success, response_status, response_body) =
+                send_webhook_with_retry(&client, &webhook, &payload_str).await;
+            let duration_ms = start.elapsed().as_millis() as i64;
+
+            // 记录投递日志
+            let _ = repository::insert_delivery(
+                &pool,
+                &webhook.id,
+                &event,
+                &webhook.url,
+                &payload_str,
+                response_status,
+                Some(&response_body),
+                duration_ms,
+                success,
+            )
+            .await;
+
+            // 更新最后触发时间
+            let now = Utc::now().to_rfc3339();
+            let last_error = if success { None } else { Some(response_body.as_str()) };
+            let _ = repository::update_webhook_last_trigger(
+                &pool,
+                &webhook.id,
+                &now,
+                last_error,
+            )
+            .await;
+        }));
     }
+
+    // 等待所有 webhook 完成，带总超时保护
+    let _ = tokio::time::timeout(
+        Duration::from_secs(config.timeout_seconds),
+        future::join_all(handles),
+    )
+    .await;
 }
 
 /// 发送单个 webhook 请求，支持重试
@@ -284,40 +316,6 @@ async fn try_send_webhook(
     let status = response.status().as_u16() as i64;
     let body = response.text().await.unwrap_or_default();
     Ok((status, body))
-}
-
-/// 记录投递日志
-async fn record_delivery(
-    pool: &SqlitePool,
-    webhook_id: &str,
-    event: &str,
-    request_url: &str,
-    request_body: &str,
-    response_status: Option<i64>,
-    response_body: Option<&str>,
-    duration_ms: i64,
-    success: bool,
-) {
-    if let Err(e) = repository::insert_delivery(
-        pool,
-        webhook_id,
-        event,
-        request_url,
-        request_body,
-        response_status,
-        response_body,
-        duration_ms,
-        success,
-    )
-    .await
-    {
-        tracing::error!(
-            module = "webhook",
-            webhook_id = webhook_id,
-            error = %e,
-            "failed to record webhook delivery"
-        );
-    }
 }
 
 // ── CRUD 服务 ──
