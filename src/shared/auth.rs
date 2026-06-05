@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{FromRef, FromRequestParts},
+    extract::{FromRef, FromRequestParts, OptionalFromRequestParts},
     http::{request::Parts, HeaderMap},
-    RequestPartsExt,
 };
+use std::convert::Infallible;
 use axum_extra::{
     extract::CookieJar,
     headers::{authorization::Bearer, Authorization},
@@ -106,7 +106,6 @@ async fn authenticate_via_api_key(
     }
 }
 
-#[axum::async_trait]
 impl<S> FromRequestParts<S> for AuthUser
 where
     S: Send + Sync,
@@ -130,8 +129,7 @@ where
         }
 
         // ── 2. 尝试 Bearer Token ──
-        let auth_header = parts
-            .extract::<TypedHeader<Authorization<Bearer>>>()
+        let auth_header = <TypedHeader<Authorization<Bearer>> as FromRequestParts<S>>::from_request_parts(parts, state)
             .await
             .ok();
 
@@ -181,7 +179,26 @@ where
     }
 }
 
-#[axum::async_trait]
+// 为 AuthUser 提供 OptionalFromRequestParts，使 Option<AuthUser>
+// 在 axum 0.8 的 handler 签名中可用（认证失败返回 None 而非错误）
+impl<S> OptionalFromRequestParts<S> for AuthUser
+where
+    S: Send + Sync,
+    Arc<AppState>: FromRef<S>,
+{
+    type Rejection = Infallible;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Option<Self>, Self::Rejection> {
+        match <AuthUser as FromRequestParts<S>>::from_request_parts(parts, state).await {
+            Ok(user) => Ok(Some(user)),
+            Err(_) => Ok(None),
+        }
+    }
+}
+
 impl<S> FromRequestParts<S> for AdminUser
 where
     S: Send + Sync,
@@ -190,7 +207,7 @@ where
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let user = AuthUser::from_request_parts(parts, state).await?;
+        let user = <AuthUser as FromRequestParts<S>>::from_request_parts(parts, state).await?;
         if !user.has_permission("admin:access") {
             tracing::warn!(
                 module = "shared_auth",

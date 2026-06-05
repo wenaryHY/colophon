@@ -53,10 +53,10 @@ pub async fn ws_admin_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    params: Option<Query<WsAdminParams>>,
+    Query(params): Query<WsAdminParams>,
 ) -> Response {
     let token = params
-        .and_then(|Query(query)| query.token)
+        .token
         .or_else(|| session_token_from_headers(&headers));
 
     let Some(token) = token else {

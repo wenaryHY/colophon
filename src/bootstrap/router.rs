@@ -175,25 +175,25 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/v1/me/profile", patch(modules::user::handler::update_profile))
         .route("/api/v1/me/password", patch(modules::user::handler::update_password))
         .route("/api/v1/me/comments", get(modules::comment::handler::my_comments))
-        .route("/api/v1/me/comments/:id", delete(modules::comment::handler::delete_own_comment))
+        .route("/api/v1/me/comments/{id}", delete(modules::comment::handler::delete_own_comment))
         .route("/api/v1/posts", get(modules::post::handler::list_public_posts))
         .route("/api/v1/search", get(modules::post::handler::search_posts))
-        .route("/api/v1/posts/:slug", get(modules::post::handler::get_public_post))
+        .route("/api/v1/posts/{slug}", get(modules::post::handler::get_public_post))
         .route("/api/v1/categories", get(modules::category::handler::list_categories))
         .route("/api/v1/tags", get(modules::tag::handler::list_tags))
         .route("/api/v1/admin/categories", post(modules::category::handler::create_category))
         .route(
-            "/api/v1/admin/categories/:id",
+            "/api/v1/admin/categories/{id}",
             patch(modules::category::handler::update_category)
                 .delete(modules::category::handler::delete_category),
         )
         .route("/api/v1/admin/tags", post(modules::tag::handler::create_tag))
         .route(
-            "/api/v1/admin/tags/:id",
+            "/api/v1/admin/tags/{id}",
             patch(modules::tag::handler::update_tag).delete(modules::tag::handler::delete_tag),
         )
         .route(
-            "/api/v1/posts/:slug/comments",
+            "/api/v1/posts/{slug}/comments",
             get(modules::comment::handler::list_post_comments)
                 .post(modules::comment::handler::create_comment),
         )
@@ -204,29 +204,29 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                 .post(modules::post::handler::create_post),
         )
         .route(
-            "/api/v1/admin/posts/:id",
+            "/api/v1/admin/posts/{id}",
             get(modules::post::handler::get_admin_post)
                 .patch(modules::post::handler::update_post)
                 .delete(modules::post::handler::delete_post),
         )
         .route("/api/v1/admin/pages/upload", post(modules::post::handler::upload_custom_page))
         .route("/api/v1/admin/comments", get(modules::comment::handler::list_admin_comments))
-        .route("/api/v1/admin/comments/:id/approve", post(modules::comment::handler::approve_comment))
-        .route("/api/v1/admin/comments/:id/reject", post(modules::comment::handler::reject_comment))
-        .route("/api/v1/admin/comments/:id", delete(modules::comment::handler::delete_comment))
-        .route("/api/v1/admin/comments/:id/restore", post(modules::comment::handler::restore_comment))
-        .route("/api/v1/admin/comments/:id/purge", delete(modules::comment::handler::purge_comment))
+        .route("/api/v1/admin/comments/{id}/approve", post(modules::comment::handler::approve_comment))
+        .route("/api/v1/admin/comments/{id}/reject", post(modules::comment::handler::reject_comment))
+        .route("/api/v1/admin/comments/{id}", delete(modules::comment::handler::delete_comment))
+        .route("/api/v1/admin/comments/{id}/restore", post(modules::comment::handler::restore_comment))
+        .route("/api/v1/admin/comments/{id}/purge", delete(modules::comment::handler::purge_comment))
         .route(
             "/api/v1/admin/media",
             get(modules::media::handler::list_media).post(modules::media::handler::upload_media),
         )
         .route(
-            "/api/v1/admin/media/:id",
+            "/api/v1/admin/media/{id}",
             delete(modules::media::handler::delete_media)
                 .patch(modules::media::handler::rename_media),
         )
         .route(
-            "/api/v1/admin/media/:id/category",
+            "/api/v1/admin/media/{id}/category",
             patch(modules::media::handler::update_media_category),
         )
         .route(
@@ -235,17 +235,17 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                 .post(modules::media::handler::create_media_category),
         )
         .route(
-            "/api/v1/admin/media/categories/:id",
+            "/api/v1/admin/media/categories/{id}",
             patch(modules::media::handler::update_media_category_crud)
                 .delete(modules::media::handler::delete_media_category),
         )
         .route("/api/v1/admin/themes", get(modules::theme::handler::list_themes))
         .route(
-            "/api/v1/admin/themes/:slug/detail",
+            "/api/v1/admin/themes/{slug}/detail",
             get(modules::theme::handler::get_theme_detail),
         )
         .route(
-            "/api/v1/admin/themes/:slug/config",
+            "/api/v1/admin/themes/{slug}/config",
             patch(modules::theme::handler::save_theme_config),
         )
         .route(
@@ -253,7 +253,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             post(modules::theme::handler::upload_theme_archive),
         )
         .route(
-            "/api/v1/admin/themes/:slug/activate",
+            "/api/v1/admin/themes/{slug}/activate",
             post(modules::theme::handler::activate_theme),
         )
         .route("/api/v1/preview/content", post(modules::theme::handler::preview_content))
@@ -273,12 +273,12 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                 .patch(modules::backup::handler::update_schedule),
         )
         .route(
-            "/api/v1/admin/backup/:id",
+            "/api/v1/admin/backup/{id}",
             delete(modules::backup::handler::delete_backup)
                 .get(modules::backup::handler::download_backup),
         )
         .route(
-            "/api/v1/admin/backups/:id/merge-restore",
+            "/api/v1/admin/backups/{id}/merge-restore",
             post(modules::backup::handler::merge_restore_backup),
         )
         .route("/api/v1/admin/trash", get(modules::trash::handler::list_trash))
@@ -287,32 +287,32 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             post(modules::trash::handler::purge_expired),
         )
         .route(
-            "/api/v1/admin/trash/:item_type/:id/restore",
+            "/api/v1/admin/trash/{item_type}/{id}/restore",
             post(modules::trash::handler::restore_item),
         )
         .route(
-            "/api/v1/admin/trash/:item_type/:id",
+            "/api/v1/admin/trash/{item_type}/{id}",
             delete(modules::trash::handler::purge_item),
         )
-        .route("/api/v1/admin/plugins/:name/settings",
+        .route("/api/v1/admin/plugins/{name}/settings",
             get(crate::modules::plugin::handler::get_settings)
                 .put(crate::modules::plugin::handler::update_settings))
         .route("/api/v1/admin/plugins/slots", get(crate::modules::plugin::handler::list_slots))
         .route("/api/v1/admin/plugins", get(crate::modules::plugin::handler::list_plugins))
-        .route("/api/v1/admin/plugins/:name/toggle", post(crate::modules::plugin::handler::toggle_plugin))
+        .route("/api/v1/admin/plugins/{name}/toggle", post(crate::modules::plugin::handler::toggle_plugin))
         .route(
             "/api/v1/admin/webhooks",
             get(crate::modules::webhook::handler::list_webhooks)
                 .post(crate::modules::webhook::handler::create_webhook),
         )
         .route(
-            "/api/v1/admin/webhooks/:id",
+            "/api/v1/admin/webhooks/{id}",
             get(crate::modules::webhook::handler::get_webhook)
                 .patch(crate::modules::webhook::handler::update_webhook)
                 .delete(crate::modules::webhook::handler::delete_webhook),
         )
         .route(
-            "/api/v1/admin/webhooks/:id/deliveries",
+            "/api/v1/admin/webhooks/{id}/deliveries",
             get(crate::modules::webhook::handler::list_deliveries),
         )
         .route(
@@ -321,7 +321,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                 .post(crate::modules::api_key::handler::create_api_key),
         )
         .route(
-            "/api/v1/admin/api-keys/:id",
+            "/api/v1/admin/api-keys/{id}",
             patch(crate::modules::api_key::handler::update_api_key)
                 .delete(crate::modules::api_key::handler::revoke_api_key),
         )
@@ -331,24 +331,24 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(render_home_entry))
         .route("/preview", get(modules::theme::handler::preview_page))
-        .route("/posts/:slug", get(modules::theme::handler::render_post))
-        .route("/pages/:slug", get(modules::post::handler::render_custom_page))
+        .route("/posts/{slug}", get(modules::theme::handler::render_post))
+        .route("/pages/{slug}", get(modules::post::handler::render_custom_page))
         .route("/profile", get(modules::user::theme_handler::render_profile_page))
         .route("/login", get(modules::user::theme_handler::render_login_page))
         .route("/register", get(modules::user::theme_handler::render_register_page))
         .route(
-            "/static/themes/:theme_slug/*file_path",
+            "/static/themes/{theme_slug}/{*file_path}",
             get(modules::theme::handler::serve_active_static),
         )
-        .route("/uploads/*file_path", get(modules::theme::handler::serve_upload_static))
+        .route("/uploads/{*file_path}", get(modules::theme::handler::serve_upload_static))
         .route(
-            "/static/plugins/:plugin_slug/*file_path",
+            "/static/plugins/{plugin_slug}/{*file_path}",
             get(modules::theme::handler::serve_plugin_static),
         )
         .route("/setup", get(serve_setup_entry))
         .route("/admin", get(serve_admin_entry))
         .route("/admin/", get(redirect_admin_with_trailing_slash))
-        .route("/admin/*path", get(serve_admin_path))
+        .route("/admin/{*path}", get(serve_admin_path))
         .route("/sitemap.xml", get(modules::seo::sitemap::serve_sitemap))
         .route("/robots.txt", get(modules::seo::robots::serve_robots))
         .route("/favicon.ico", get(|| async { axum::http::StatusCode::NO_CONTENT }))

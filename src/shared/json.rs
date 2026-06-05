@@ -9,7 +9,6 @@ use crate::shared::error::AppError;
 
 pub struct AppJson<T>(pub T);
 
-#[axum::async_trait]
 impl<S, T> FromRequest<S> for AppJson<T>
 where
     S: Send + Sync,

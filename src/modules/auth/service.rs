@@ -14,6 +14,9 @@ use super::{
     repository,
 };
 
+/// 用于恒定时间密码比对的虚拟哈希，防止通过响应时间差异枚举用户
+const DUMMY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
 pub async fn register(
     state: Arc<AppState>,
     body: RegisterRequest,
@@ -93,17 +96,37 @@ pub async fn login(
         login = %body.login,
         "looking up login account"
     );
-    let user = repository::find_by_login(&state.pool, body.login.trim())
-        .await?
-        .ok_or_else(|| {
+    let login_trimmed = body.login.trim().to_string();
+    let user_opt = repository::find_by_login(&state.pool, &login_trimmed).await?;
+
+    // 恒定时间密码比对：用户不存在时也用 dummy hash 执行 argon2 验证，
+    // 防止攻击者通过响应时间差异枚举用户
+    let stored_hash = user_opt
+        .as_ref()
+        .map(|u| u.password_hash.as_str())
+        .unwrap_or(DUMMY_HASH);
+    if !verify_password(&body.password, stored_hash).await? {
+        tracing::warn!(
+            module = "auth",
+            event = "login_bad_password",
+            login = %login_trimmed,
+            "login rejected"
+        );
+        return Err(AppError::Unauthorized);
+    }
+
+    let user = match user_opt {
+        Some(u) => u,
+        None => {
             tracing::warn!(
                 module = "auth",
                 event = "login_user_not_found",
-                login = %body.login,
+                login = %login_trimmed,
                 "login rejected"
             );
-            AppError::Unauthorized
-        })?;
+            return Err(AppError::Unauthorized);
+        }
+    };
 
     if user.status != "active" {
         tracing::warn!(
@@ -112,17 +135,6 @@ pub async fn login(
             user_id = %user.id,
             username = %user.username,
             status = %user.status,
-            "login rejected"
-        );
-        return Err(AppError::Forbidden);
-    }
-
-    if !verify_password(&body.password, &user.password_hash).await? {
-        tracing::warn!(
-            module = "auth",
-            event = "login_bad_password",
-            user_id = %user.id,
-            username = %user.username,
             "login rejected"
         );
         return Err(AppError::Unauthorized);
@@ -243,8 +255,8 @@ async fn ensure_identity_available(state: &Arc<AppState>, body: &RegisterRequest
         email = %body.email,
         "registration rejected"
     );
-    Err(AppError::Conflict(
-        "username or email already exists".into(),
+    Err(AppError::BadRequest(
+        "registration failed, please try again later".into(),
     ))
 }
 
