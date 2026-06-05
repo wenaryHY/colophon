@@ -32,7 +32,7 @@ impl AuthUser {
     pub fn has_permission(&self, action: &str) -> bool {
         match action {
             "admin:access" => self.role == "admin",
-            _ => true,
+            _ => false,  // deny-by-default
         }
     }
 }

@@ -7,6 +7,7 @@ use axum::{
     routing::{delete, get, patch, post},
     Router,
 };
+use axum_governor::{GovernorConfigBuilder, GovernorLayer, Quota, extractor::PeerIp, nz};
 use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
@@ -152,8 +153,21 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "x-request-id".parse().unwrap(),
         ]);
 
+    let register_governor_config = GovernorConfigBuilder::default()
+        .with_extractor(PeerIp::default())
+        .expect_connect_info()
+        .quota_default(
+            Quota::requests_per_second(nz!(1u32)).burst(nz!(3u32)),
+        )
+        .finish()
+        .unwrap();
+
     let auth_v1 = Router::new()
-        .route("/api/v1/auth/register", post(modules::auth::handler::register))
+        .route(
+            "/api/v1/auth/register",
+            post(modules::auth::handler::register)
+                .layer(GovernorLayer::new(register_governor_config)),
+        )
         .route("/api/v1/auth/logout", post(modules::auth::handler::logout))
         .route("/api/v1/auth/refresh", post(modules::auth::handler::refresh_token))
         .merge(

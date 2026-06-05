@@ -91,9 +91,9 @@ pub async fn update_password(
     auth: &AuthUser,
     body: UpdatePasswordRequest,
 ) -> AppResult<serde_json::Value> {
-    if body.new_password.len() < 6 {
+    if body.new_password.len() < 8 {
         return Err(AppError::BadRequest(
-            "new password must be at least 6 characters".into(),
+            "new password must be at least 8 characters".into(),
         ));
     }
 

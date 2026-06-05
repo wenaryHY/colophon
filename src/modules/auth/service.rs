@@ -226,7 +226,7 @@ fn validate_register_request(body: &RegisterRequest) -> AppResult<()> {
         ));
     }
 
-    if body.password.len() < 6 {
+    if body.password.len() < 8 {
         tracing::warn!(
             module = "auth",
             event = "register_invalid_password",
@@ -234,7 +234,7 @@ fn validate_register_request(body: &RegisterRequest) -> AppResult<()> {
             "registration rejected"
         );
         return Err(AppError::BadRequest(
-            "password must be at least 6 characters".into(),
+            "password must be at least 8 characters".into(),
         ));
     }
 

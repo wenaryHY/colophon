@@ -149,11 +149,11 @@ fn ensure_username(value: &str) -> AppResult<()> {
 }
 
 fn ensure_password(value: &str) -> AppResult<()> {
-    if value.len() >= 6 {
+    if value.len() >= 8 {
         return Ok(());
     }
     Err(AppError::BadRequest(
-        "password must be at least 6 characters".into(),
+        "password must be at least 8 characters".into(),
     ))
 }
 

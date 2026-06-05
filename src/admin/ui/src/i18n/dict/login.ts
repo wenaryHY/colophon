@@ -37,6 +37,9 @@ export const loginDict = {
 
     // 记住我
     rememberMe: '7 天内免登录',
+
+    // 密码提示
+    passwordHint: '至少 8 个字符',
   },
   en: {
     // Title
@@ -75,5 +78,8 @@ export const loginDict = {
 
     // Remember me
     rememberMe: 'Stay signed in for 7 days',
+
+    // Password hint
+    passwordHint: 'At least 8 characters',
   },
 };

@@ -33,6 +33,7 @@ minijinja = { version = "=2.19.0", features = ["loader"] }
 
 # 认证
 governor = "=0.10.4"
+axum-governor = "=2.0.2"
 jsonwebtoken = "=9.3.1"
 argon2 = "=0.5.3"
 rand_core = { version = "=0.6.4", features = ["getrandom"] }

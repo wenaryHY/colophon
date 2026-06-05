@@ -70,6 +70,9 @@ export default function Login() {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const honeypot = (form.elements.namedItem('website') as HTMLInputElement)?.value;
+    if (honeypot) return; // bot detected, silently reject
     if (!registerAvailable) {
       toast(t('registerClosedHint'), 'error');
       return;
@@ -338,6 +341,10 @@ export default function Login() {
 
           {!setupLoading && tab === 'register' ? (
             <form onSubmit={handleRegister} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ position: 'absolute', left: '-9999px', opacity: 0 }} aria-hidden="true">
+                <label htmlFor="honeypot_website">Leave this empty</label>
+                <input id="honeypot_website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+              </div>
               <input type="text" value={regUsername} onChange={e => setRegUsername(e.target.value)}
                 placeholder={t('username')} required style={inputSmallStyle} onFocus={focusIn} onBlur={focusOut} />
               <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)}
