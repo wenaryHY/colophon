@@ -160,6 +160,8 @@ if [ -d "${THEME_TEMPLATES_DIR}" ]; then
     if [ -d "${THEME_STATIC_DIR}" ] && [ "$(ls -A "${THEME_STATIC_DIR}" 2>/dev/null)" ]; then
         scp_upload -r "${THEME_STATIC_DIR}/"* "${SERVER_USER}@${SERVER_IP}:${REMOTE_THEME_STATIC_PATH}/" 2>/dev/null || true
     fi
+    # scp 以 root 上传，修正所有者为 inkforge
+    ssh_cmd "chown -R inkforge:inkforge ${REMOTE_THEME_TEMPLATES_PATH} ${REMOTE_THEME_STATIC_PATH}"
     log_success "主题模板上传完成"
 else
     log_warn "主题模板目录不存在，跳过"
@@ -210,6 +212,7 @@ sleep 1
 # 5e. 替换二进制
 echo "[server] 替换二进制..."
 mv /opt/inkforge/inkforge.new /opt/inkforge/inkforge
+chown inkforge:inkforge /opt/inkforge/inkforge
 chmod +x /opt/inkforge/inkforge
 
 # 5f. 启动服务
