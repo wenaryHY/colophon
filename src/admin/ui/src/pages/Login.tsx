@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiData, API_PREFIX } from '../lib/api';
 import { SlotRenderer } from '../lib/slots';
@@ -27,6 +27,33 @@ export default function Login() {
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regDisplayName, setRegDisplayName] = useState('');
+
+  // Turnstile widget token
+  const turnstileRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Turnstile 脚本已在 index.html 中通过 <script> 标签加载（render=explicit 模式）
+    const interval = setInterval(() => {
+      try {
+        const t = (window as unknown as { turnstile?: { render: (selector: string, opts: Record<string, unknown>) => void } }).turnstile;
+        if (t && document.getElementById('turnstile-widget')) {
+          t.render('#turnstile-widget', {
+            sitekey: '0x4AAAAAADffbuvTrWkvKyda',
+            callback: (token: string) => {
+              turnstileRef.current = token;
+            },
+            'error-callback': () => {
+              turnstileRef.current = null;
+            },
+          });
+          clearInterval(interval);
+        }
+      } catch {
+        // 脚本尚未加载，等待
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
 
   const { data: setupStatus, isLoading: setupLoading } = useQuery({
     queryKey: ['setup-status'],
@@ -57,7 +84,7 @@ export default function Login() {
     if (!loginValue || !loginPassword) return;
     setLoginLoading(true);
     try {
-      const result = await login(loginValue, loginPassword, rememberMe);
+      const result = await login(loginValue, loginPassword, rememberMe, turnstileRef.current);
       if (result.success) {
         setTimeout(() => navigate('/posts'), 100);
       } else {
@@ -85,6 +112,7 @@ export default function Login() {
         email: regEmail,
         password: regPassword,
         display_name: regDisplayName || undefined,
+        turnstile_token: turnstileRef.current,
       });
       if (result.success) {
         toast(t('registerSuccess'), 'success');
@@ -370,6 +398,11 @@ export default function Login() {
 
         <div style={{ padding: '0 28px' }}>
           <SlotRenderer target="login.form_below" />
+        </div>
+
+        {/* Turnstile 验证码 widget */}
+        <div style={{ padding: '0 28px', marginTop: '8px', display: 'flex', justifyContent: 'center' }}>
+          <div id="turnstile-widget"></div>
         </div>
 
         {/* 底部链接 */}

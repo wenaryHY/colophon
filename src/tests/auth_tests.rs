@@ -14,6 +14,7 @@ mod auth_integration_tests {
             email: "test@example.com".to_string(),
             password: "SecurePass123!".to_string(),
             display_name: Some("Test User".to_string()),
+            turnstile_token: None,
         };
 
         assert_eq!(valid_request.username, "testuser");
@@ -28,6 +29,7 @@ mod auth_integration_tests {
             login: "testuser".to_string(),
             password: "SecurePass123!".to_string(),
             remember_me: None,
+            turnstile_token: None,
         };
 
         assert_eq!(valid_request.login, "testuser");

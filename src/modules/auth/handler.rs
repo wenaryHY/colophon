@@ -23,6 +23,29 @@ pub async fn register(
 ) -> AppResult<axum::response::Response> {
     let client_request_id =
         crate::shared::request_id::extract_or_generate_client_request_id(&headers);
+
+    // Turnstile 验证：仅在配置了 secret 且前端传递了 token 时执行
+    if !state.config.auth.turnstile_secret.is_empty() {
+        if let Some(ref token) = body.turnstile_token {
+            if !crate::shared::turnstile::verify_turnstile(
+                token,
+                &state.config.auth.turnstile_secret,
+            )
+            .await
+            {
+                tracing::warn!(
+                    module = "auth",
+                    event = "register_turnstile_failed",
+                    client_request_id = %client_request_id,
+                    "Turnstile verification failed"
+                );
+                return Err(crate::shared::error::AppError::BadRequest(
+                    "验证失败，请刷新页面重试".into(),
+                ));
+            }
+        }
+    }
+
     tracing::info!(
         module = "auth",
         event = "register_request",
@@ -63,6 +86,29 @@ pub async fn login(
 ) -> AppResult<axum::response::Response> {
     let client_request_id =
         crate::shared::request_id::extract_or_generate_client_request_id(&headers);
+
+    // Turnstile 验证：仅在配置了 secret 且前端传递了 token 时执行
+    if !state.config.auth.turnstile_secret.is_empty() {
+        if let Some(ref token) = body.turnstile_token {
+            if !crate::shared::turnstile::verify_turnstile(
+                token,
+                &state.config.auth.turnstile_secret,
+            )
+            .await
+            {
+                tracing::warn!(
+                    module = "auth",
+                    event = "login_turnstile_failed",
+                    client_request_id = %client_request_id,
+                    "Turnstile verification failed"
+                );
+                return Err(crate::shared::error::AppError::BadRequest(
+                    "验证失败，请刷新页面重试".into(),
+                ));
+            }
+        }
+    }
+
     tracing::info!(
         module = "auth",
         event = "login_request",

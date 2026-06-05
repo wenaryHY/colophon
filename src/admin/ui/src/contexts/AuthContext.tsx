@@ -9,6 +9,7 @@ interface RegisterData {
   email: string;
   password: string;
   display_name?: string;
+  turnstile_token?: string | null;
 }
 
 /** 登录/注册响应中返回的用户摘要（id/username/role），完整用户信息通过 refreshUser() 获取 */
@@ -19,7 +20,7 @@ interface LoginResponse {
 
 interface AuthContextValue {
   user: CurrentUser | null;
-  login: (login: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; message?: string }>;
+  login: (login: string, password: string, rememberMe?: boolean, turnstileToken?: string | null) => Promise<{ success: boolean; message?: string }>;
   register: (data: RegisterData) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -82,11 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = useCallback(async (loginValue: string, password: string, rememberMe?: boolean) => {
+  const login = useCallback(async (loginValue: string, password: string, rememberMe?: boolean, turnstileToken?: string | null) => {
     try {
       const data = await apiData<LoginResponse>(`${API_PREFIX}/auth/login`, {
         method: 'POST',
-        body: JSON.stringify({ login: loginValue, password, remember_me: rememberMe }),
+        body: JSON.stringify({ login: loginValue, password, remember_me: rememberMe, turnstile_token: turnstileToken ?? undefined }),
       });
       setAccessToken(data.access_token);
       await refreshUser();

@@ -19,6 +19,7 @@ Environment=INKFORGE__SERVER__PORT=2000
 Environment=INKFORGE__DATABASE__URL=sqlite:///var/lib/inkforge/inkforge.db?mode=rwc
 Environment=INKFORGE__STORAGE__UPLOAD_DIR=/var/lib/inkforge/uploads
 Environment=INKFORGE__PATHS__ADMIN_DIST_DIR=/opt/inkforge/src/admin/dist
+Environment=INKFORGE__AUTH__TURNSTILE_SECRET=0x4AAAAAADffbmSURBkp_S0jukZZN4b0-68
 
 # Put INKFORGE__AUTH__SECRET in /etc/inkforge/inkforge.env with 0600 permissions.
 EnvironmentFile=-/etc/inkforge/inkforge.env

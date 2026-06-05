@@ -6,6 +6,9 @@ pub struct RegisterRequest {
     pub email: String,
     pub password: String,
     pub display_name: Option<String>,
+    /// Cloudflare Turnstile token（前端 widget 回调产生的 token，为空则跳过验证）
+    #[serde(default)]
+    pub turnstile_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -13,6 +16,9 @@ pub struct LoginRequest {
     pub login: String,
     pub password: String,
     pub remember_me: Option<bool>,
+    /// Cloudflare Turnstile token（前端 widget 回调产生的 token，为空则跳过验证）
+    #[serde(default)]
+    pub turnstile_token: Option<String>,
 }
 
 /// 登录/注册响应中返回的用户摘要信息
