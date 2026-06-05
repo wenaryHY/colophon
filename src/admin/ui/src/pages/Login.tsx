@@ -30,6 +30,7 @@ export default function Login() {
 
   // Turnstile widget token
   const turnstileRef = useRef<string | null>(null);
+  const [turnstileReady, setTurnstileReady] = useState(false);
 
   useEffect(() => {
     // Turnstile 脚本已在 index.html 中通过 <script> 标签加载（render=explicit 模式）
@@ -39,11 +40,14 @@ export default function Login() {
         if (t && document.getElementById('turnstile-widget')) {
           t.render('#turnstile-widget', {
             sitekey: '0x4AAAAAADffbuvTrWkvKyda',
+            theme: 'dark',
             callback: (token: string) => {
               turnstileRef.current = token;
+              setTurnstileReady(true);
             },
             'error-callback': () => {
               turnstileRef.current = null;
+              setTurnstileReady(false);
             },
           });
           clearInterval(interval);
@@ -355,12 +359,12 @@ export default function Login() {
               </label>
               <button
                 type="submit"
-                disabled={loginLoading}
-                style={primaryBtnStyle(loginLoading)}
-                onMouseEnter={e => btnHover(e, loginLoading)}
-                onMouseLeave={e => btnLeave(e, loginLoading)}
-                onMouseDown={e => btnDown(e, loginLoading)}
-                onMouseUp={e => btnUp(e, loginLoading)}
+                disabled={loginLoading || !turnstileReady}
+                style={primaryBtnStyle(loginLoading || !turnstileReady)}
+                onMouseEnter={e => btnHover(e, loginLoading || !turnstileReady)}
+                onMouseLeave={e => btnLeave(e, loginLoading || !turnstileReady)}
+                onMouseDown={e => btnDown(e, loginLoading || !turnstileReady)}
+                onMouseUp={e => btnUp(e, loginLoading || !turnstileReady)}
               >
                 {loginLoading ? t('loggingIn') : t('loginBtn')}
               </button>
@@ -383,12 +387,12 @@ export default function Login() {
                 placeholder={t('displayName')} style={inputSmallStyle} onFocus={focusIn} onBlur={focusOut} />
               <button
                 type="submit"
-                disabled={loginLoading}
-                style={{ ...primaryBtnStyle(loginLoading, true), marginTop: '4px' }}
-                onMouseEnter={e => btnHover(e, loginLoading)}
-                onMouseLeave={e => btnLeave(e, loginLoading)}
-                onMouseDown={e => btnDown(e, loginLoading)}
-                onMouseUp={e => btnUp(e, loginLoading)}
+                disabled={loginLoading || !turnstileReady}
+                style={{ ...primaryBtnStyle(loginLoading || !turnstileReady, true), marginTop: '4px' }}
+                onMouseEnter={e => btnHover(e, loginLoading || !turnstileReady)}
+                onMouseLeave={e => btnLeave(e, loginLoading || !turnstileReady)}
+                onMouseDown={e => btnDown(e, loginLoading || !turnstileReady)}
+                onMouseUp={e => btnUp(e, loginLoading || !turnstileReady)}
               >
                 {loginLoading ? t('creating') : t('registerBtn')}
               </button>
@@ -401,8 +405,31 @@ export default function Login() {
         </div>
 
         {/* Turnstile 验证码 widget */}
-        <div style={{ padding: '0 28px', marginTop: '8px', display: 'flex', justifyContent: 'center' }}>
-          <div id="turnstile-widget"></div>
+        <div style={{ padding: '0 28px', marginTop: '8px' }}>
+          <div
+            id="turnstile-widget"
+            style={{
+              minHeight: '65px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--md-surface-container-low)',
+              borderRadius: 'var(--radius-md)',
+              padding: '12px',
+            }}
+          ></div>
+          {!turnstileReady && (
+            <div
+              style={{
+                textAlign: 'center',
+                fontSize: '12px',
+                color: 'var(--md-outline)',
+                marginTop: '6px',
+              }}
+            >
+              {t('loadingTurnstile')}
+            </div>
+          )}
         </div>
 
         {/* 底部链接 */}

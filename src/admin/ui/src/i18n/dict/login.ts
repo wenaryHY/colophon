@@ -40,6 +40,9 @@ export const loginDict = {
 
     // 密码提示
     passwordHint: '至少 8 个字符',
+
+    // Turnstile
+    loadingTurnstile: '正在加载验证组件…',
   },
   en: {
     // Title
@@ -81,5 +84,8 @@ export const loginDict = {
 
     // Password hint
     passwordHint: 'At least 8 characters',
+
+    // Turnstile
+    loadingTurnstile: 'Loading verification…',
   },
 };

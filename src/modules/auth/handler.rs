@@ -24,25 +24,26 @@ pub async fn register(
     let client_request_id =
         crate::shared::request_id::extract_or_generate_client_request_id(&headers);
 
-    // Turnstile 验证：仅在配置了 secret 且前端传递了 token 时执行
+    // Turnstile 验证：配置了 secret 时强制校验，token 缺失或无效均拒绝
     if !state.config.auth.turnstile_secret.is_empty() {
-        if let Some(ref token) = body.turnstile_token {
-            if !crate::shared::turnstile::verify_turnstile(
-                token,
-                &state.config.auth.turnstile_secret,
-            )
-            .await
-            {
-                tracing::warn!(
-                    module = "auth",
-                    event = "register_turnstile_failed",
-                    client_request_id = %client_request_id,
-                    "Turnstile verification failed"
-                );
-                return Err(crate::shared::error::AppError::BadRequest(
-                    "验证失败，请刷新页面重试".into(),
-                ));
-            }
+        let token = body.turnstile_token.as_ref().ok_or_else(|| {
+            crate::shared::error::AppError::BadRequest("请完成人机验证".into())
+        })?;
+        if !crate::shared::turnstile::verify_turnstile(
+            token,
+            &state.config.auth.turnstile_secret,
+        )
+        .await
+        {
+            tracing::warn!(
+                module = "auth",
+                event = "register_turnstile_failed",
+                client_request_id = %client_request_id,
+                "Turnstile verification failed"
+            );
+            return Err(crate::shared::error::AppError::BadRequest(
+                "验证失败，请刷新页面重试".into(),
+            ));
         }
     }
 
@@ -87,25 +88,26 @@ pub async fn login(
     let client_request_id =
         crate::shared::request_id::extract_or_generate_client_request_id(&headers);
 
-    // Turnstile 验证：仅在配置了 secret 且前端传递了 token 时执行
+    // Turnstile 验证：配置了 secret 时强制校验，token 缺失或无效均拒绝
     if !state.config.auth.turnstile_secret.is_empty() {
-        if let Some(ref token) = body.turnstile_token {
-            if !crate::shared::turnstile::verify_turnstile(
-                token,
-                &state.config.auth.turnstile_secret,
-            )
-            .await
-            {
-                tracing::warn!(
-                    module = "auth",
-                    event = "login_turnstile_failed",
-                    client_request_id = %client_request_id,
-                    "Turnstile verification failed"
-                );
-                return Err(crate::shared::error::AppError::BadRequest(
-                    "验证失败，请刷新页面重试".into(),
-                ));
-            }
+        let token = body.turnstile_token.as_ref().ok_or_else(|| {
+            crate::shared::error::AppError::BadRequest("请完成人机验证".into())
+        })?;
+        if !crate::shared::turnstile::verify_turnstile(
+            token,
+            &state.config.auth.turnstile_secret,
+        )
+        .await
+        {
+            tracing::warn!(
+                module = "auth",
+                event = "login_turnstile_failed",
+                client_request_id = %client_request_id,
+                "Turnstile verification failed"
+            );
+            return Err(crate::shared::error::AppError::BadRequest(
+                "验证失败，请刷新页面重试".into(),
+            ));
         }
     }
 
