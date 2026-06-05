@@ -5,6 +5,20 @@ import { TiptapPanel } from './TiptapPanel';
 import { MediaPicker } from '../MediaPicker';
 import { useI18n } from '../../i18n';
 
+// 尝试从 Markdown 模板文本中提取对称包裹标记（如 **text** → { start: '**', end: '**' }）
+function guessMarker(template: string): { start: string; end: string } | null {
+  const patterns: [string, string][] = [
+    ['**', '**'], ['__', '__'], ['*', '*'], ['_', '_'],
+    ['~~', '~~'], ['==', '=='], ['`', '`'], ['```', '```'],
+  ];
+  for (const [start, end] of patterns) {
+    if (template.startsWith(start) && template.endsWith(end) && template.length >= start.length + end.length) {
+      return { start, end };
+    }
+  }
+  return null;
+}
+
 export type EditorMode = 'source' | 'wysiwyg';
 
 interface Props {
@@ -48,12 +62,35 @@ export function MarkdownEditor({ value, onChange, onHtmlChange, onModeChange, sh
       (window as any).inkforgeInsertMarkdown = (text: string) => {
         if (!cmViewRef.current) return;
         const v = cmViewRef.current;
-        const pos = v.state.selection.main.head;
-        const selectionAnchor = pos + text.length;
-        v.dispatch({
-          changes: { from: pos, insert: text },
-          selection: { anchor: selectionAnchor },
-        });
+        const selection = v.state.selection.main;
+        const hasSelection = selection.from !== selection.to;
+
+        if (hasSelection) {
+          const selectedText = v.state.sliceDoc(selection.from, selection.to);
+          const marker = guessMarker(text);
+          if (marker) {
+            // 对称标记（如 **粗体文本**）→ 包裹选中内容
+            const wrapped = marker.start + selectedText + marker.end;
+            v.dispatch({
+              changes: { from: selection.from, to: selection.to, insert: wrapped },
+              selection: { anchor: selection.from + wrapped.length },
+            });
+          } else {
+            // 非对称格式（如 > 引用、# 标题）→ 在选中行前插入
+            const line = v.state.doc.lineAt(selection.from);
+            v.dispatch({
+              changes: { from: line.from, insert: text },
+              selection: { anchor: line.from + text.length },
+            });
+          }
+        } else {
+          // 无选中 → 插入模板文本（保持现有行为）
+          const pos = selection.head;
+          v.dispatch({
+            changes: { from: pos, insert: text },
+            selection: { anchor: pos + text.length },
+          });
+        }
         v.focus();
       };
     }

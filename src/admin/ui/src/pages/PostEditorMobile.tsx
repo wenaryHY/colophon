@@ -653,6 +653,20 @@ export default function PostEditorMobile() {
     !!title || !!content
   );
 
+  // 新建文章时静默恢复草稿（编辑模式由 postData useEffect 处理）
+  useEffect(() => {
+    if (isEdit) return;
+    const draft = restoreDraft();
+    if (draft) {
+      setTitle(draft.title);
+      setContent(draft.content);
+      setContentHtml(draft.contentHtml);
+      setExcerpt(draft.excerpt);
+      setCategoryId(draft.categoryId);
+      setSelectedTagIds(draft.tagIds);
+    }
+  }, []); // 仅在 mount 时执行一次
+
   // 加载文章详情（编辑模式）
   const { data: postData, isLoading: postLoading, isError: postError } = useQuery({
     queryKey: ['post', id],
