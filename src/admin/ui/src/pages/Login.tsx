@@ -33,30 +33,53 @@ export default function Login() {
   const [turnstileReady, setTurnstileReady] = useState(false);
 
   useEffect(() => {
-    // Turnstile 脚本已在 index.html 中通过 <script> 标签加载（render=explicit 模式）
-    const interval = setInterval(() => {
-      try {
-        const t = (window as unknown as { turnstile?: { render: (selector: string, opts: Record<string, unknown>) => void } }).turnstile;
-        if (t && document.getElementById('turnstile-widget')) {
-          t.render('#turnstile-widget', {
-            sitekey: '0x4AAAAAADffbuvTrWkvKyda',
-            theme: 'dark',
-            callback: (token: string) => {
-              turnstileRef.current = token;
-              setTurnstileReady(true);
-            },
-            'error-callback': () => {
-              turnstileRef.current = null;
-              setTurnstileReady(false);
-            },
-          });
-          clearInterval(interval);
-        }
-      } catch {
-        // 脚本尚未加载，等待
+    let widgetId: string | undefined;
+    let cancelled = false;
+
+    function tryRender() {
+      if (cancelled) return;
+      const el = document.getElementById('turnstile-widget');
+      const t = (window as any).turnstile;
+      if (!el || !t || typeof t.render !== 'function') {
+        // 还没就绪，50ms 后重试
+        setTimeout(tryRender, 50);
+        return;
       }
-    }, 200);
-    return () => clearInterval(interval);
+      // 先清掉可能残留的旧 widget（防止重复渲染）
+      const existingIframe = el.querySelector('iframe');
+      if (existingIframe && typeof t.remove === 'function') {
+        t.remove('#turnstile-widget');
+      }
+      widgetId = t.render('#turnstile-widget', {
+        sitekey: '0x4AAAAAADffbuvTrWkvKyda',
+        theme: 'dark',
+        callback: (token: string) => {
+          if (!cancelled) {
+            turnstileRef.current = token;
+            setTurnstileReady(true);
+          }
+        },
+        'error-callback': () => {
+          if (!cancelled) {
+            turnstileRef.current = null;
+            setTurnstileReady(false);
+          }
+        },
+      });
+    }
+
+    tryRender();
+
+    return () => {
+      cancelled = true;
+      // 销毁 Turnstile widget，防止下次挂载时残留
+      const t = (window as any).turnstile;
+      if (widgetId && t && typeof t.remove === 'function') {
+        t.remove('#turnstile-widget');
+      }
+      turnstileRef.current = null;
+      setTurnstileReady(false);
+    };
   }, []);
 
   const { data: setupStatus, isLoading: setupLoading } = useQuery({
