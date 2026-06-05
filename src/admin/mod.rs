@@ -1,3 +1,5 @@
+pub mod login_page;
+
 use axum::{
     extract::{Path, State},
     http::header,
@@ -6,6 +8,11 @@ use axum::{
 use std::{path::PathBuf, sync::Arc};
 
 use crate::state::AppState;
+
+/// 服务端渲染登录页 —— 用于 /admin 认证守卫的重定向目标。
+pub async fn serve_login_page() -> impl IntoResponse {
+    login_page::serve_login_page().await
+}
 
 /// Serves /admin and /admin/* paths from the dist directory.
 /// index.html lives inside dist/ and is reused as the admin shell entry.
