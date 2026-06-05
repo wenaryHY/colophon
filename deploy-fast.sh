@@ -149,19 +149,22 @@ log_info "上传前端文件..."
 scp_upload "${TAR_PATH}" "${SERVER_USER}@${SERVER_IP}:/tmp/inkforge-dist.tar.gz"
 rm -f "${TAR_PATH}"
 
-# 4c. 上传主题模板
+# 4c. 上传主题模板 — 打包为 tar.gz
 log_info "上传主题模板..."
-THEME_TEMPLATES_DIR="${PROJECT_DIR}/themes/default/templates"
-THEME_STATIC_DIR="${PROJECT_DIR}/themes/default/static"
+THEME_SOURCE_DIR="${PROJECT_DIR}/themes/default"
 
-if [ -d "${THEME_TEMPLATES_DIR}" ]; then
-    ssh_cmd "mkdir -p ${REMOTE_THEME_TEMPLATES_PATH} ${REMOTE_THEME_STATIC_PATH}"
-    scp_upload -r "${THEME_TEMPLATES_DIR}/"*.html "${SERVER_USER}@${SERVER_IP}:${REMOTE_THEME_TEMPLATES_PATH}/" 2>/dev/null || true
-    if [ -d "${THEME_STATIC_DIR}" ] && [ "$(ls -A "${THEME_STATIC_DIR}" 2>/dev/null)" ]; then
-        scp_upload -r "${THEME_STATIC_DIR}/"* "${SERVER_USER}@${SERVER_IP}:${REMOTE_THEME_STATIC_PATH}/" 2>/dev/null || true
-    fi
-    # scp 以 root 上传，修正所有者为 inkforge
-    ssh_cmd "chown -R inkforge:inkforge ${REMOTE_THEME_TEMPLATES_PATH} ${REMOTE_THEME_STATIC_PATH}"
+if [ -d "${THEME_SOURCE_DIR}" ] && [ -d "${THEME_SOURCE_DIR}/templates" ]; then
+    THEME_TAR="/tmp/inkforge-theme-$$.tar.gz"
+    tar -czf "$THEME_TAR" -C "$THEME_SOURCE_DIR" templates static
+    scp_upload "$THEME_TAR" "${SERVER_USER}@${SERVER_IP}:/tmp/"
+    rm -f "$THEME_TAR"
+
+    ssh_cmd "
+        mkdir -p ${REMOTE_THEME_TEMPLATES_PATH} ${REMOTE_THEME_STATIC_PATH}
+        tar -xzf /tmp/inkforge-theme-*.tar.gz -C ${REMOTE_THEME_TEMPLATES_PATH}/..
+        rm -f /tmp/inkforge-theme-*.tar.gz
+        chown -R inkforge:inkforge ${REMOTE_THEME_TEMPLATES_PATH} ${REMOTE_THEME_STATIC_PATH}
+    "
     log_success "主题模板上传完成"
 else
     log_warn "主题模板目录不存在，跳过"
@@ -240,7 +243,7 @@ rm -f "${FRONTEND_DIST_DIR}/admin.html"
 # ── 结果 ──────────────────────────────────────────────────────
 if [ ${DEPLOY_EXIT_CODE} -eq 0 ]; then
     echo ""
-    log_success "🎉 部署完成! https://inkforge.wenary.top"
+    log_success "🎉 部署完成! https://inkforge.wenary.me"
 else
     echo ""
     log_error "部署失败，请检查服务器日志"
