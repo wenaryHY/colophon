@@ -243,7 +243,7 @@ rm -f "${FRONTEND_DIST_DIR}/admin.html"
 # ── 结果 ──────────────────────────────────────────────────────
 if [ ${DEPLOY_EXIT_CODE} -eq 0 ]; then
     echo ""
-    log_success "🎉 部署完成! https://inkforge.wenary.me"
+    log_success "🎉 部署完成! https://wenary.me"
 else
     echo ""
     log_error "部署失败，请检查服务器日志"
