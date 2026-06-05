@@ -136,6 +136,23 @@ async fn dispatch_webhooks_for_event(
                 error = %e,
                 "failed to list enabled webhooks for event"
             );
+            // 插入事件级失败记录，防止事件静默丢失
+            let payload_str = payload.to_string();
+            if let Err(insert_err) = repository::insert_failed_webhook_event(
+                pool,
+                event,
+                &payload_str,
+                &e.to_string(),
+            )
+            .await
+            {
+                tracing::error!(
+                    module = "webhook",
+                    event = event,
+                    error = %insert_err,
+                    "failed to insert event-level failure record — DB may be unavailable"
+                );
+            }
             return;
         }
     };

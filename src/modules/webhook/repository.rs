@@ -198,6 +198,43 @@ where
     Ok(id)
 }
 
+/// 插入事件级失败记录（当 DB 查询 webhook 列表失败时，防止事件静默丢失）
+/// 先通过 INSERT OR IGNORE 确保 __event_failed__ 哨兵 webhook 存在（满足外键约束），
+/// 再插入 delivery 记录。哨兵 webhook 的 enabled=0，不会被正常查询匹配。
+pub async fn insert_failed_webhook_event<'e, E>(
+    executor: E,
+    event: &str,
+    payload: &str,
+    error_message: &str,
+) -> Result<String, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
+    // 确保哨兵 webhook 存在，用于满足 webhook_deliveries.webhook_id 的外键约束
+    sqlx::query(
+        "INSERT OR IGNORE INTO webhooks (id, name, url, events, enabled) VALUES ('__event_failed__', 'System Event Failure', '', '', 0)",
+    )
+    .execute(executor)
+    .await?;
+
+    let id = Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO webhook_deliveries (id, webhook_id, event, request_url, request_body, response_status, response_body, duration_ms, success) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind("__event_failed__")
+    .bind(event)
+    .bind("")
+    .bind(payload)
+    .bind(0i64)
+    .bind(error_message)
+    .bind(0i64)
+    .bind(0i64)
+    .execute(executor)
+    .await?;
+    Ok(id)
+}
+
 /// 获取某个 webhook 的投递记录列表
 pub async fn list_deliveries_for_webhook<'e, E>(
     executor: E,
