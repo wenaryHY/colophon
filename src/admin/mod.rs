@@ -9,7 +9,8 @@ use std::{path::PathBuf, sync::Arc};
 
 use crate::state::AppState;
 
-/// 服务端渲染登录页 —— 用于 /admin 认证守卫的重定向目标。
+/// 服务端登录页入口。调用 `login_page::serve_login_page()`。
+/// 路由: GET /login（无认证要求）
 pub async fn serve_login_page() -> impl IntoResponse {
     login_page::serve_login_page().await
 }

@@ -1,7 +1,21 @@
 use axum::response::{Html, IntoResponse};
 
-/// 服务端渲染的登录页 — 暗色 MD3 主题，内联 CSS + 原生 JS。
-/// Turnstile site key 硬编码，主题为 dark。
+/// 服务端渲染的登录页。
+///
+/// ## 为什么不用 SPA
+/// 管理后台 SPA 有 `basename="/admin"`，所有 JS/CSS 硬编码 `/admin/assets/...` 路径，
+/// 无法从 `/login` 提供服务。因此 `/admin` 未认证时重定向到本页（独立 HTML，无 SPA 依赖）。
+///
+/// ## 维护注意
+/// 本页与 SPA 的 `Login.tsx` 共享以下逻辑，任一改动需同步：
+/// - 登录 API 端点、请求/响应格式（`/api/v1/auth/login`）
+/// - Turnstile site key 和主题
+/// - 错误消息文案
+///
+/// ## 结构
+/// - CSS (1-200行): 暗色 MD3 主题，CSS 变量与 SPA 保持一致
+/// - HTML (201-270行): 居中卡片，用户名+密码+Turnstile+提交按钮
+/// - JS (271-415行): Turnstile 初始化、表单提交、fetch API、错误处理
 pub async fn serve_login_page() -> impl IntoResponse {
     Html(LOGIN_PAGE_HTML)
 }
@@ -16,6 +30,8 @@ const LOGIN_PAGE_HTML: &str = r#"<!DOCTYPE html>
 <link rel="apple-touch-icon" href="/static/themes/default/logo-icon.svg">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  <!-- CSS 变量 — 与 SPA MD3 主题保持一致，改动需同步 -->
 
   :root {
     --md-primary:              #f97316;
@@ -219,6 +235,8 @@ const LOGIN_PAGE_HTML: &str = r#"<!DOCTYPE html>
   ::-webkit-scrollbar-thumb:hover { background: var(--md-outline); }
 </style>
 </head>
+
+<!-- 页面结构 -->
 <body>
 <div class="login-card">
   <div class="login-header">
@@ -267,6 +285,8 @@ const LOGIN_PAGE_HTML: &str = r#"<!DOCTYPE html>
 </div>
 
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+
+<!-- 交互逻辑 — Turnstile + fetch 登录 -->
 <script>
 (function () {
   'use strict';

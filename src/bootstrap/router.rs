@@ -81,8 +81,15 @@ fn is_admin_asset_path(path: &str) -> bool {
     path.contains('.')
 }
 
-/// /admin 路由认证守卫：非管理员 → 重定向到 /login。
-/// 不依赖 AdminUser 提取器（它返回 401），而是手动校验 cookie/JWT。
+/// /admin 路由认证守卫。
+///
+/// 逻辑：从 Cookie 中提取 JWT session token → 解码 → 检查 role == "admin"。
+/// 非管理员返回 302 重定向到 /login（服务端渲染登录页）。
+///
+/// ## 为什么不用 AdminUser 提取器
+/// AdminUser 提取失败返回 401 JSON 错误，用户看到的是空白页。
+/// 此处需要重定向到 /login，让用户看到登录表单。
+/// 因此手动读 Cookie + JWT 解码，不依赖 axum 提取器。
 async fn admin_ui_auth_guard(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -381,6 +388,8 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             get(modules::theme::handler::serve_plugin_static),
         )
         .route("/setup", get(serve_setup_entry))
+        // /admin 路由加认证守卫：未登录 → 重定向到 /login（服务端登录页）
+        // /admin/ 尾部斜杠重定向在守卫外（它只是去掉斜杠，无需认证）
         .route("/admin/", get(redirect_admin_with_trailing_slash))
         .nest("/admin", {
             Router::new()
