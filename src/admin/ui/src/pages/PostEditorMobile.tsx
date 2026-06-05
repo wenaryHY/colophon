@@ -71,6 +71,16 @@ function countWords(text: string): { chars: number; readMinutes: number } {
   return { chars: total, readMinutes: total === 0 ? 0 : Math.ceil(total / 300) };
 }
 
+/** 将时间戳转换为相对时间描述 */
+function formatRelativeTime(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 10) return '刚刚';
+  if (seconds < 60) return `${seconds}秒前`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}分钟前`;
+  return `${Math.floor(minutes / 60)}小时前`;
+}
+
 /** 向 CodeMirror 编辑器插入文本 */
 function insertMarkdownToEditor(text: string) {
   const fn = (window as any).inkforgeInsertMarkdown;
@@ -223,6 +233,7 @@ function BottomToolbar({
   onFormatBold, onFormatItalic, onFormatUnderline,
   onInsertHeading, onInsertQuote, onInsertList,
   onInsertLink, onInsertImage, onInsertCode,
+  isSaving, lastSavedAt,
 }: {
   editorMode: EditorMode;
   expanded: boolean;
@@ -239,6 +250,8 @@ function BottomToolbar({
   onInsertLink: (url: string) => void;
   onInsertImage: () => void;
   onInsertCode: () => void;
+  isSaving: boolean;
+  lastSavedAt: number | null;
 }) {
   const isSource = editorMode === 'source';
   const [headingOpen, setHeadingOpen] = useState(false);
@@ -260,7 +273,6 @@ function BottomToolbar({
         display: 'flex', alignItems: 'center',
         padding: '8px 12px', gap: 2,
         opacity: isSource ? 0.4 : 1,
-
         transition: 'opacity 0.2s',
       }}>
         <button onClick={onFormatBold} style={{ ...TOOL_BTN_STYLE, fontWeight: 800, fontFamily: "'Manrope', sans-serif", pointerEvents: isSource ? 'none' : 'auto' }} aria-label="粗体">
@@ -435,7 +447,7 @@ function BottomToolbar({
         </button>
       </div>
 
-      {/* 状态栏：字数 + 阅读时间 */}
+      {/* 状态栏：字数 + 阅读时间 + 保存状态 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '6px 16px 12px', fontSize: 11, fontWeight: 500,
@@ -446,6 +458,13 @@ function BottomToolbar({
         <span>{format('wordCount', { count: wordCountInfo.chars.toString() })}</span>
         <span>·</span>
         <span>{format('readTime', { minutes: wordCountInfo.readMinutes.toString() })}</span>
+        {isSaving ? (
+          <span style={{ marginLeft: 'auto', color: 'var(--md-outline)' }}>保存中...</span>
+        ) : lastSavedAt ? (
+          <span style={{ marginLeft: 'auto', color: 'var(--md-outline)' }}>
+            已保存 {formatRelativeTime(lastSavedAt)}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -582,10 +601,10 @@ export default function PostEditorMobile() {
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [tagsMenuOpen, setTagsMenuOpen] = useState(false);
   const [publishStatusOpen, setPublishStatusOpen] = useState(false);
-  const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const [showPreviewSheet, setShowPreviewSheet] = useState(false);
   const [previewMode, setPreviewMode] = useState<'content' | 'theme'>('content');
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const [renderModeChoice, setRenderModeChoice] = useState<RenderModeChoice | null>(null);
 
   // 预览上下文
@@ -628,7 +647,7 @@ export default function PostEditorMobile() {
   const wordCountInfo = countWords(content);
 
   // 草稿自动保存
-  const { restore: restoreDraft, clear: clearDraft } = useAutoSaveDraft(
+  const { restore: restoreDraft, clear: clearDraft, isSaving, lastSavedAt } = useAutoSaveDraft(
     id,
     { title, content, contentHtml, excerpt, categoryId, tagIds: selectedTagIds },
     !!title || !!content
@@ -813,8 +832,8 @@ export default function PostEditorMobile() {
     }
   }, []);
 
-  const handleInsertLink = useCallback((url: string) => {
-    insertMarkdownToEditor(`[链接文本](${url})`);
+  const handleInsertLink = useCallback(() => {
+    // 链接插入已由 MobileEditorToolbar 内部处理（调用 insertMarkdownToEditor）
   }, []);
 
   const handleInsertImage = useCallback(() => {
@@ -865,6 +884,7 @@ export default function PostEditorMobile() {
               setCategoryId(draftRecovery.categoryId);
               setSelectedTagIds(draftRecovery.tagIds);
               setDraftRecovery(null);
+              toast('已恢复上次编辑内容', 'info');
             }}>{t('draftRecover')}</button>
             <button className="md3-btn" onClick={() => {
               clearDraft();
@@ -1117,6 +1137,8 @@ export default function PostEditorMobile() {
         onInsertLink={handleInsertLink}
         onInsertImage={handleInsertImage}
         onInsertCode={handleInsertCode}
+        isSaving={isSaving}
+        lastSavedAt={lastSavedAt}
       />
 
       {/* ==================== Preview Bottom Sheet ==================== */}

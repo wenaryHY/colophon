@@ -49,7 +49,11 @@ export function MarkdownEditor({ value, onChange, onHtmlChange, onModeChange, sh
         if (!cmViewRef.current) return;
         const v = cmViewRef.current;
         const pos = v.state.selection.main.head;
-        v.dispatch({ changes: { from: pos, insert: text } });
+        const selectionAnchor = pos + text.length;
+        v.dispatch({
+          changes: { from: pos, insert: text },
+          selection: { anchor: selectionAnchor },
+        });
         v.focus();
       };
     }

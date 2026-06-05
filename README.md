@@ -15,6 +15,8 @@ cargo run --release
 # → http://localhost:2000/admin — create your admin account
 ```
 
+> 📖 **Full documentation**: [docs/quickstart.md](docs/quickstart.md) — 15-minute setup guide
+
 On first launch, InkForge opens the setup wizard in your browser. Choose an admin username and password, pick a theme, and you are writing within 60 seconds. The frontend assets are prebuilt and embedded into the single binary — no reverse proxy, no separate Node process.
 
 ## Why InkForge?
