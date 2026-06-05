@@ -171,7 +171,7 @@ function AdminGate() {
     );
   }
 
-  if (!user) {
+  if (!user || user.role !== 'admin') {
     return <Login />;
   }
 

@@ -1,5 +1,3 @@
-pub mod login_page;
-
 use axum::{
     extract::{Path, State},
     http::header,
@@ -8,12 +6,6 @@ use axum::{
 use std::{path::PathBuf, sync::Arc};
 
 use crate::state::AppState;
-
-/// 服务端登录页入口。调用 `login_page::serve_login_page()`。
-/// 路由: GET /login（无认证要求）
-pub async fn serve_login_page() -> impl IntoResponse {
-    login_page::serve_login_page().await
-}
 
 /// Serves /admin and /admin/* paths from the dist directory.
 /// index.html lives inside dist/ and is reused as the admin shell entry.

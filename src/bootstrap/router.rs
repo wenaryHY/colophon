@@ -3,7 +3,6 @@ use std::sync::Arc;
 use axum::{
     extract::{Path, State},
     http::{header, request::Parts as RequestParts, HeaderMap, HeaderValue, Method},
-    middleware::{self, Next},
     response::{IntoResponse, Redirect, Response},
     routing::{delete, get, patch, post},
     Router,
@@ -80,34 +79,6 @@ async fn serve_admin_path(
 fn is_admin_asset_path(path: &str) -> bool {
     path.contains('.')
 }
-
-/// /admin 路由认证守卫。
-///
-/// 逻辑：从 Cookie 中提取 JWT session token → 解码 → 检查 role == "admin"。
-/// 非管理员返回 302 重定向到 /login（服务端渲染登录页）。
-///
-/// ## 为什么不用 AdminUser 提取器
-/// AdminUser 提取失败返回 401 JSON 错误，用户看到的是空白页。
-/// 此处需要重定向到 /login，让用户看到登录表单。
-/// 因此手动读 Cookie + JWT 解码，不依赖 axum 提取器。
-async fn admin_ui_auth_guard(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    req: axum::http::Request<axum::body::Body>,
-    next: Next,
-) -> Response {
-    let is_admin = crate::shared::auth::session_token_from_headers(&headers)
-        .and_then(|token| crate::shared::auth::decode_token(&token, &state.config.auth.secret).ok())
-        .map(|claims| claims.role == "admin")
-        .unwrap_or(false);
-
-    if is_admin {
-        next.run(req).await
-    } else {
-        Redirect::temporary("/login").into_response()
-    }
-}
-
 fn matches_cached_origin(
     cache: &Arc<tokio::sync::RwLock<String>>,
     origin: &HeaderValue,
@@ -376,7 +347,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .route("/posts/{slug}", get(modules::theme::handler::render_post))
         .route("/pages/{slug}", get(modules::post::handler::render_custom_page))
         .route("/profile", get(modules::user::theme_handler::render_profile_page))
-        .route("/login", get(admin::serve_login_page))
+        .route("/login", get(|| async { axum::response::Redirect::permanent("/admin") }))
         .route("/register", get(modules::user::theme_handler::render_register_page))
         .route(
             "/static/themes/{theme_slug}/{*file_path}",
@@ -388,15 +359,9 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             get(modules::theme::handler::serve_plugin_static),
         )
         .route("/setup", get(serve_setup_entry))
-        // /admin 路由加认证守卫：未登录 → 重定向到 /login（服务端登录页）
-        // /admin/ 尾部斜杠重定向在守卫外（它只是去掉斜杠，无需认证）
+        .route("/admin", get(serve_admin_entry))
         .route("/admin/", get(redirect_admin_with_trailing_slash))
-        .nest("/admin", {
-            Router::new()
-                .route("/", get(serve_admin_entry))
-                .route("/{*path}", get(serve_admin_path))
-                .route_layer(middleware::from_fn_with_state(state.clone(), admin_ui_auth_guard))
-        })
+        .route("/admin/{*path}", get(serve_admin_path))
         .route("/sitemap.xml", get(modules::seo::sitemap::serve_sitemap))
         .route("/robots.txt", get(modules::seo::robots::serve_robots))
         .route("/favicon.ico", get(|| async { axum::http::StatusCode::NO_CONTENT }))
