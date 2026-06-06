@@ -29,6 +29,10 @@ export const editorDict = {
     useMarkdownEditorDesc: '通过主题模板渲染，样式统一',
     useCustomHtml: '使用自定义 HTML',
     useCustomHtmlDesc: '完全自定义，独立于主题样式',
+    tagsLabel: '标签',
+    noneSelected: '未选择',
+    selected: '已选',
+    selectedWithCount: '已选 {count} 个',
   },
   en: {
     sourceCode: 'Source',
@@ -59,5 +63,9 @@ export const editorDict = {
     useMarkdownEditorDesc: 'Rendered by theme template, consistent styling',
     useCustomHtml: 'Use Custom HTML',
     useCustomHtmlDesc: 'Fully custom, independent of theme styles',
+    tagsLabel: 'Tags',
+    noneSelected: 'None',
+    selected: 'Selected',
+    selectedWithCount: '{count} selected',
   },
 };

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { EditorState } from '@codemirror/state';
+import { EditorState, Prec } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -28,6 +28,66 @@ const cmStyles = `
 .cm-activeLineGutter { background: var(--bg-subtle); }
 .cm-activeLine { background: rgba(255,107,53,0.03); }
 `;
+
+/** 有序/无序列表自动续号 keymap */
+const continueListOnEnter = keymap.of([
+  {
+    key: 'Enter',
+    run: (view: EditorView) => {
+      const pos = view.state.selection.main.head;
+      const line = view.state.doc.lineAt(pos);
+      const lineText = line.text;
+
+      // 匹配有序列表: "1. ", "2. ", "10. " 等
+      const orderedMatch = lineText.match(/^(\s*)(\d+)\.\s/);
+      if (orderedMatch) {
+        const indent = orderedMatch[1];
+        const num = parseInt(orderedMatch[2], 10);
+        const nextNum = num + 1;
+
+        // 当前行只有 "X. " 没有内容 → 取消列表格式
+        if (lineText.trim() === `${num}.`) {
+          view.dispatch({
+            changes: { from: line.from, to: line.to, insert: '' },
+            selection: { anchor: line.from },
+          });
+          return true;
+        }
+
+        // 正常续号
+        view.dispatch({
+          changes: { from: pos, insert: `\n${indent}${nextNum}. ` },
+          selection: {
+            anchor: pos + 1 + indent.length + String(nextNum).length + 2,
+          },
+        });
+        return true;
+      }
+
+      // 匹配无序列表: "- ", "* " 等
+      const unorderedMatch = lineText.match(/^(\s*)[-*]\s/);
+      if (unorderedMatch) {
+        const indent = unorderedMatch[1];
+
+        if (lineText.trim() === '-' || lineText.trim() === '*') {
+          view.dispatch({
+            changes: { from: line.from, to: line.to, insert: '' },
+            selection: { anchor: line.from },
+          });
+          return true;
+        }
+
+        view.dispatch({
+          changes: { from: pos, insert: `\n${indent}- ` },
+          selection: { anchor: pos + 1 + indent.length + 2 },
+        });
+        return true;
+      }
+
+      return false; // 不处理，让默认 Enter 行为生效
+    },
+  },
+]);
 
 interface Props {
   value: string;
@@ -67,6 +127,7 @@ export function CodeMirrorPanel({ value, onChange, onEditorReady }: Props) {
         lineNumbers(),
         highlightActiveLine(),
         history(),
+        Prec.highest(continueListOnEnter),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         markdown({ base: markdownLanguage }),
         syntaxHighlighting(defaultHighlightStyle),

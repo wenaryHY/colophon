@@ -95,7 +95,7 @@ function AppbarMenu({
   selectedTagIds, toggleTag, categories, tags,
   editorMode, setEditorMode,
   handleSave, saving,
-  t, esc, setAppbarMenuOpen,
+  t, esc, format, setAppbarMenuOpen,
   publishStatusOpen, setPublishStatusOpen,
   categoryMenuOpen, setCategoryMenuOpen,
   tagsMenuOpen, setTagsMenuOpen,
@@ -114,6 +114,7 @@ function AppbarMenu({
   saving: boolean;
   t: (key: string) => string;
   esc: (text: string) => string;
+  format: (key: string, vars?: Record<string, string | number>) => string;
   setAppbarMenuOpen: (v: boolean) => void;
   publishStatusOpen: boolean;
   setPublishStatusOpen: (v: boolean) => void;
@@ -184,7 +185,7 @@ function AppbarMenu({
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2z"/><circle cx="7" cy="7" r="1.5"/></svg>
           {t('tagsLabel')}
           <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--md-on-surface-muted)', background: 'var(--md-surface-container)', padding: '2px 8px', borderRadius: 'var(--radius-full)' }}>
-            {selectedTagIds.length > 0 ? `${selectedTagIds.length} ${t('selected')}` : t('noneSelected')}
+            {selectedTagIds.length > 0 ? format('selectedWithCount', { count: selectedTagIds.length }) : t('noneSelected')}
           </span>
         </button>
         {tagsMenuOpen && (
@@ -941,7 +942,7 @@ export default function PostEditorMobile() {
               categories={categories} tags={tags}
               editorMode={editorMode} setEditorMode={setEditorMode}
               handleSave={handleSave} saving={saving}
-              t={t} esc={esc}
+              t={t} esc={esc} format={format}
               setAppbarMenuOpen={setAppbarMenuOpen}
               publishStatusOpen={publishStatusOpen} setPublishStatusOpen={setPublishStatusOpen}
               categoryMenuOpen={categoryMenuOpen} setCategoryMenuOpen={setCategoryMenuOpen}

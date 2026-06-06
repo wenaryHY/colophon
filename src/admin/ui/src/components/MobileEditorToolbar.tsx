@@ -214,7 +214,7 @@ export default function MobileEditorToolbar({
             <>
               <div onClick={() => setLinkOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
               <div style={{
-                position: 'absolute', bottom: '100%', right: 0, marginBottom: 8,
+                position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 8,
                 background: 'var(--md-surface)', borderRadius: 'var(--radius-md)',
                 boxShadow: 'var(--md-elevation-3)', padding: 12, minWidth: 260,
                 maxWidth: 'calc(100vw - 32px)', zIndex: 200,
