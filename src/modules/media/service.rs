@@ -41,6 +41,75 @@ fn classify_file(ext: &str) -> Option<(&'static str, &'static str)> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classify_jpg() {
+        let (kind, mime) = classify_file("jpg").unwrap();
+        assert_eq!(kind, "image");
+        assert_eq!(mime, "image/jpeg");
+    }
+
+    #[test]
+    fn classify_jpeg_alias() {
+        let (kind, mime) = classify_file("jpeg").unwrap();
+        assert_eq!(kind, "image");
+        assert_eq!(mime, "image/jpeg");
+    }
+
+    #[test]
+    fn classify_png() {
+        let (kind, mime) = classify_file("png").unwrap();
+        assert_eq!(kind, "image");
+        assert_eq!(mime, "image/png");
+    }
+
+    #[test]
+    fn classify_webp() {
+        let (kind, mime) = classify_file("webp").unwrap();
+        assert_eq!(kind, "image");
+        assert_eq!(mime, "image/webp");
+    }
+
+    #[test]
+    fn classify_gif() {
+        let (kind, mime) = classify_file("gif").unwrap();
+        assert_eq!(kind, "image");
+        assert_eq!(mime, "image/gif");
+    }
+
+    #[test]
+    fn classify_mp3() {
+        let (kind, mime) = classify_file("mp3").unwrap();
+        assert_eq!(kind, "audio");
+        assert_eq!(mime, "audio/mpeg");
+    }
+
+    #[test]
+    fn classify_m4a() {
+        let (kind, mime) = classify_file("m4a").unwrap();
+        assert_eq!(kind, "audio");
+        assert_eq!(mime, "audio/mp4");
+    }
+
+    #[test]
+    fn classify_unsupported_returns_none() {
+        assert!(classify_file("exe").is_none());
+        assert!(classify_file("pdf").is_none());
+        assert!(classify_file("").is_none());
+    }
+
+    #[test]
+    fn allowed_mime_types_contains_expected() {
+        assert!(ALLOWED_MIME_TYPES.contains(&"image/jpeg"));
+        assert!(ALLOWED_MIME_TYPES.contains(&"image/png"));
+        assert!(ALLOWED_MIME_TYPES.contains(&"audio/mpeg"));
+        assert!(!ALLOWED_MIME_TYPES.contains(&"application/pdf"));
+    }
+}
+
 pub async fn list_media(
     state: Arc<AppState>,
     query: MediaQuery,

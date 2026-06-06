@@ -231,3 +231,38 @@ where
         Ok(Self(user))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_user(role: &str) -> AuthUser {
+        AuthUser {
+            id: "u1".into(),
+            username: "testuser".into(),
+            role: role.into(),
+        }
+    }
+
+    #[test]
+    fn admin_has_admin_access() {
+        assert!(make_user("admin").has_permission("admin:access"));
+    }
+
+    #[test]
+    fn non_admin_denied_admin_access() {
+        assert!(!make_user("user").has_permission("admin:access"));
+        assert!(!make_user("editor").has_permission("admin:access"));
+    }
+
+    #[test]
+    fn unknown_permission_denied_by_default() {
+        assert!(!make_user("admin").has_permission("unknown:action"));
+    }
+
+    #[test]
+    fn session_token_from_headers_returns_none_without_cookie() {
+        let headers = HeaderMap::new();
+        assert!(session_token_from_headers(&headers).is_none());
+    }
+}

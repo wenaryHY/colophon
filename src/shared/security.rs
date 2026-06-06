@@ -160,3 +160,106 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
 
     response
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn rate_limiter_allows_within_limit() {
+        let mut limiter = LoginRateLimiter::new();
+        let now = Instant::now();
+        for _ in 0..MAX_LOGIN_ATTEMPTS {
+            assert!(limiter.allow("ip1".into(), now));
+        }
+    }
+
+    #[test]
+    fn rate_limiter_blocks_after_limit() {
+        let mut limiter = LoginRateLimiter::new();
+        let now = Instant::now();
+        for _ in 0..MAX_LOGIN_ATTEMPTS {
+            limiter.allow("ip1".into(), now);
+        }
+        assert!(!limiter.allow("ip1".into(), now));
+    }
+
+    #[test]
+    fn rate_limiter_resets_after_window() {
+        let mut limiter = LoginRateLimiter::new();
+        let now = Instant::now();
+        for _ in 0..MAX_LOGIN_ATTEMPTS {
+            limiter.allow("ip1".into(), now);
+        }
+        assert!(!limiter.allow("ip1".into(), now));
+        let after_window = now + LOGIN_WINDOW + Duration::from_secs(1);
+        assert!(limiter.allow("ip1".into(), after_window));
+    }
+
+    #[test]
+    fn rate_limiter_tracks_keys_independently() {
+        let mut limiter = LoginRateLimiter::new();
+        let now = Instant::now();
+        for _ in 0..MAX_LOGIN_ATTEMPTS {
+            limiter.allow("ip1".into(), now);
+        }
+        assert!(!limiter.allow("ip1".into(), now));
+        assert!(limiter.allow("ip2".into(), now));
+    }
+
+    #[test]
+    fn forwarded_ip_extracts_first_ip() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", "1.2.3.4, 5.6.7.8".parse().unwrap());
+        assert_eq!(forwarded_ip(&headers), Some("1.2.3.4".to_string()));
+    }
+
+    #[test]
+    fn forwarded_ip_returns_none_when_missing() {
+        let headers = HeaderMap::new();
+        assert_eq!(forwarded_ip(&headers), None);
+    }
+
+    #[test]
+    fn forwarded_ip_ignores_empty_value() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", "".parse().unwrap());
+        assert_eq!(forwarded_ip(&headers), None);
+    }
+
+    #[test]
+    fn client_key_prefers_forwarded_for() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", "1.2.3.4".parse().unwrap());
+        headers.insert("x-real-ip", "5.6.7.8".parse().unwrap());
+        assert_eq!(client_key(&headers), "1.2.3.4");
+    }
+
+    #[test]
+    fn client_key_falls_back_to_real_ip() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-real-ip", "5.6.7.8".parse().unwrap());
+        assert_eq!(client_key(&headers), "5.6.7.8");
+    }
+
+    #[test]
+    fn client_key_returns_unknown_when_no_headers() {
+        let headers = HeaderMap::new();
+        assert_eq!(client_key(&headers), "unknown");
+    }
+
+    #[test]
+    fn csp_for_profile_returns_correct_policies() {
+        assert!(csp_for_profile(SECURITY_PROFILE_THEME_HTML).is_some());
+        assert!(csp_for_profile(SECURITY_PROFILE_CUSTOM_HTML).is_some());
+        assert!(csp_for_profile(SECURITY_PROFILE_PREVIEW).is_some());
+        assert!(csp_for_profile("nonexistent").is_none());
+    }
+
+    #[test]
+    fn csp_theme_html_contains_self() {
+        let csp = csp_for_profile(SECURITY_PROFILE_THEME_HTML).unwrap();
+        assert!(csp.contains("'self'"));
+    }
+}

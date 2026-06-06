@@ -489,3 +489,112 @@ pub async fn list_deliveries(
 
     Ok((deliveries, total))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::modules::plugin::hook::{
+        HookData, PostAfterPublishData, PostAfterSaveData, PostBeforeSaveData,
+    };
+
+    #[test]
+    fn build_hmac_signature_produces_sha256_prefixed_hex() {
+        let sig = build_hmac_signature("my_secret", r#"{"event":"test"}"#);
+        assert!(sig.starts_with("sha256="));
+        let hex_part = &sig["sha256=".len()..];
+        assert_eq!(hex_part.len(), 64);
+        assert!(hex_part.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn build_hmac_signature_is_deterministic() {
+        let s1 = build_hmac_signature("secret", "body");
+        let s2 = build_hmac_signature("secret", "body");
+        assert_eq!(s1, s2);
+    }
+
+    #[test]
+    fn build_hmac_signature_differs_with_different_secrets() {
+        let s1 = build_hmac_signature("secret_a", "body");
+        let s2 = build_hmac_signature("secret_b", "body");
+        assert_ne!(s1, s2);
+    }
+
+    #[test]
+    fn build_hmac_signature_differs_with_different_bodies() {
+        let s1 = build_hmac_signature("secret", "body_a");
+        let s2 = build_hmac_signature("secret", "body_b");
+        assert_ne!(s1, s2);
+    }
+
+    #[test]
+    fn serialize_post_after_save_event() {
+        let data = HookData::PostAfterSave(PostAfterSaveData {
+            post_id: "p1".into(),
+            title: "Hello".into(),
+            slug: "hello".into(),
+            is_new: true,
+            status: "draft".into(),
+            old_status: None,
+        });
+        let json = serialize_hook_data_to_json("post.after_save", &data);
+        assert_eq!(json["event"], "post.after_save");
+        assert_eq!(json["data"]["post_id"], "p1");
+        assert_eq!(json["data"]["title"], "Hello");
+        assert_eq!(json["data"]["is_new"], true);
+        assert!(json["timestamp"].as_str().is_some());
+    }
+
+    #[test]
+    fn serialize_post_after_publish_event() {
+        let data = HookData::PostAfterPublish(PostAfterPublishData {
+            post_id: "p2".into(),
+            title: "World".into(),
+            slug: "world".into(),
+            old_status: "draft".into(),
+            new_status: "published".into(),
+        });
+        let json = serialize_hook_data_to_json("post.after_publish", &data);
+        assert_eq!(json["data"]["old_status"], "draft");
+        assert_eq!(json["data"]["new_status"], "published");
+    }
+
+    #[test]
+    fn serialize_post_before_save_event() {
+        let data = HookData::PostBeforeSave(PostBeforeSaveData {
+            title: "Draft".into(),
+            content_html: "<p>body</p>".into(),
+            slug: "draft".into(),
+            excerpt: Some("summary".into()),
+            tags: vec!["rust".into()],
+            category_id: Some("cat1".into()),
+            content_type: "post".into(),
+            request_ip: None,
+            user_agent: None,
+        });
+        let json = serialize_hook_data_to_json("post.before_save", &data);
+        assert_eq!(json["data"]["title"], "Draft");
+        assert_eq!(json["data"]["tags"][0], "rust");
+    }
+
+    #[tokio::test]
+    async fn webhook_dispatcher_produces_two_hooks() {
+        let config = WebhookConfig {
+            max_concurrency: 4,
+            timeout_seconds: 30,
+        };
+        let pool = SqlitePool::connect_lazy("sqlite::memory:").unwrap();
+        let dispatcher = WebhookDispatcher::new(pool, config);
+        let hooks = dispatcher.into_hooks();
+        assert_eq!(hooks.len(), 2);
+    }
+
+    #[test]
+    fn default_webhook_dto_values() {
+        let json = r#"{"name":"test","url":"https://example.com"}"#;
+        let req: CreateWebhookRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.events, "post.after_publish");
+        assert!(req.enabled);
+        assert_eq!(req.max_retries, 3);
+    }
+}

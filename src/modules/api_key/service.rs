@@ -18,3 +18,61 @@ pub fn generate_api_key_and_hash() -> (String, String, String) {
 pub fn hash_api_key(plaintext: &str) -> String {
     hex::encode(Sha256::digest(plaintext.as_bytes()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generated_key_starts_with_ink_prefix() {
+        let (raw, _, _) = generate_api_key_and_hash();
+        assert!(raw.starts_with("ink_"));
+    }
+
+    #[test]
+    fn generated_key_has_expected_length() {
+        let (raw, _, _) = generate_api_key_and_hash();
+        // "ink_" (4) + 64 hex chars = 68
+        assert_eq!(raw.len(), 68);
+    }
+
+    #[test]
+    fn prefix_is_first_twelve_chars() {
+        let (raw, prefix, _) = generate_api_key_and_hash();
+        assert_eq!(prefix, &raw[..12]);
+    }
+
+    #[test]
+    fn hash_is_sha256_hex() {
+        let (_, _, hash) = generate_api_key_and_hash();
+        assert_eq!(hash.len(), 64);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn hash_matches_manual_computation() {
+        let (raw, _, hash) = generate_api_key_and_hash();
+        assert_eq!(hash, hash_api_key(&raw));
+    }
+
+    #[test]
+    fn hash_api_key_deterministic() {
+        let h1 = hash_api_key("test_key");
+        let h2 = hash_api_key("test_key");
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn different_keys_produce_different_hashes() {
+        let h1 = hash_api_key("key_a");
+        let h2 = hash_api_key("key_b");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn two_generated_keys_are_unique() {
+        let (raw1, _, _) = generate_api_key_and_hash();
+        let (raw2, _, _) = generate_api_key_and_hash();
+        assert_ne!(raw1, raw2);
+    }
+}
