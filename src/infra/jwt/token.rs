@@ -2,13 +2,13 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::shared::error::AppError;
+use crate::{shared::error::AppError, shared::role::Role};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
     pub username: String,
-    pub role: String,
+    pub role: Role,
     pub exp: i64,
 }
 
@@ -18,7 +18,7 @@ pub fn issue_token(
     token_lifetime_seconds_in_seconds: u64,
     user_id: String,
     username: String,
-    role: String,
+    role: Role,
 ) -> Result<String, AppError> {
     // 此处是唯一一处 u64 → i64 转换：JWT exp 字段要求 i64
     let exp = chrono::Utc::now().timestamp() + token_lifetime_seconds_in_seconds as i64;
@@ -64,6 +64,7 @@ pub fn hash_token(token: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shared::role::Role;
 
     const TEST_SECRET: &str = "test-jwt-secret-for-unit-tests";
 
@@ -74,13 +75,13 @@ mod tests {
             3600,
             "user-1".into(),
             "alice".into(),
-            "admin".into(),
+            Role::Admin,
         )
         .unwrap();
         let claims = decode_token(&token, TEST_SECRET).unwrap();
         assert_eq!(claims.sub, "user-1");
         assert_eq!(claims.username, "alice");
-        assert_eq!(claims.role, "admin");
+        assert_eq!(claims.role, Role::Admin);
     }
 
     #[test]
@@ -90,7 +91,7 @@ mod tests {
             3600,
             "user-1".into(),
             "alice".into(),
-            "admin".into(),
+            Role::Admin,
         )
         .unwrap();
         assert!(decode_token(&token, "wrong-secret").is_err());
@@ -145,7 +146,7 @@ mod tests {
             lifetime,
             "u1".into(),
             "bob".into(),
-            "user".into(),
+            Role::Member,
         )
         .unwrap();
         let after = chrono::Utc::now().timestamp();

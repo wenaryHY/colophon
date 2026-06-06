@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::shared::role::Role;
+
 #[derive(Debug, Deserialize)]
 pub struct RegisterRequest {
     pub username: String,
@@ -26,7 +28,7 @@ pub struct LoginRequest {
 pub struct AuthUserInfo {
     pub id: String,
     pub username: String,
-    pub role: String,
+    pub role: Role,
 }
 
 /// 登录/注册响应体：用户信息 + access_token

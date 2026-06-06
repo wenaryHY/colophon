@@ -41,15 +41,6 @@ a{color:var(--accent);text-decoration:none}
 /* Post Footer 覆盖共享样式 */
 .site-footer{padding:32px 0}
 
-/* Nav */
-.nav-admin{
-  display:inline-flex;align-items:center;gap:6px;
-  font-size:13px;font-weight:500;color:var(--bg);
-  padding:8px 14px;border-radius:10px;
-  background:var(--text);transition:all 0.2s ease
-}
-.nav-admin:hover{background:var(--accent)}
-
 /* Article Card */
 .article-card{
   background:var(--card);border-radius:24px;
@@ -58,12 +49,6 @@ a{color:var(--accent);text-decoration:none}
   box-shadow:0 4px 20px rgba(0,0,0,0.04)
 }
 .article-header{margin-bottom:36px;padding-bottom:28px;border-bottom:1px solid var(--border)}
-.article-category{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:4px 12px;border-radius:999px;
-  background:var(--accent-light);color:var(--accent);
-  font-size:12px;font-weight:600;margin-bottom:18px
-}
 .article-title{
   font-family:'Noto Sans SC',serif;
   font-size:38px;font-weight:700;line-height:1.2;
@@ -199,35 +184,20 @@ a{color:var(--accent);text-decoration:none}
 </head>
 <body>
 <div class="wrap">
-  <!-- Nav -->
-  <nav class="site-nav">
-    <a href="/" class="nav-logo">
-      <img src="/static/themes/default/logo.svg" alt="InkForge" width="28" height="28" style="height: 28px;">
-    </a>
-    <a href="/" class="nav-back">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
-      返回首页
-    </a>
-    <a href="/admin" class="nav-admin">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-      管理后台
-    </a>
-    {% if current_user %}
-    <a href="/profile" class="nav-admin">个人中心</a>
-    {% else %}
-    <a href="/login?redirect=/posts/{{ post.slug }}" class="nav-admin">登录</a>
-    {% endif %}
-  </nav>
+  <!-- Header -->
+  <header class="page-header">
+    <div class="wrap">
+      <a href="/" class="header-logo">
+        <img src="/static/themes/default/logo-icon.svg" alt="{{ site_title }}" width="28" height="28">
+        {{ site_title }}
+      </a>
+      <a href="/" style="font-size:14px;font-weight:500;color:var(--muted)">返回首页</a>
+    </div>
+  </header>
 
   <!-- Article -->
   <article class="article-card">
     <header class="article-header">
-      {% if post.category_name %}
-      <div class="article-category">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        {{ post.category_name }}
-      </div>
-      {% endif %}
       <h1 class="article-title">{{ post.title }}</h1>
       <div class="article-meta">
         <span>{{ post.author_display_name }}</span>
@@ -298,12 +268,6 @@ a{color:var(--accent);text-decoration:none}
 <script src="{{ theme_assets_url('js/site-api.js') }}"></script>
 <script src="{{ theme_assets_url('js/comments.js') }}"></script>
 <script>window.initComments();</script>
-<nav class="bottom-nav">
-  <a href="/">HOME</a>
-  <a href="/?category=">CATEGORIES</a>
-  <a href="/profile">ABOUT</a>
-  <button data-theme-toggle onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
-</nav>
 {{ plugin_body|safe }}
 </body>
 </html>

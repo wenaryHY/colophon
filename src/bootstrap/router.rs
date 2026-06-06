@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
-    http::{header, request::Parts as RequestParts, HeaderMap, HeaderValue, Method},
+    body::Body,
+    extract::{Path, Request, State},
+    http::{header, request::Parts as RequestParts, HeaderMap, HeaderValue, Method, StatusCode},
+    middleware::{self, Next},
     response::{IntoResponse, Redirect, Response},
     routing::{delete, get, patch, post},
     Router,
@@ -79,6 +81,53 @@ async fn serve_admin_path(
 fn is_admin_asset_path(path: &str) -> bool {
     path.contains('.')
 }
+
+/// 后端路由层 auth guard — 检查 session cookie 中的 JWT，
+/// 解码得到用户角色。Admin 放行，非 admin 返回 401 HTML 页面。
+///
+/// 注意：不是 `AdminUser` 提取器——`AdminUser` 返回 JSON 错误，对 SPA 入口 HTML
+/// 请求不友好。这里返回一个内联 HTML 页面，包含中英文 i18n 提示 + 返回首页链接。
+async fn admin_page_auth_guard(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    req: Request,
+    next: Next,
+) -> Response {
+    let is_admin = crate::shared::auth::session_token_from_headers(&headers)
+        .and_then(|token| crate::infra::jwt::decode_token(&token, &state.config.auth.secret).ok())
+        .map(|claims| claims.role.can_access_admin())
+        .unwrap_or(false);
+
+    if is_admin {
+        next.run(req).await
+    } else {
+        let html = format!(
+            r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>权限不足 — InkForge</title>
+<style>
+body{{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
+display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;
+background:#111318;color:#e2e3e8;text-align:center}}
+h1{{font-size:24px;font-weight:700;margin-bottom:8px}}
+p{{font-size:14px;color:#8b8d98;margin-bottom:24px}}
+a{{color:#ff8c52;text-decoration:none;font-weight:500}}
+a:hover{{text-decoration:underline}}
+</style></head>
+<body><div><h1>401 · 权限不足</h1>
+<p>当前账号无权访问管理后台。<br>Permission denied. You do not have access to the admin panel.</p>
+<a href="/">← 返回首页</a>&nbsp;&nbsp;<a href="/profile">个人中心</a></div>
+</body></html>"#
+        );
+        axum::response::Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .header("Content-Type", "text/html; charset=utf-8")
+            .body(Body::from(html))
+            .unwrap()
+    }
+}
+
 fn matches_cached_origin(
     cache: &Arc<tokio::sync::RwLock<String>>,
     origin: &HeaderValue,
@@ -361,9 +410,13 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             get(modules::theme::handler::serve_plugin_static),
         )
         .route("/setup", get(serve_setup_entry))
-        .route("/admin", get(serve_admin_entry))
+        .nest("/admin", {
+            Router::new()
+                .route("/", get(serve_admin_entry))
+                .route("/{*path}", get(serve_admin_path))
+                .route_layer(middleware::from_fn_with_state(state.clone(), admin_page_auth_guard))
+        })
         .route("/admin/", get(redirect_admin_with_trailing_slash))
-        .route("/admin/{*path}", get(serve_admin_path))
         .route("/sitemap.xml", get(modules::seo::sitemap::serve_sitemap))
         .route("/robots.txt", get(modules::seo::robots::serve_robots))
         .route("/favicon.ico", get(|| async { axum::http::StatusCode::NO_CONTENT }))

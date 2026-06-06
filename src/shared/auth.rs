@@ -12,7 +12,12 @@ use axum_extra::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::{shared::auth_constants, shared::error::AppError, state::AppState};
+use crate::{
+    shared::auth_constants,
+    shared::error::AppError,
+    shared::role::Role,
+    state::AppState,
+};
 
 // Re-export hash and jwt functions for convenience
 pub use crate::infra::hash::*;
@@ -23,16 +28,21 @@ pub struct AuthUser {
     pub id: String,
     #[allow(dead_code)]
     pub username: String,
-    pub role: String,
+    pub role: Role,
 }
 
 impl AuthUser {
-    /// 面向后续 NGAC 演进的鉴权插槽。目前使用基础 Role-Based 判断，
+    /// 面向后续 NGAC 演进的鉴权插槽。目前使用 Role 枚举的方法调用，
     /// 后期可以在此通过 Graph / Policy 彻底改造判断逻辑而无需修改多处 Handler。
+    ///
+    /// ## 支持的动作
+    /// - `"admin:access"` — 委托给 `self.role.can_access_admin()`
+    /// - 其他 — deny-by-default
+    #[allow(dead_code)]
     pub fn has_permission(&self, action: &str) -> bool {
         match action {
-            "admin:access" => self.role == "admin",
-            _ => false,  // deny-by-default
+            "admin:access" => self.role.can_access_admin(),
+            _ => false, // deny-by-default
         }
     }
 }
@@ -87,10 +97,14 @@ async fn authenticate_via_api_key(
                 "authenticated via API key"
             );
 
+            // API Key 的 permissions 字段决定该 Key 的权限范围（固定为 read_only），
+            // 映射到 Role::Member（无法访问管理后台）
+            let role = row.permissions.parse::<Role>()?;
+
             Ok(Some(AuthUser {
                 id: row.user_id,
                 username: row.username,
-                role: row.permissions,
+                role,
             }))
         }
         Ok(None) => Ok(None),
@@ -208,7 +222,7 @@ where
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let user = <AuthUser as FromRequestParts<S>>::from_request_parts(parts, state).await?;
-        if !user.has_permission("admin:access") {
+        if !user.role.can_access_admin() {
             tracing::warn!(
                 module = "shared_auth",
                 event = "admin_access_denied",
@@ -235,29 +249,29 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shared::role::Role;
 
-    fn make_user(role: &str) -> AuthUser {
+    fn make_user(role: Role) -> AuthUser {
         AuthUser {
             id: "u1".into(),
             username: "testuser".into(),
-            role: role.into(),
+            role,
         }
     }
 
     #[test]
     fn admin_has_admin_access() {
-        assert!(make_user("admin").has_permission("admin:access"));
+        assert!(make_user(Role::Admin).has_permission("admin:access"));
     }
 
     #[test]
-    fn non_admin_denied_admin_access() {
-        assert!(!make_user("user").has_permission("admin:access"));
-        assert!(!make_user("editor").has_permission("admin:access"));
+    fn member_denied_admin_access() {
+        assert!(!make_user(Role::Member).has_permission("admin:access"));
     }
 
     #[test]
     fn unknown_permission_denied_by_default() {
-        assert!(!make_user("admin").has_permission("unknown:action"));
+        assert!(!make_user(Role::Admin).has_permission("unknown:action"));
     }
 
     #[test]

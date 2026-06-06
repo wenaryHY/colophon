@@ -82,7 +82,7 @@ pub async fn ws_admin_handler(
                 .unwrap()
         }
     };
-    if claims.role != "admin" {
+    if !claims.role.can_access_admin() {
         return Response::builder()
             .status(403)
             .body("Forbidden".into())

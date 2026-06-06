@@ -5,6 +5,7 @@ use crate::{
     shared::{
         auth::{hash_password, issue_token, verify_password, generate_refresh_token, hash_token},
         error::{AppError, AppResult},
+        role::Role,
     },
     state::AppState,
 };
@@ -35,14 +36,14 @@ pub async fn register(
         .trim()
         .to_string();
     let password_hash = hash_password(&body.password).await?;
-    let role = "member";
+    let role = Role::Member;
     let user_id = repository::insert_user(
         &state.pool,
         &username,
         &email,
         &password_hash,
         &display_name,
-        role,
+        role.as_db_str(),
     )
     .await?;
 
@@ -51,7 +52,7 @@ pub async fn register(
         token_lifetime_seconds,
         user_id.clone(),
         username.clone(),
-        role.to_string(),
+        role,
     )?;
 
     let refresh_token = generate_refresh_token();
@@ -67,7 +68,7 @@ pub async fn register(
         module = "auth",
         event = "register_success",
         username = %username,
-        role = %role,
+        role = %role.as_db_str(),
         "registration succeeded"
     );
     Ok((
@@ -75,7 +76,7 @@ pub async fn register(
             user: AuthUserInfo {
                 id: user_id,
                 username,
-                role: role.to_string(),
+                role,
             },
             access_token,
         },
@@ -141,12 +142,13 @@ pub async fn login(
     }
 
     repository::touch_last_login(&state.pool, &user.id).await?;
+    let role = user.role.parse::<Role>()?;
     tracing::info!(
         module = "auth",
         event = "login_success",
         user_id = %user.id,
         username = %user.username,
-        role = %user.role,
+        role = %role.as_db_str(),
         "login succeeded"
     );
     let access_token = issue_token(
@@ -154,7 +156,7 @@ pub async fn login(
         token_lifetime_seconds,
         user.id.clone(),
         user.username.clone(),
-        user.role.clone(),
+        role,
     )?;
 
     let refresh_token = generate_refresh_token();
@@ -171,7 +173,7 @@ pub async fn login(
             user: AuthUserInfo {
                 id: user.id,
                 username: user.username,
-                role: user.role,
+                role,
             },
             access_token,
         },

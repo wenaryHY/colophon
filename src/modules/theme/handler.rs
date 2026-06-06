@@ -12,6 +12,7 @@ use crate::{
         auth::AdminUser,
         error::{AppError, AppResult},
         response::ApiResponse,
+        role::Role,
     },
     state::AppState,
 };
@@ -653,7 +654,7 @@ pub async fn preview_theme(
     let fake_current_user = crate::shared::auth::AuthUser {
         id: "_preview_".into(),
         username: "(Preview)".into(),
-        role: "admin".into(),
+        role: Role::Admin,
     };
     let rendered = match tokio::time::timeout(
         std::time::Duration::from_secs(10),

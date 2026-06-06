@@ -1,0 +1,14 @@
+<header class="page-header">
+  <div class="wrap">
+    <a href="/" class="header-logo">
+      <img src="/static/themes/default/logo-icon.svg" alt="{{ site_title }}" width="28" height="28">
+      {{ site_title }}
+    </a>
+    <nav class="header-links">
+      <a href="/profile">个人中心</a>
+      {% if current_user and current_user.role == "admin" %}
+      <a href="/admin" class="header-link-admin">管理后台</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>

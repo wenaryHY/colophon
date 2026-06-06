@@ -1,35 +1,16 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Profile - {{ site_title }}</title>
+<title>个人中心 - {{ site_title }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="{{ theme_assets_url('css/design-system.css') }}" rel="stylesheet">
+<link href="{{ theme_assets_url('css/theme.css') }}" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0;background:var(--surface);font-family:var(--font-body);color:var(--on-surface)}
 .wrap{max-width:920px;margin:0 auto;padding:28px 20px 60px}
-
-/* 4.1 玻璃态导航栏 */
-.nav{
-  position:sticky;
-  top:0;
-  z-index:100;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:14px;
-  padding:16px 24px;
-  margin-bottom:32px;
-  background:rgba(255,248,246,0.75);
-  backdrop-filter:blur(16px);
-  -webkit-backdrop-filter:blur(16px);
-  border-radius:var(--radius-lg);
-  box-shadow:var(--shadow-md);
-}
-.nav-links{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-a{text-decoration:none}
 
 /* 语言切换器 */
 .lang-switch{
@@ -60,7 +41,7 @@ a{text-decoration:none}
   background:var(--surface-container);
 }
 
-/* 4.2 用户英雄区 */
+/* 用户英雄区 */
 .hero-section{
   margin-bottom:24px;
   background:var(--surface-container-low);
@@ -98,7 +79,7 @@ a{text-decoration:none}
   font-size:15px;
 }
 
-/* 4.4 基于卡片的区块容器 */
+/* 基于卡片的区块容器 */
 .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:24px}
 .panel{
   grid-column:span 12;
@@ -185,6 +166,14 @@ a{text-decoration:none}
   text-align:center;
 }
 
+/* profile 页 header-links 覆盖：design-system 变量与 theme.css 变量不同，需显式指定 */
+.profile-page .header-links a{font-family:var(--font-display);font-size:14px;font-weight:600;color:var(--on-surface-variant)}
+.profile-page .header-links a:hover{color:var(--on-surface)}
+.profile-page .header-link-admin{color:var(--primary) !important}
+.profile-page .header-link-btn{font-family:var(--font-display);font-size:14px;font-weight:600;color:var(--on-surface-variant);border:none;background:none;cursor:pointer;transition:color 0.15s}
+.profile-page .header-link-btn:hover{color:var(--on-surface)}
+.profile-page .header-link-btn-signout{color:var(--error)}
+
 /* Mobile Breakpoint (< 768px) */
 @media(max-width:767px){
   .wrap{padding:22px 16px 40px}
@@ -195,8 +184,6 @@ a{text-decoration:none}
   .avatar{width:72px;height:72px;font-size:28px;border-radius:22px}
   .meta h1{font-size:26px}
   .meta p{font-size:14px}
-  .nav{flex-direction:column;align-items:stretch;padding:14px 18px}
-  .nav-links{flex-direction:column}
   .stats-grid{grid-template-columns:1fr}
   .stat-card{padding:20px}
   .stat-value{font-size:28px}
@@ -214,7 +201,6 @@ a{text-decoration:none}
   .panel{padding:var(--space-xl)}
   .hero-section{padding:var(--space-xl)}
   .stats-grid{grid-template-columns:repeat(3,1fr)}
-  .nav{padding:16px 24px}
 }
 
 /* Desktop Breakpoint (> 1024px) */
@@ -229,22 +215,29 @@ a{text-decoration:none}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <!-- 4.1 玻璃态导航栏 -->
-  <nav class="nav">
-    <a href="/" class="btn btn-secondary" data-i18n="backHome">Back home</a>
-    <div class="nav-links">
-      <!-- 语言切换器 -->
-      <div class="lang-switch">
-        <button type="button" data-lang="zh" class="lang-btn">中</button>
-        <button type="button" data-lang="en" class="lang-btn">En</button>
-      </div>
-      <a href="{{ admin_url or '/admin' }}" class="btn btn-ghost" data-i18n="admin">Admin</a>
-      <button id="logoutBtn" class="btn btn-ghost" type="button" data-i18n="signOut" style="color:var(--error)">Sign out</button>
+<div class="wrap profile-page">
+  <!-- 统一页面 Header -->
+  <header class="page-header">
+    <div class="wrap">
+      <a href="/" class="header-logo">
+        <img src="/static/themes/default/logo-icon.svg" alt="{{ site_title }}" width="28" height="28">
+        {{ site_title }}
+      </a>
+      <nav class="header-links">
+        <a href="/profile">个人中心</a>
+        {% if current_user and current_user.role == "admin" %}
+        <a href="/admin" class="header-link-admin">管理后台</a>
+        {% endif %}
+        <div class="lang-switch">
+          <button type="button" data-lang="zh" class="lang-btn">中</button>
+          <button type="button" data-lang="en" class="lang-btn">En</button>
+        </div>
+        <button id="logoutBtn" class="header-link-btn header-link-btn-signout" type="button">退出登录</button>
+      </nav>
     </div>
-  </nav>
+  </header>
 
-  <!-- 4.2 用户英雄区 -->
+  <!-- 用户英雄区 -->
   <section class="hero-section">
     <div class="hero">
       <div class="avatar">{{ current_user.display_name[:1] | upper }}</div>
@@ -255,7 +248,7 @@ a{text-decoration:none}
     </div>
   </section>
 
-  <!-- 5.1 统计卡片组件 -->
+  <!-- 统计卡片组件 -->
   <div class="stats-grid">
     <div class="stat-card">
       <span class="stat-value" id="postsCount">0</span>
@@ -272,7 +265,7 @@ a{text-decoration:none}
   </div>
 
   <div class="grid">
-    <!-- 4.4 基于卡片的区块容器 - Profile Settings -->
+    <!-- Profile Settings -->
     <section class="panel">
       <div class="panel-head">
         <h2 class="section-title" data-i18n="profileSettings">Profile settings</h2>
@@ -310,7 +303,7 @@ a{text-decoration:none}
       </form>
     </section>
 
-    <!-- 4.4 基于卡片的区块容器 - Password Change -->
+    <!-- Password Change -->
     <section class="panel">
       <div class="panel-head">
         <h2 class="section-title" data-i18n="changePassword">Change password</h2>
@@ -337,7 +330,7 @@ a{text-decoration:none}
       </form>
     </section>
 
-    <!-- 4.4 基于卡片的区块容器 - Comments -->
+    <!-- My Comments -->
     <section class="panel">
       <div class="panel-head">
         <h2 class="section-title" data-i18n="myComments">My comments</h2>
@@ -370,7 +363,7 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// 5.2 获取并显示用户统计数据
+// 获取并显示用户统计数据
 async function loadStats() {
   try {
     // TODO: 后端需要在用户对象中添加统计字段
@@ -391,7 +384,7 @@ async function loadStats() {
   }
 }
 
-// 10.2 获取并渲染用户评论
+// 获取并渲染用户评论
 async function loadComments() {
   try {
     const data = await window.InkForgeApi.apiRequest('/api/me/comments?page=1&page_size=20');
@@ -417,7 +410,7 @@ async function loadComments() {
       </article>
     `).join('');
   } catch (error) {
-    // 10.2 显示错误消息
+    // 显示错误消息
     commentsEmpty.style.display = 'block';
     commentsEmpty.textContent = window.I18n ? window.I18n.t('loadCommentsError') : 'Unable to load comments right now.';
     commentsList.innerHTML = '';
@@ -487,21 +480,21 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 loadStats();
 loadComments();
 
-// 9.3 初始化国际化系统
+// 初始化国际化系统
 document.addEventListener('DOMContentLoaded', () => {
   if (window.I18n) {
-    // 9.1 使用用户保存的语言偏好初始化
+    // 使用用户保存的语言偏好初始化
     window.I18n.init(currentLang);
     window.I18n.updatePage();
   }
 
-  // 9.3 语言切换按钮事件 - 集成后端持久化
+  // 语言切换按钮事件 - 集成后端持久化
   document.querySelectorAll('.lang-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const newLang = btn.dataset.lang;
       if (newLang === currentLang) return;
 
-      // 9.3 发送PATCH请求更新语言偏好
+      // 发送PATCH请求更新语言偏好
       try {
         await window.InkForgeApi.apiRequest('/api/v1/me/profile', {
           method: 'PATCH',
@@ -509,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
             language: newLang,
           },
         });
-        // 9.3 更新成功后重新加载页面
+        // 更新成功后重新加载页面
         window.location.reload();
       } catch (error) {
         console.error('Failed to update language:', error);
@@ -525,5 +518,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
-

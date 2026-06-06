@@ -33,27 +33,6 @@ document.documentElement.setAttribute('data-theme','dark');})();
 <style>
 /* ===== 首页特有样式 ===== */
 
-/* Header */
-.site-header{padding:72px 0 56px;position:relative;display:flex;flex-direction:column;gap:20px}
-.site-header .wrap{display:block}
-.site-badge{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:6px 14px;border-radius:999px;
-  background:var(--accent-light);color:var(--accent);
-  font-size:12px;font-weight:600;letter-spacing:0.02em;
-  width:fit-content;
-  transition:all 0.2s ease
-}
-.site-badge:hover{background:var(--accent);color:#fff}
-.site-title{
-  font-family:'Noto Sans SC',serif;
-  font-size:48px;font-weight:700;line-height:1.15;
-  letter-spacing:-0.02em;margin:0;
-  background:linear-gradient(135deg,var(--text) 0%,#374151 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text
-}
-.site-desc{font-size:17px;color:var(--muted);margin:0;font-weight:400;max-width:540px;line-height:1.7}
-
 /* Search Bar */
 .search-bar{
   display:flex;gap:10px;margin-bottom:48px;flex-wrap:wrap;
@@ -78,27 +57,6 @@ document.documentElement.setAttribute('data-theme','dark');})();
   cursor:pointer;transition:all 0.2s;white-space:nowrap;
 }
 .search-btn:hover{background:var(--accent-dark)}
-
-/* Filter Chips */
-.filter-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:32px}
-.filter-chip{
-  padding:6px 14px;border-radius:999px;
-  font-size:12.5px;font-weight:500;cursor:pointer;
-  border:1.5px solid var(--border);background:var(--card);
-  color:var(--muted);transition:all 0.2s;
-}
-.filter-chip:hover{border-color:var(--accent);color:var(--accent)}
-.filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-
-/* Stats Bar */
-.stats-bar{
-  display:flex;gap:32px;padding:24px 0;
-  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
-  margin-bottom:48px
-}
-.stat-item{display:flex;flex-direction:column;gap:2px}
-.stat-value{font-size:22px;font-weight:700;color:var(--text);font-family:'Noto Sans SC',serif}
-.stat-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em}
 
 /* Posts Grid */
 .posts-grid{display:grid;gap:24px;margin-bottom:80px}
@@ -168,16 +126,6 @@ document.documentElement.setAttribute('data-theme','dark');})();
 .empty-title{font-size:18px;font-weight:700;margin:0 0 8px;font-family:'Noto Sans SC',serif}
 .empty-desc{font-size:14px;color:var(--muted);margin:0}
 
-/* Admin Link */
-.admin-link{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:8px 16px;border-radius:10px;
-  background:var(--text);color:var(--bg);
-  font-size:13px;font-weight:500;
-  transition:all 0.2s ease
-}
-.admin-link:hover{background:var(--accent)}
-
 /* Animations */
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .post-card{animation:fadeUp 0.5s ease backwards}
@@ -190,10 +138,6 @@ document.documentElement.setAttribute('data-theme','dark');})();
 
 /* Responsive */
 @media(max-width:640px){
-  .site-header{padding:48px 0 36px}
-  .site-title{font-size:32px}
-  .site-desc{font-size:15px}
-  .stats-bar{flex-wrap:wrap;gap:20px}
   .post-card{padding:22px 24px}
   .post-title{font-size:18px}
 }
@@ -210,20 +154,15 @@ mark {
 </head>
 <body>
 <div class="wrap">
-  {% include "_home_header.html" %}
+  {% include "_header.html" %}
 
-  <!-- Search & Filter -->
+  <!-- Search -->
   <div class="search-bar">
     <div class="search-input-wrap">
       <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input type="text" class="search-input" id="searchInput" placeholder="搜索文章标题和内容...">
     </div>
     <button class="search-btn" onclick="doSearch()">搜索</button>
-  </div>
-
-  <!-- Filter Chips -->
-  <div class="filter-chips" id="filterChips">
-    <span class="filter-chip active" data-category="" onclick="filterByCategory('')">全部</span>
   </div>
 
   <!-- Search Result Info -->
@@ -254,8 +193,6 @@ function highlightText(text, keyword) {
 }
 const _posts = {{ get_recent_posts(100) | tojson_script | safe }};
 let _currentKeyword = '';
-let _currentCategory = '';
-let _allPosts = _posts;
 
 function renderPosts(posts) {
   const grid = document.getElementById('postsGrid');
@@ -263,7 +200,7 @@ function renderPosts(posts) {
     grid.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><h3 class="empty-title">暂无文章</h3><p class="empty-desc">前往管理后台发布你的第一篇文章吧</p></div>`;
     return;
   }
-  grid.innerHTML = posts.map(p => `<a class="post-card" href="/${p.content_type === 'page' ? 'pages' : 'posts'}/${esc(p.slug)}"><div class="post-meta"><span>${esc(p.author_display_name)}</span><span class="post-meta-sep"></span><span>${p.published_at ? p.published_at.slice(0,10) : p.created_at.slice(0,10)}</span>${p.category_name ? `<span class="post-meta-sep"></span><span>${esc(p.category_name)}</span>` : ''}</div><h2 class="post-title">${highlightText(p.title, _currentKeyword)}</h2>${p.excerpt ? `<p class="post-excerpt">${highlightText(p.excerpt, _currentKeyword)}</p>` : ''}<div class="post-footer"><div></div><div class="post-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div></div></a>`).join('');
+  grid.innerHTML = posts.map(p => `<a class="post-card" href="/${p.content_type === 'page' ? 'pages' : 'posts'}/${esc(p.slug)}"><div class="post-meta"><span>${esc(p.author_display_name)}</span><span class="post-meta-sep"></span><span>${p.published_at ? p.published_at.slice(0,10) : p.created_at.slice(0,10)}</span></div><h2 class="post-title">${highlightText(p.title, _currentKeyword)}</h2>${p.excerpt ? `<p class="post-excerpt">${highlightText(p.excerpt, _currentKeyword)}</p>` : ''}<div class="post-footer"><div></div><div class="post-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div></div></a>`).join('');
 }
 
 async function doSearch() {
@@ -273,14 +210,11 @@ async function doSearch() {
   grid.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div><h3 class="empty-title">搜索中...</h3></div>`;
   document.getElementById('searchInfo').style.display = 'none';
   if (!keyword) {
-    _allPosts = _posts;
-    const filtered = _currentCategory ? _posts.filter(p => p.category_id === _currentCategory) : _posts;
-    renderPosts(filtered);
+    renderPosts(_posts);
     return;
   }
   try {
     const params = new URLSearchParams({ keyword });
-    if (_currentCategory) params.set('category_id', _currentCategory);
     const res = await fetch('/api/v1/search?' + params.toString());
     const json = await res.json();
     const items = json.data?.items || [];
@@ -293,39 +227,9 @@ async function doSearch() {
   } catch { renderPosts([]); }
 }
 
-function filterByCategory(catId) {
-  _currentCategory = catId;
-  document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.category === catId));
-  doSearch();
-}
-
-(async function loadCategories() {
-  try {
-    const res = await fetch('/api/v1/categories');
-    const json = await res.json();
-
-    const cats = json.data || [];
-    const container = document.getElementById('filterChips');
-    cats.forEach(cat => {
-      const btn = document.createElement('span');
-      btn.className = 'filter-chip';
-      btn.dataset.category = cat.id;
-      btn.textContent = cat.name;
-      btn.onclick = () => filterByCategory(cat.id);
-      container.appendChild(btn);
-    });
-  } catch {}
-})();
-
 document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-renderPosts(_allPosts);
+renderPosts(_posts);
 </script>
-<nav class="bottom-nav">
-  <a href="/" {% if current_page == 'home' %}class="active"{% endif %}>HOME</a>
-  <a href="/?category=">CATEGORIES</a>
-  <a href="/profile">ABOUT</a>
-  <button data-theme-toggle onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
-</nav>
 {{ plugin_body|safe }}
 </body>
 </html>

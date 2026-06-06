@@ -20,6 +20,7 @@ use crate::{
     shared::{
         auth::{hash_password, issue_token},
         error::{AppError, AppResult},
+        role::Role,
     },
     state::AppState,
 };
@@ -86,7 +87,7 @@ pub async fn initialize(
         state.config.auth.expires_in_seconds,
         user_id,
         model.username.clone(),
-        "admin".to_string(),
+        Role::Admin,
     )?;
 
     Ok((

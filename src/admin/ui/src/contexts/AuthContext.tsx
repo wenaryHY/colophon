@@ -3,6 +3,7 @@ import { apiData, setAccessToken, clearAccessToken, setOnAuthExpired, API_PREFIX
 import type { CurrentUser } from '../types';
 import { useI18n } from '../i18n';
 import { saveLanguage } from '../i18n/detector';
+import { useToast } from './ToastContext';
 
 interface RegisterData {
   username: string;
@@ -34,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { setLang, t } = useI18n();
+  const toast = useToast();
   /** 仅首次挂载运行一次 auth 校验 */
   const authChecked = useRef(false);
 
@@ -42,6 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch { /* ignore quota / priv errors */ }
   }, []);
+
+  /// 当 API 返回 401 且 refresh 失败时触发：清除登录态并 toast i18n 提示。
+  /// 通过 ref 保持回调最新，避免主 effect 的 dependencies 漂移。
+  const handleAuthExpiredRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    handleAuthExpiredRef.current = () => {
+      clearAuth();
+      toast(t('permissionDeniedToAdmin'), 'error');
+    };
+  });
 
   const refreshUser = useCallback(async () => {
     const me = await apiData<CurrentUser>(`${API_PREFIX}/me`);
@@ -68,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let active = true;
-    setOnAuthExpired(clearAuth);
+    setOnAuthExpired(() => handleAuthExpiredRef.current());
     refreshUser()
       .catch(() => {
         if (active) clearAuth();

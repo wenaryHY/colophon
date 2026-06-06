@@ -280,7 +280,7 @@ pub async fn refresh_token(
         state.config.auth.expires_in_seconds,
         user.id.clone(),
         user.username.clone(),
-        user.role.clone(),
+        user.role.parse()?,
     )?;
 
     tracing::info!(
