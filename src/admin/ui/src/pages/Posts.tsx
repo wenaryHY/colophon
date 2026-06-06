@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiData, API_PREFIX, paginationPages, getQueryClient } from '../lib/api';
@@ -101,6 +101,15 @@ export default function Posts() {
   const navigate = useNavigate();
 
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+
+  // 点击空白处关闭菜单
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const close = () => setMenuOpenId(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [menuOpenId]);
 
   // 内容类型 Tab：文章 / 页面
   const [contentTypeTab, setContentTypeTab] = useState<ContentTypeTab>('post');
@@ -189,6 +198,42 @@ export default function Posts() {
       else next.add(id);
       return next;
     });
+  }
+
+  function MenuItem({ children, onClick, danger }: {
+    children: string;
+    onClick: (e: React.MouseEvent) => void;
+    danger?: boolean;
+  }) {
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick(e);
+          setMenuOpenId(null);
+        }}
+        style={{
+          display: 'block',
+          width: '100%',
+          padding: '10px 16px',
+          border: 'none',
+          background: 'transparent',
+          color: danger ? 'var(--md-error)' : 'var(--md-on-surface)',
+          fontSize: 14,
+          textAlign: 'left',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'var(--md-surface-container-highest)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'transparent';
+        }}
+      >
+        {children}
+      </button>
+    );
   }
 
   if (isLoading && posts.length === 0) return <PostsSkeleton />;
@@ -298,9 +343,50 @@ export default function Posts() {
                   }}
                   onClick={() => navigate(`/posts/${post.id}/edit`)}
                 >
-                  <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, color: 'var(--md-on-surface)', lineHeight: 1.4 }}>
-                    {esc(post.title)}
-                  </h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, flex: 1, color: 'var(--md-on-surface)', lineHeight: 1.4 }}>{esc(post.title)}</div>
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuOpenId(menuOpenId === post.id ? null : post.id);
+                        }}
+                        style={{
+                          width: 32, height: 32,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          border: 'none', background: 'transparent',
+                          borderRadius: '50%',
+                          cursor: 'pointer',
+                          fontSize: 18,
+                          color: 'var(--md-on-surface-variant)',
+                          flexShrink: 0,
+                          marginLeft: 8,
+                        }}
+                      >
+                        ⋮
+                      </button>
+                      {menuOpenId === post.id && (
+                        <div style={{
+                          position: 'absolute',
+                          top: 36, right: 0,
+                          background: 'var(--md-surface-container-high)',
+                          borderRadius: 12,
+                          boxShadow: 'var(--elevation-2)',
+                          minWidth: 140,
+                          zIndex: 100,
+                          overflow: 'hidden',
+                        }}>
+                          <MenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            const url = buildPublicUrl(siteUrl, post.slug, post.content_type, post.page_render_mode);
+                            window.open(url, '_blank');
+                          }}>{t('viewOnHomepage')}</MenuItem>
+                          <MenuItem onClick={() => navigate(`/posts/${post.id}/edit`)}>{t('editPost')}</MenuItem>
+                          <MenuItem onClick={() => setDeleteTarget({ id: post.id, title: post.title })} danger>{t('deletePost')}</MenuItem>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   {post.excerpt && (
                     <div style={{
                       fontSize: 13,
@@ -325,35 +411,6 @@ export default function Posts() {
                     <span style={{ fontSize: '12px', color: 'var(--md-on-surface-variant)' }}>
                       {post.created_at?.slice(0, 10)}
                     </span>
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '2px' }}>
-                      <button
-                        type="button"
-                        title={t('viewOnHomepage')}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const url = buildPublicUrl(siteUrl, post.slug, post.content_type, post.page_render_mode);
-                          window.open(url, '_blank');
-                        }}
-                        style={{
-                          ...T.iconBtn('var(--md-on-surface-variant)'),
-                          width: '32px', height: '32px',
-                        }}
-                        onPointerDown={e => e.stopPropagation()}
-                      ><IconEye size={16} /></button>
-                      <button
-                        type="button"
-                        title={t('deletePost')}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget({ id: post.id, title: post.title });
-                        }}
-                        style={{
-                          ...T.iconBtn('var(--md-error)'),
-                          width: '32px', height: '32px',
-                        }}
-                        onPointerDown={e => e.stopPropagation()}
-                      ><IconTrash2 size={16} /></button>
-                    </div>
                   </div>
                 </div>
               );
