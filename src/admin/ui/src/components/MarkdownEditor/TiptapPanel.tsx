@@ -5,8 +5,6 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
-import Underline from '@tiptap/extension-underline';
-import Link from '@tiptap/extension-link';
 import { TextStyle, Color } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import TextAlign from '@tiptap/extension-text-align';
@@ -43,6 +41,7 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4] },
+        link: { openOnClick: false },
       }),
       TaskList,
       TaskItem.configure({ nested: true }),
@@ -50,8 +49,6 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
       Placeholder.configure({
         placeholder: t('startWriting'),
       }),
-      Underline,
-      Link.configure({ openOnClick: false }),
       TextStyle,
       Color,
       Highlight.configure({ multicolor: true }),
