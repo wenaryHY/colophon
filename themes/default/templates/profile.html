@@ -4,57 +4,158 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>个人中心 - {{ site_title }}</title>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="{{ theme_assets_url('css/design-system.css') }}" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="{{ theme_assets_url('css/theme.css') }}" rel="stylesheet">
 <style>
-*,*::before,*::after{box-sizing:border-box}
-body{margin:0;background:var(--surface);font-family:var(--font-body);color:var(--on-surface)}
-.wrap{max-width:920px;margin:0 auto;padding:28px 20px 60px}
+/* ============================================
+   MD4 Design Tokens — 基于 InkForge 品牌色
+   ============================================ */
+:root {
+  --md-sys-color-primary: #ff6b35;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #ffd6c2;
+  --md-sys-color-on-primary-container: #2d1608;
+  --md-sys-color-background: #edeff3;
+  --md-sys-color-surface: #f8f9fb;
+  --md-sys-color-on-surface: #1a1a2e;
+  --md-sys-color-surface-variant: #e8eaef;
+  --md-sys-color-on-surface-variant: #5f6368;
+  --md-sys-color-outline: #c4c7cc;
+  --md-sys-color-outline-variant: #e0e3e8;
+  --md-sys-color-error: #d32f2f;
 
-/* 语言切换器 */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 28px;
+  --radius-full: 999px;
+
+  --elevation-1: 0 1px 2px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.08);
+  --elevation-2: 0 2px 4px rgba(0,0,0,0.06), 0 4px 8px rgba(0,0,0,0.10);
+  --elevation-3: 0 4px 8px rgba(0,0,0,0.08), 0 8px 16px rgba(0,0,0,0.12);
+
+  --font-display: 'Plus Jakarta Sans', 'Manrope', sans-serif;
+  --font-body: 'Inter', 'Noto Sans SC', sans-serif;
+
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 20px;
+  --space-lg: 28px;
+  --space-xl: 36px;
+  --space-2xl: 48px;
+}
+
+[data-theme="dark"] {
+  --md-sys-color-primary: #ff8c52;
+  --md-sys-color-on-primary: #1a0a00;
+  --md-sys-color-primary-container: #4a2000;
+  --md-sys-color-on-primary-container: #ffd6c2;
+  --md-sys-color-background: #0a0c10;
+  --md-sys-color-surface: #111318;
+  --md-sys-color-on-surface: #e2e3e8;
+  --md-sys-color-surface-variant: #2e3039;
+  --md-sys-color-on-surface-variant: #8b8d98;
+  --md-sys-color-outline: #4a4d55;
+  --md-sys-color-outline-variant: #353840;
+  --md-sys-color-error: #ef5350;
+}
+
+/* ============================================
+   Reset & Body
+   ============================================ */
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--md-sys-color-background);
+  font-family:var(--font-body);
+  color:var(--md-sys-color-on-surface);
+  line-height:1.6;
+}
+
+/* ============================================
+   Layout
+   ============================================ */
+.profile-wrap{
+  max-width:960px;
+  margin:0 auto;
+  padding:0 24px 64px;
+}
+
+/* ============================================
+   Profile Toolbar — 语言切换 + 退出登录
+   ============================================ */
+.profile-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  padding:12px 0 20px;
+}
 .lang-switch{
   display:flex;
   gap:4px;
-  background:var(--surface-container-low);
+  background:var(--md-sys-color-surface-variant);
   padding:4px;
   border-radius:12px;
 }
 .lang-btn{
-  padding:8px 14px;
+  padding:8px 16px;
   border:none;
   border-radius:8px;
   background:transparent;
   cursor:pointer;
   font-size:13px;
   font-weight:600;
-  color:var(--on-surface-variant);
-  transition:all var(--transition-base);
+  color:var(--md-sys-color-on-surface-variant);
+  transition:all 0.2s ease;
   font-family:var(--font-display);
 }
 .lang-btn.active{
-  background:var(--primary);
-  color:#ffffff;
-  box-shadow:0 4px 12px rgba(255,109,0,0.24);
+  background:var(--md-sys-color-primary);
+  color:var(--md-sys-color-on-primary);
+  box-shadow:0 4px 12px rgba(255,107,53,0.28);
 }
 .lang-btn:hover:not(.active){
-  background:var(--surface-container);
+  background:var(--md-sys-color-outline-variant);
 }
 
-/* 用户英雄区 */
-.hero-section{
-  margin-bottom:24px;
-  background:var(--surface-container-low);
+.btn-logout{
+  padding:10px 20px;
+  border:none;
+  border-radius:var(--radius-full);
+  background:var(--md-sys-color-surface-variant);
+  color:var(--md-sys-color-on-surface-variant);
+  font-family:var(--font-display);
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.2s ease;
+}
+.btn-logout:hover{
+  background:var(--md-sys-color-error);
+  color:#fff;
+}
+
+/* ============================================
+   Hero Card — 头像 + 用户信息 + 统计
+   ============================================ */
+.hero-card{
+  background:var(--md-sys-color-surface);
   border-radius:var(--radius-xl);
   padding:var(--space-2xl);
-  box-shadow:var(--shadow-md);
+  box-shadow:var(--elevation-2);
 }
-.hero{display:flex;align-items:center;gap:24px}
+.hero-main{
+  display:flex;
+  align-items:center;
+  gap:28px;
+  margin-bottom:28px;
+}
 .avatar{
   width:88px;
   height:88px;
-  border-radius:28px;
-  background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+  border-radius:24px;
+  background:linear-gradient(135deg,var(--md-sys-color-primary),#d4552a);
   color:#fff;
   display:flex;
   align-items:center;
@@ -62,284 +163,428 @@ body{margin:0;background:var(--surface);font-family:var(--font-body);color:var(-
   font-size:36px;
   font-weight:800;
   font-family:var(--font-display);
-  box-shadow:0 16px 32px rgba(255,109,0,0.28);
+  box-shadow:0 16px 32px rgba(255,107,53,0.28);
   flex-shrink:0;
 }
-.meta h1{
-  margin:0 0 8px;
+.hero-meta h1{
+  margin:0 0 6px;
   font-family:var(--font-display);
-  font-size:32px;
+  font-size:30px;
   font-weight:700;
-  line-height:1.1;
-  color:var(--on-surface);
+  line-height:1.2;
+  color:var(--md-sys-color-on-surface);
 }
-.meta p{
+.hero-meta p{
   margin:0;
-  color:var(--on-surface-variant);
+  color:var(--md-sys-color-on-surface-variant);
   font-size:15px;
+  line-height:1.5;
+}
+.hero-meta .hero-username{
+  font-family:var(--font-display);
+  font-weight:500;
 }
 
-/* 基于卡片的区块容器 */
-.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:24px}
-.panel{
-  grid-column:span 12;
-  background:var(--surface-container-low);
+.hero-stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:4px;
+}
+.hero-stat-item{
+  padding:18px 16px;
+  border-radius:var(--radius-md);
+  background:var(--md-sys-color-background);
+  text-align:center;
+  transition:background 0.2s ease;
+}
+.hero-stat-item:hover{
+  background:var(--md-sys-color-surface-variant);
+}
+.hero-stat-value{
+  display:block;
+  font-family:var(--font-display);
+  font-size:28px;
+  font-weight:700;
+  color:var(--md-sys-color-primary);
+  margin-bottom:4px;
+}
+.hero-stat-label{
+  display:block;
+  font-size:12px;
+  font-weight:600;
+  color:var(--md-sys-color-on-surface-variant);
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+}
+
+/* ============================================
+   Content Cards — 通用卡片容器
+   ============================================ */
+.content-card{
+  background:var(--md-sys-color-surface);
   border-radius:var(--radius-lg);
   padding:var(--space-xl);
-  box-shadow:var(--shadow-md);
+  box-shadow:var(--elevation-2);
+  margin-top:24px;
 }
-.panel-head{
+.content-card-header{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:14px;
   margin-bottom:var(--space-lg);
 }
-.section-title{
+.content-card-title{
   margin:0;
   font-family:var(--font-display);
-  font-size:22px;
+  font-size:20px;
   font-weight:600;
-  color:var(--on-surface);
+  color:var(--md-sys-color-on-surface);
 }
 
-/* 统计卡片 */
-.stats-grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:16px;
-  margin-bottom:24px;
-}
-.stat-card{
-  background:var(--surface-container);
-  border-radius:var(--radius-lg);
-  padding:24px;
-  text-align:center;
-  box-shadow:var(--shadow-sm);
-}
-.stat-value{
+/* ============================================
+   Form Elements — 替代 design-system.css
+   ============================================ */
+.label{
   display:block;
+  font-family:var(--font-body);
+  font-size:14px;
+  font-weight:600;
+  color:var(--md-sys-color-on-surface-variant);
+  margin-bottom:6px;
+}
+
+.input,
+.textarea,
+.select{
+  width:100%;
+  padding:14px 16px;
   font-family:var(--font-display);
-  font-size:32px;
-  font-weight:700;
-  color:var(--primary);
+  font-size:15px;
+  color:var(--md-sys-color-on-surface);
+  background:var(--md-sys-color-background);
+  border:2px solid var(--md-sys-color-outline-variant);
+  border-radius:var(--radius-md);
+  transition:all 0.2s ease;
+}
+.input:focus,
+.textarea:focus,
+.select:focus{
+  outline:none;
+  border-color:var(--md-sys-color-primary);
+  box-shadow:0 0 0 4px rgba(255,107,53,0.12);
+}
+.input::placeholder,
+.textarea::placeholder{
+  color:var(--md-sys-color-on-surface-variant);
+  opacity:0.6;
+}
+
+.textarea{
+  min-height:110px;
+  resize:vertical;
+  font-family:var(--font-body);
+}
+
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:20px;
+}
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.field.full{
+  grid-column:1 / -1;
+}
+.form-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:12px;
+  margin-top:24px;
+  flex-wrap:wrap;
+}
+
+/* Buttons */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:14px 28px;
+  font-family:var(--font-display);
+  font-size:15px;
+  font-weight:600;
+  border:none;
+  cursor:pointer;
+  border-radius:var(--radius-full);
+  transition:all 0.2s ease;
+  text-decoration:none;
+}
+.btn-primary{
+  background:var(--md-sys-color-primary);
+  color:var(--md-sys-color-on-primary);
+  box-shadow:0 8px 24px rgba(255,107,53,0.24);
+}
+.btn-primary:hover{
+  box-shadow:0 12px 32px rgba(255,107,53,0.32);
+  transform:translateY(-1px);
+}
+.btn-primary:active{
+  transform:translateY(0);
+}
+.btn-primary:disabled{
+  opacity:0.5;
+  cursor:not-allowed;
+  transform:none;
+  box-shadow:none;
+}
+
+/* Alert */
+.alert{
+  padding:14px 18px;
+  border-radius:var(--radius-md);
+  font-family:var(--font-body);
+  font-size:14px;
+  font-weight:600;
   margin-bottom:8px;
 }
-.stat-label{
-  display:block;
-  font-size:13px;
-  font-weight:600;
-  color:var(--on-surface-variant);
-  text-transform:uppercase;
-  letter-spacing:0.05em;
+.alert-error{
+  background:#fce4ec;
+  color:#c62828;
+  border:1px solid #ef9a9a;
+}
+.alert-success{
+  background:#e8f5e9;
+  color:#1b5e20;
+  border:1px solid #a5d6a7;
+}
+[data-theme="dark"] .alert-error{
+  background:rgba(211,47,47,0.15);
+  color:var(--md-sys-color-error);
+  border:1px solid rgba(211,47,47,0.25);
+}
+[data-theme="dark"] .alert-success{
+  background:rgba(27,94,32,0.15);
+  color:#66bb6a;
+  border:1px solid rgba(102,187,106,0.25);
 }
 
-.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:20px}
-.field{display:flex;flex-direction:column;gap:8px}
-.field.full{grid-column:1 / -1}
-.actions{display:flex;justify-content:flex-end;gap:12px;margin-top:24px;flex-wrap:wrap}
-.comment-list{display:flex;flex-direction:column;gap:16px;margin-top:20px}
+/* ============================================
+   Comments List
+   ============================================ */
+.comment-list{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  margin-top:4px;
+}
 .comment-item{
   padding:20px;
-  border-radius:var(--radius-lg);
-  background:var(--surface-container);
-  box-shadow:var(--shadow-sm);
+  border-radius:var(--radius-md);
+  background:var(--md-sys-color-background);
+  border:1px solid var(--md-sys-color-outline-variant);
+  transition:border-color 0.2s ease;
 }
-.comment-meta{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
-.comment-meta a{color:var(--primary);font-weight:700;font-family:var(--font-display)}
+.comment-item:hover{
+  border-color:var(--md-sys-color-outline);
+}
+.comment-meta{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  margin-bottom:8px;
+  flex-wrap:wrap;
+}
+.comment-meta a{
+  color:var(--md-sys-color-primary);
+  font-weight:700;
+  font-family:var(--font-display);
+  text-decoration:none;
+}
+.comment-meta a:hover{
+  text-decoration:underline;
+}
+.comment-meta span{
+  font-size:13px;
+  color:var(--md-sys-color-on-surface-variant);
+}
 .comment-status{
   font-size:11px;
   font-weight:700;
-  padding:6px 12px;
-  border-radius:999px;
-  background:var(--surface-container-high);
-  color:var(--primary-dark);
+  padding:5px 12px;
+  border-radius:var(--radius-full);
+  background:var(--md-sys-color-surface-variant);
+  color:var(--md-sys-color-on-surface-variant);
   text-transform:uppercase;
   letter-spacing:0.05em;
 }
+.comment-item p{
+  margin:0;
+  font-size:14px;
+  line-height:1.6;
+  color:var(--md-sys-color-on-surface);
+}
 .empty{
-  margin-top:18px;
-  padding:32px;
-  border-radius:var(--radius-lg);
-  background:var(--surface-container);
-  color:var(--on-surface-muted);
+  margin-top:4px;
+  padding:36px;
+  border-radius:var(--radius-md);
+  background:var(--md-sys-color-background);
+  color:var(--md-sys-color-on-surface-variant);
   text-align:center;
+  font-size:14px;
 }
 
-/* profile 页 header-links 覆盖：design-system 变量与 theme.css 变量不同，需显式指定 */
-.profile-page .header-links a{font-family:var(--font-display);font-size:14px;font-weight:600;color:var(--on-surface-variant)}
-.profile-page .header-links a:hover{color:var(--on-surface)}
-.profile-page .header-link-admin{color:var(--primary) !important}
-.profile-page .header-link-btn{font-family:var(--font-display);font-size:14px;font-weight:600;color:var(--on-surface-variant);border:none;background:none;cursor:pointer;transition:color 0.15s}
-.profile-page .header-link-btn:hover{color:var(--on-surface)}
-.profile-page .header-link-btn-signout{color:var(--error)}
-
-/* Mobile Breakpoint (< 768px) */
+/* ============================================
+   Responsive
+   ============================================ */
 @media(max-width:767px){
-  .wrap{padding:22px 16px 40px}
+  .profile-wrap{padding:0 16px 48px}
+  .hero-card{padding:24px}
+  .hero-main{flex-direction:column;align-items:flex-start;gap:18px}
+  .avatar{width:72px;height:72px;font-size:28px;border-radius:20px}
+  .hero-meta h1{font-size:24px}
+  .hero-meta p{font-size:14px}
+  .hero-stats{grid-template-columns:repeat(3,1fr);gap:8px}
+  .hero-stat-item{padding:14px 10px}
+  .hero-stat-value{font-size:22px}
+  .content-card{padding:24px}
+  .content-card-title{font-size:18px}
   .form-grid{grid-template-columns:1fr}
-  .panel{padding:22px}
-  .hero{align-items:flex-start;flex-direction:column}
-  .hero-section{padding:22px}
-  .avatar{width:72px;height:72px;font-size:28px;border-radius:22px}
-  .meta h1{font-size:26px}
-  .meta p{font-size:14px}
-  .stats-grid{grid-template-columns:1fr}
-  .stat-card{padding:20px}
-  .stat-value{font-size:28px}
-  .panel-head{align-items:flex-start;flex-direction:column}
-  .comment-meta{align-items:flex-start;flex-direction:column}
-  .actions{justify-content:stretch;flex-direction:column}
-  .actions .btn{width:100%}
-  .section-title{font-size:20px}
+  .form-actions{flex-direction:column}
+  .form-actions .btn{width:100%}
+  .comment-meta{flex-direction:column;align-items:flex-start}
+  .profile-toolbar{padding:8px 0 16px}
 }
 
-/* Tablet Breakpoint (768px - 1024px) */
 @media(min-width:768px) and (max-width:1024px){
-  .wrap{max-width:920px;padding:24px 20px 60px}
-  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .panel{padding:var(--space-xl)}
-  .hero-section{padding:var(--space-xl)}
-  .stats-grid{grid-template-columns:repeat(3,1fr)}
-}
-
-/* Desktop Breakpoint (> 1024px) */
-@media(min-width:1025px){
-  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 60px}
-  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .panel{padding:var(--space-xl)}
-  .hero-section{padding:var(--space-2xl)}
-  .stats-grid{grid-template-columns:repeat(3,1fr)}
-  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:24px}
+  .profile-wrap{padding:0 20px 56px}
+  .hero-card{padding:var(--space-xl)}
+  .content-card{padding:var(--space-lg)}
 }
 </style>
 </head>
 <body>
-<div class="wrap profile-page">
-  <!-- 统一页面 Header -->
-  <header class="page-header">
-    <div class="wrap">
-      <a href="/" class="header-logo">
-        <img src="/static/themes/default/logo-icon.svg" alt="{{ site_title }}" width="28" height="28">
-        {{ site_title }}
-      </a>
-      <nav class="header-links">
-        <a href="/profile">个人中心</a>
-        {% if current_user and current_user.role == "admin" %}
-        <a href="/admin" class="header-link-admin">管理后台</a>
-        {% endif %}
-        <div class="lang-switch">
-          <button type="button" data-lang="zh" class="lang-btn">中</button>
-          <button type="button" data-lang="en" class="lang-btn">En</button>
-        </div>
-        <button id="logoutBtn" class="header-link-btn header-link-btn-signout" type="button">退出登录</button>
-      </nav>
+<div class="profile-wrap">
+  {% include "_header.html" %}
+  <!-- Profile 专属工具栏 -->
+  <div class="profile-toolbar">
+    <div class="lang-switch">
+      <button type="button" data-lang="zh" class="lang-btn active">中</button>
+      <button type="button" data-lang="en" class="lang-btn">En</button>
     </div>
-  </header>
+    <button id="logoutBtn" class="btn-logout" type="button">退出登录</button>
+  </div>
 
-  <!-- 用户英雄区 -->
-  <section class="hero-section">
-    <div class="hero">
+  <!-- 英雄卡片 — 头像 + 用户信息 + 统计 -->
+  <section class="hero-card">
+    <div class="hero-main">
       <div class="avatar">{{ current_user.display_name[:1] | upper }}</div>
-      <div class="meta">
+      <div class="hero-meta">
         <h1>{{ current_user.display_name }}</h1>
-        <p>@{{ current_user.username }} · <span data-i18n="role">{{ current_user.role }}</span> · <span data-i18n="joined">joined</span> {{ current_user.created_at[:10] }}</p>
+        <p>
+          <span class="hero-username">@{{ current_user.username }}</span>
+          &nbsp;·&nbsp;
+          <span data-i18n="role">{{ current_user.role }}</span>
+          &nbsp;·&nbsp;
+          <span data-i18n="joined">joined</span> {{ current_user.created_at[:10] }}
+        </p>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat-item">
+        <span class="hero-stat-value" id="postsCount">0</span>
+        <span class="hero-stat-label" data-i18n="posts">Posts</span>
+      </div>
+      <div class="hero-stat-item">
+        <span class="hero-stat-value" id="commentsCount">0</span>
+        <span class="hero-stat-label" data-i18n="comments">Comments</span>
+      </div>
+      <div class="hero-stat-item">
+        <span class="hero-stat-value" id="likesCount">0</span>
+        <span class="hero-stat-label" data-i18n="likes">Likes</span>
       </div>
     </div>
   </section>
 
-  <!-- 统计卡片组件 -->
-  <div class="stats-grid">
-    <div class="stat-card">
-      <span class="stat-value" id="postsCount">0</span>
-      <span class="stat-label" data-i18n="posts">Posts</span>
+  <!-- 个人设置卡片 -->
+  <section class="content-card">
+    <div class="content-card-header">
+      <h2 class="content-card-title" data-i18n="profileSettings">Profile settings</h2>
     </div>
-    <div class="stat-card">
-      <span class="stat-value" id="commentsCount">0</span>
-      <span class="stat-label" data-i18n="comments">Comments</span>
+    <div id="profileAlert" class="alert"></div>
+    <form id="profileForm">
+      <div class="form-grid">
+        <div class="field">
+          <label for="displayName" class="label" data-i18n="displayName">Display name</label>
+          <input id="displayName" name="display_name" type="text" value="{{ current_user.display_name }}" class="input" required>
+        </div>
+        <div class="field">
+          <label for="language" class="label">Language</label>
+          <select id="language" name="language" class="select">
+            <option value="zh" {% if current_user.language == "zh" %}selected{% endif %}>简体中文</option>
+            <option value="en" {% if current_user.language == "en" %}selected{% endif %}>English</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="themePreference" class="label" data-i18n="themePreference">Theme preference</label>
+          <select id="themePreference" name="theme_preference" class="select">
+            <option value="system" {% if current_user.theme_preference == "system" %}selected{% endif %} data-i18n="system">System</option>
+            <option value="light" {% if current_user.theme_preference == "light" %}selected{% endif %} data-i18n="light">Light</option>
+            <option value="dark" {% if current_user.theme_preference == "dark" %}selected{% endif %} data-i18n="dark">Dark</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label for="bio" class="label" data-i18n="bio">Bio</label>
+          <textarea id="bio" name="bio" placeholder="Write a short bio" class="textarea" data-i18n-placeholder="bioPlaceholder">{{ current_user.bio or "" }}</textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="saveProfileBtn" type="submit" data-i18n="saveProfile">Save profile</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- 密码修改卡片 -->
+  <section class="content-card">
+    <div class="content-card-header">
+      <h2 class="content-card-title" data-i18n="changePassword">Change password</h2>
     </div>
-    <div class="stat-card">
-      <span class="stat-value" id="likesCount">0</span>
-      <span class="stat-label" data-i18n="likes">Likes</span>
+    <div id="passwordAlert" class="alert"></div>
+    <form id="passwordForm">
+      <div class="form-grid">
+        <div class="field full">
+          <label for="currentPassword" class="label" data-i18n="currentPassword">Current password</label>
+          <input id="currentPassword" name="current_password" type="password" class="input" autocomplete="current-password" required>
+        </div>
+        <div class="field">
+          <label for="newPassword" class="label" data-i18n="newPassword">New password</label>
+          <input id="newPassword" name="new_password" type="password" class="input" autocomplete="new-password" required>
+        </div>
+        <div class="field">
+          <label for="confirmPassword" class="label" data-i18n="confirmPassword">Confirm new password</label>
+          <input id="confirmPassword" type="password" class="input" autocomplete="new-password" required>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="changePasswordBtn" type="submit" data-i18n="updatePassword">Update password</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- 我的评论卡片 -->
+  <section class="content-card">
+    <div class="content-card-header">
+      <h2 class="content-card-title" data-i18n="myComments">My comments</h2>
     </div>
-  </div>
-
-  <div class="grid">
-    <!-- Profile Settings -->
-    <section class="panel">
-      <div class="panel-head">
-        <h2 class="section-title" data-i18n="profileSettings">Profile settings</h2>
-      </div>
-      <div id="profileAlert" class="alert"></div>
-      <form id="profileForm">
-        <div class="form-grid">
-          <div class="field">
-            <label for="displayName" class="label" data-i18n="displayName">Display name</label>
-            <input id="displayName" name="display_name" type="text" value="{{ current_user.display_name }}" class="input" required>
-          </div>
-          <div class="field">
-            <label for="language" class="label">Language</label>
-            <select id="language" name="language" class="select">
-              <option value="zh" {% if current_user.language == "zh" %}selected{% endif %}>简体中文</option>
-              <option value="en" {% if current_user.language == "en" %}selected{% endif %}>English</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="themePreference" class="label" data-i18n="themePreference">Theme preference</label>
-            <select id="themePreference" name="theme_preference" class="select">
-              <option value="system" {% if current_user.theme_preference == "system" %}selected{% endif %} data-i18n="system">System</option>
-              <option value="light" {% if current_user.theme_preference == "light" %}selected{% endif %} data-i18n="light">Light</option>
-              <option value="dark" {% if current_user.theme_preference == "dark" %}selected{% endif %} data-i18n="dark">Dark</option>
-            </select>
-          </div>
-          <div class="field full">
-            <label for="bio" class="label" data-i18n="bio">Bio</label>
-            <textarea id="bio" name="bio" placeholder="Write a short bio" class="textarea" data-i18n-placeholder="bioPlaceholder">{{ current_user.bio or "" }}</textarea>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn btn-primary" id="saveProfileBtn" type="submit" data-i18n="saveProfile">Save profile</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- Password Change -->
-    <section class="panel">
-      <div class="panel-head">
-        <h2 class="section-title" data-i18n="changePassword">Change password</h2>
-      </div>
-      <div id="passwordAlert" class="alert"></div>
-      <form id="passwordForm">
-        <div class="form-grid">
-          <div class="field full">
-            <label for="currentPassword" class="label" data-i18n="currentPassword">Current password</label>
-            <input id="currentPassword" name="current_password" type="password" class="input" autocomplete="current-password" required>
-          </div>
-          <div class="field">
-            <label for="newPassword" class="label" data-i18n="newPassword">New password</label>
-            <input id="newPassword" name="new_password" type="password" class="input" autocomplete="new-password" required>
-          </div>
-          <div class="field">
-            <label for="confirmPassword" class="label" data-i18n="confirmPassword">Confirm new password</label>
-            <input id="confirmPassword" type="password" class="input" autocomplete="new-password" required>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn btn-primary" id="changePasswordBtn" type="submit" data-i18n="updatePassword">Update password</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- My Comments -->
-    <section class="panel">
-      <div class="panel-head">
-        <h2 class="section-title" data-i18n="myComments">My comments</h2>
-      </div>
-      <div id="commentsEmpty" class="empty" style="display:none" data-i18n="noComments">No comments yet.</div>
-      <div id="commentsList" class="comment-list"></div>
-    </section>
-  </div>
+    <div id="commentsEmpty" class="empty" style="display:none" data-i18n="noComments">No comments yet.</div>
+    <div id="commentsList" class="comment-list"></div>
+  </section>
 </div>
+
 <script src="{{ theme_assets_url('js/site-api.js') }}"></script>
 <script src="{{ theme_assets_url('js/i18n.js') }}"></script>
 <script>
@@ -363,28 +608,23 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// 获取并显示用户统计数据
 async function loadStats() {
   try {
-    // TODO: 后端需要在用户对象中添加统计字段
-    // 或者创建单独的 /api/v1/me/stats 端点
     const postsCount = profileData.posts_count || 0;
     const commentsCount = profileData.comments_count || 0;
     const likesCount = profileData.likes_count || 0;
-    
+
     document.getElementById('postsCount').textContent = postsCount;
     document.getElementById('commentsCount').textContent = commentsCount;
     document.getElementById('likesCount').textContent = likesCount;
   } catch (error) {
     console.error('Failed to load stats:', error);
-    // 显示占位数据
     document.getElementById('postsCount').textContent = '0';
     document.getElementById('commentsCount').textContent = '0';
     document.getElementById('likesCount').textContent = '0';
   }
 }
 
-// 获取并渲染用户评论
 async function loadComments() {
   try {
     const data = await window.InkForgeApi.apiRequest('/api/me/comments?page=1&page_size=20');
@@ -410,7 +650,6 @@ async function loadComments() {
       </article>
     `).join('');
   } catch (error) {
-    // 显示错误消息
     commentsEmpty.style.display = 'block';
     commentsEmpty.textContent = window.I18n ? window.I18n.t('loadCommentsError') : 'Unable to load comments right now.';
     commentsList.innerHTML = '';
@@ -480,21 +719,19 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 loadStats();
 loadComments();
 
-// 初始化国际化系统
+// 初始化国际化
 document.addEventListener('DOMContentLoaded', () => {
   if (window.I18n) {
-    // 使用用户保存的语言偏好初始化
     window.I18n.init(currentLang);
     window.I18n.updatePage();
   }
 
-  // 语言切换按钮事件 - 集成后端持久化
+  // 语言切换按钮
   document.querySelectorAll('.lang-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const newLang = btn.dataset.lang;
       if (newLang === currentLang) return;
 
-      // 发送PATCH请求更新语言偏好
       try {
         await window.InkForgeApi.apiRequest('/api/v1/me/profile', {
           method: 'PATCH',
@@ -502,17 +739,24 @@ document.addEventListener('DOMContentLoaded', () => {
             language: newLang,
           },
         });
-        // 更新成功后重新加载页面
         window.location.reload();
       } catch (error) {
         console.error('Failed to update language:', error);
-        // 即使后端更新失败,也更新前端显示
         if (window.I18n) {
           window.I18n.init(newLang);
           window.I18n.updatePage();
         }
       }
     });
+  });
+
+  // 根据当前语言高亮对应按钮
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    if (btn.dataset.lang === currentLang) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
   });
 });
 </script>
