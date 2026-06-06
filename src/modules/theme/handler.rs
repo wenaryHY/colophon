@@ -550,7 +550,7 @@ pub async fn preview_content(
         ));
     }
 
-    let html = crate::modules::post::service::markdown_to_html(&content);
+    let html = crate::shared::content::markdown_to_html(&content);
     // HTTP CSP 头在 iframe srcdoc 中不生效，通过 meta 标签注入 CSP
     let secured_html = injectCspMetaTagIntoHtmlForSrcdocProtection(&html);
     let mut response = Html(secured_html).into_response();
@@ -585,7 +585,7 @@ pub async fn preview_theme(
     // 参考 src/shared/security.rs 中的 LoginRateLimiter 模式实现
 
     // Markdown → HTML
-    let content_html = crate::modules::post::service::markdown_to_html(&content);
+    let content_html = crate::shared::content::markdown_to_html(&content);
 
     // 加载 TemplateContext
     let mut ctx = TemplateContext::load(&state).await?;

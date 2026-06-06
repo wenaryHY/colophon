@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
-use slug::slugify;
-
 use crate::{
-    shared::error::{AppError, AppResult},
+    shared::{
+        error::{AppError, AppResult},
+        response::deleted_json,
+        slug::generate_slug,
+    },
     state::AppState,
 };
 
@@ -24,10 +26,7 @@ pub async fn create_category(
     if body.name.trim().is_empty() {
         return Err(AppError::BadRequest("category name is required".into()));
     }
-    let slug = body
-        .slug
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| slugify(&body.name));
+    let slug = generate_slug(&body.name, body.slug.as_deref());
     if repository::category_slug_or_name_exists(&state.pool, &slug, body.name.trim(), None).await? {
         return Err(AppError::Conflict(
             "category slug or name already exists".into(),
@@ -81,5 +80,5 @@ pub async fn update_category(
 
 pub async fn delete_category(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     repository::delete_category(&state.pool, id).await?;
-    Ok(serde_json::json!({ "deleted": true }))
+    deleted_json()
 }

@@ -5,7 +5,7 @@ use crate::{
         auth::AuthUser,
         error::{AppError, AppResult},
         pagination::PaginationQuery,
-        response::PaginatedResponse,
+        response::{deleted_json, PaginatedResponse},
     },
     state::AppState,
 };
@@ -145,7 +145,7 @@ pub async fn delete_media(state: Arc<AppState>, id: &str) -> AppResult<serde_jso
         tokio::fs::remove_file(&absolute_path).await?;
     }
     repository::delete_media(&state.pool, id).await?;
-    Ok(serde_json::json!({ "deleted": true }))
+    deleted_json()
 }
 
 pub async fn rename_media(

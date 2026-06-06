@@ -13,7 +13,10 @@ use tokio::time::sleep;
 use crate::{
     bootstrap::config::WebhookConfig,
     modules::plugin::hook::{Hook, HookContext, HookData, HookHandler},
-    shared::error::{AppError, AppResult},
+    shared::{
+        error::{AppError, AppResult},
+        response::deleted_json,
+    },
     state::AppState,
 };
 
@@ -461,7 +464,7 @@ pub async fn update_webhook(
 /// 删除 webhook
 pub async fn delete_webhook(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     repository::delete_webhook(&state.pool, id).await?;
-    Ok(serde_json::json!({ "deleted": true }))
+    deleted_json()
 }
 
 /// 获取 webhook 投递记录列表

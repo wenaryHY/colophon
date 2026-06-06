@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
-use slug::slugify;
 use uuid::Uuid;
 
 use crate::{
-    shared::error::{AppError, AppResult},
+    shared::{
+        error::{AppError, AppResult},
+        response::deleted_json,
+        slug::generate_slug,
+    },
     state::AppState,
 };
 
@@ -28,10 +31,7 @@ pub async fn create_category(
         ));
     }
 
-    let slug = body
-        .slug
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| slugify(name));
+    let slug = generate_slug(name, body.slug.as_deref());
 
     if media_category_slug_or_name_exists(&state.pool, &slug, name, None).await? {
         return Err(AppError::Conflict(
@@ -129,7 +129,7 @@ pub async fn delete_category(state: Arc<AppState>, id: &str) -> AppResult<serde_
         .execute(&state.pool)
         .await?;
 
-    Ok(serde_json::json!({ "deleted": true }))
+    deleted_json()
 }
 
 pub async fn ensure_category_exists_or_resolve(

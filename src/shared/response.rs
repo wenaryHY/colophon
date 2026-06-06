@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::shared::request_id::current_or_generate_request_id;
+use crate::shared::{error::AppResult, request_id::current_or_generate_request_id};
 
 #[derive(Debug, Serialize)]
 pub struct ApiResponse<T: Serialize> {
@@ -62,4 +62,12 @@ impl<T: Serialize> PaginatedResponse<T> {
             },
         }
     }
+}
+
+pub fn deleted_json() -> AppResult<serde_json::Value> {
+    Ok(serde_json::json!({ "deleted": true }))
+}
+
+pub fn action_json(key: &str, value: bool) -> AppResult<serde_json::Value> {
+    Ok(serde_json::json!({ key: value }))
 }

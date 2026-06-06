@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
-use slug::slugify;
-
 use crate::{
-    shared::error::{AppError, AppResult},
+    shared::{
+        error::{AppError, AppResult},
+        response::deleted_json,
+        slug::generate_slug,
+    },
     state::AppState,
 };
 
@@ -22,10 +24,7 @@ pub async fn create_tag(state: Arc<AppState>, body: CreateTagRequest) -> AppResu
         return Err(AppError::BadRequest("tag name is required".into()));
     }
 
-    let slug = body
-        .slug
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| slugify(&body.name));
+    let slug = generate_slug(&body.name, body.slug.as_deref());
 
     if repository::tag_slug_or_name_exists(&state.pool, &slug, body.name.trim(), None).await? {
         return Err(AppError::Conflict("tag slug or name already exists".into()));
@@ -63,7 +62,7 @@ pub async fn update_tag(state: Arc<AppState>, id: &str, body: UpdateTagRequest) 
     let final_slug = if let Some(s) = slug {
         s
     } else if name.is_some() {
-        generated_slug = slugify(final_name);
+        generated_slug = generate_slug(final_name, None);
         &generated_slug
     } else {
         &existing.slug
@@ -82,5 +81,5 @@ pub async fn update_tag(state: Arc<AppState>, id: &str, body: UpdateTagRequest) 
 
 pub async fn delete_tag(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     repository::delete_tag(&state.pool, id).await?;
-    Ok(serde_json::json!({ "deleted": true }))
+    deleted_json()
 }

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use pulldown_cmark::{html, Options, Parser};
 use slug::slugify;
 use uuid::Uuid;
 
@@ -10,9 +9,10 @@ use crate::{
     },
     shared::{
         auth::AuthUser,
+        content::{markdown_to_html, sanitize_html},
         error::{AppError, AppResult},
         pagination::PaginationQuery,
-        response::PaginatedResponse,
+        response::{deleted_json, PaginatedResponse},
     },
     state::AppState,
 };
@@ -25,24 +25,6 @@ use super::{
     },
     repository,
 };
-
-pub fn markdown_to_html(markdown: &str) -> String {
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    let parser = Parser::new_ext(markdown, options);
-    let mut html_out = String::new();
-    html::push_html(&mut html_out, parser);
-    sanitize_html(&html_out)
-}
-
-fn sanitize_html(html: &str) -> String {
-    let mut builder = ammonia::Builder::default();
-    builder.add_tags(&["span", "mark"]);
-    builder.add_tag_attributes("span", &["style"]);
-    builder.add_tag_attributes("mark", &["style"]);
-    builder.clean(html).to_string()
-}
 
 fn normalize_status(value: Option<&str>) -> AppResult<String> {
     let status = value.unwrap_or("draft");
@@ -486,7 +468,7 @@ pub async fn update_post(
 
 pub async fn delete_post(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     repository::delete_post(&state.pool, id).await?;
-    Ok(serde_json::json!({ "deleted": true }))
+    deleted_json()
 }
 
 /// Upload custom HTML/ZIP for a page, return relative path for custom_html_path
