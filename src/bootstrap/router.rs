@@ -93,16 +93,19 @@ async fn admin_page_auth_guard(
     req: Request,
     next: Next,
 ) -> Response {
-    let is_admin = crate::shared::auth::session_token_from_headers(&headers)
+    let auth_result = crate::shared::auth::session_token_from_headers(&headers)
         .and_then(|token| crate::infra::jwt::decode_token(&token, &state.config.auth.secret).ok())
-        .map(|claims| claims.role.can_access_admin())
-        .unwrap_or(false);
+        .map(|claims| claims.role);
 
-    if is_admin {
-        next.run(req).await
-    } else {
-        let html = format!(
-            r#"<!DOCTYPE html>
+    match auth_result {
+        // 无 cookie 或无效 token → 放行。SPA 的 AdminGate 会显示 Login 组件
+        None => next.run(req).await,
+        // 已登录 + Admin → 放行
+        Some(role) if role.can_access_admin() => next.run(req).await,
+        // 已登录 + 非 Admin → 拒绝
+        Some(_) => {
+            let html = format!(
+                r#"<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>权限不足 — InkForge</title>
@@ -119,12 +122,13 @@ a:hover{{text-decoration:underline}}
 <p>当前账号无权访问管理后台。<br>Permission denied. You do not have access to the admin panel.</p>
 <a href="/">← 返回首页</a>&nbsp;&nbsp;<a href="/profile">个人中心</a></div>
 </body></html>"#
-        );
-        axum::response::Response::builder()
-            .status(StatusCode::UNAUTHORIZED)
-            .header("Content-Type", "text/html; charset=utf-8")
-            .body(Body::from(html))
-            .unwrap()
+            );
+            axum::response::Response::builder()
+                .status(StatusCode::UNAUTHORIZED)
+                .header("Content-Type", "text/html; charset=utf-8")
+                .body(Body::from(html))
+                .unwrap()
+        }
     }
 }
 
