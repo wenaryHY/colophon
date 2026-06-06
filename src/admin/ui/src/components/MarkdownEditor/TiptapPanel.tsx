@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useEditor, EditorContent, Extension } from '@tiptap/react';
+import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
@@ -10,19 +10,6 @@ import Highlight from '@tiptap/extension-highlight';
 import TextAlign from '@tiptap/extension-text-align';
 import { Markdown } from 'tiptap-markdown';
 import { useI18n } from '../../i18n';
-
-// Custom extension to allow escaping the editor focus trap via the Escape key
-const EscapeFocusTrap = Extension.create({
-  name: 'escapeFocusTrap',
-  addKeyboardShortcuts() {
-    return {
-      Escape: () => {
-        (this.editor.view.dom as HTMLElement).blur();
-        return true;
-      },
-    };
-  },
-});
 
 // tiptap-markdown doesn't ship TypeScript types for editor.storage.markdown
 declare module '@tiptap/core' {
@@ -49,6 +36,8 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
   const { t } = useI18n();
   const isExternalUpdateRef = useRef(false);
   const [colorOpen, setColorOpen] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
 
   const editor = useEditor({
     extensions: [
@@ -71,7 +60,6 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
         transformPastedText: true,
         transformCopiedText: true,
       }),
-      EscapeFocusTrap,
     ],
     content: value || '',
     onUpdate: ({ editor }) => {
@@ -89,6 +77,16 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
         'aria-multiline': 'true',
         'aria-label': t('editorContent'),
         'aria-describedby': 'editor-escape-instruction',
+      },
+      handleDOMEvents: {
+        keydown: (_view, event) => {
+          if (event.key === 'Escape') {
+            // Re-focus the editor first to ensure the chain works, then blur
+            (_view.dom as HTMLElement).blur();
+            return true;
+          }
+          return false;
+        },
       },
     },
   });
@@ -449,12 +447,17 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
             }
           }}
           onClick={() => {
-            const url = window.prompt(t('url'));
-            if (url) editor.chain().focus().setLink({ href: url }).run();
-            else editor.chain().focus().unsetLink().run();
+            const previousUrl = editor.getAttributes('link').href || '';
+            setLinkUrl(previousUrl);
+            setLinkDialogOpen(true);
           }}
           className={`toolbar-btn ${editor.isActive('link') ? 'is-active' : ''}`}
-        >🔗</button>
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+        </button>
         <span style={{ position: 'relative' }}>
           <button
             role="button"
@@ -520,6 +523,84 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
       <p id="editor-escape-instruction" className="sr-only">
         {t('escapeTip')}
       </p>
+
+      {/* 链接弹窗 */}
+      {linkDialogOpen && (
+        <>
+          {/* 遮罩层 */}
+          <div
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+              zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            onClick={() => setLinkDialogOpen(false)}
+          />
+          {/* 弹窗卡片 */}
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            zIndex: 1001, background: 'var(--md-surface-container-high)',
+            borderRadius: 16, padding: 24, minWidth: 320, maxWidth: '90vw',
+            boxShadow: 'var(--elevation-3)',
+          }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 16px', color: 'var(--md-on-surface)' }}>
+              {t('link')}
+            </h3>
+            <input
+              autoFocus
+              type="url"
+              placeholder="https://"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (linkUrl.trim()) {
+                    editor.chain().focus().setLink({ href: linkUrl.trim() }).run();
+                  }
+                  setLinkDialogOpen(false);
+                }
+                if (e.key === 'Escape') {
+                  e.stopPropagation();
+                  setLinkDialogOpen(false);
+                }
+              }}
+              style={{
+                width: '100%', padding: '10px 14px',
+                border: '1px solid var(--md-outline-variant)', borderRadius: 10,
+                background: 'var(--md-surface-container-highest)',
+                color: 'var(--md-on-surface)', fontSize: 14,
+                outline: 'none',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { editor.chain().focus().unsetLink().run(); setLinkDialogOpen(false); }}
+                style={{
+                  padding: '8px 16px', border: 'none', borderRadius: 10,
+                  background: 'var(--md-surface-container)', color: 'var(--md-on-surface-variant)',
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                {editor.isActive('link') ? t('remove') : t('cancel')}
+              </button>
+              <button
+                onClick={() => {
+                  if (linkUrl.trim()) {
+                    editor.chain().focus().setLink({ href: linkUrl.trim() }).run();
+                  }
+                  setLinkDialogOpen(false);
+                }}
+                style={{
+                  padding: '8px 16px', border: 'none', borderRadius: 10,
+                  background: 'var(--md-primary)', color: 'var(--md-on-primary)',
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                {t('confirm')}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
