@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -345,6 +347,51 @@ where
     .bind(post_id)
     .fetch_all(executor)
     .await
+}
+
+/// 批量查询多篇文章的标签。一次 IN 查询替代 N 次单独查询。
+/// 返回 HashMap<post_id, Vec<Tag>>，无标签的文章 key 不存在。
+pub async fn list_tags_for_posts<'e, E>(
+    executor: E,
+    post_ids: &[String],
+) -> Result<HashMap<String, Vec<Tag>>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
+{
+    if post_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let placeholders: Vec<String> = post_ids
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect();
+    let sql = format!(
+        "SELECT pt.post_id, t.id, t.name FROM tags t \
+         JOIN post_tags pt ON pt.tag_id = t.id \
+         WHERE pt.post_id IN ({})",
+        placeholders.join(",")
+    );
+
+    let mut query = sqlx::query_as::<_, (String, String, String)>(&sql);
+    for id in post_ids {
+        query = query.bind(id);
+    }
+
+    let rows = query.fetch_all(executor).await?;
+    let mut map: HashMap<String, Vec<Tag>> = HashMap::new();
+    for (post_id, tag_id, tag_name) in rows {
+        map.entry(post_id).or_default().push(Tag {
+            id: tag_id,
+            name: tag_name,
+            slug: String::new(),
+            created_at: String::new(),
+            updated_at: String::new(),
+            deleted_at: None,
+        });
+    }
+    Ok(map)
 }
 
 pub async fn list_admin_posts<'e, E>(
