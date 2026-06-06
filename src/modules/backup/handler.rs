@@ -91,6 +91,7 @@ pub async fn delete_backup(
     _admin: AdminUser,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    reject_path_traversal(&id)?;
     let data = service::delete_backup(state, id).await?;
     Ok(Json(ApiResponse::success(data)))
 }
@@ -100,6 +101,7 @@ pub async fn download_backup(
     _admin: AdminUser,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
+    reject_path_traversal(&id)?;
     let backup_path = AppState::backup_root_dir()?.join(&id).join("backup.zip");
 
     if !backup_path.exists() {
@@ -125,6 +127,20 @@ pub async fn merge_restore_backup(
     _admin: AdminUser,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Vec<super::dto::RestoreProgressResponse>>>, AppError> {
+    reject_path_traversal(&id)?;
     let data = merge::merge_restore_backup(state, id).await?;
     Ok(Json(ApiResponse::success(data)))
+}
+
+fn reject_path_traversal(id: &str) -> Result<(), AppError> {
+    if id.contains("..")
+        || id.contains('/')
+        || id.contains('\\')
+        || id.contains('\0')
+    {
+        return Err(AppError::BadRequest(
+            "invalid backup id".into(),
+        ));
+    }
+    Ok(())
 }

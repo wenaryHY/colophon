@@ -234,6 +234,14 @@ async fn restore_database_file(state: &AppState, db_bytes: &[u8]) -> AppResult<P
     Ok(bak_path)
 }
 
+fn is_safe_sqlite_ident(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 128
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 fn quote_sqlite_ident(name: &str) -> String {
     let escaped = name.replace('"', "\"\"");
     format!("\"{}\"", escaped)
@@ -373,6 +381,16 @@ async fn restore_database_logically(state: &AppState, restore_path: &Path) -> Ap
             };
 
             if exists == 0 {
+                continue;
+            }
+
+            if !is_safe_sqlite_ident(&table_name) {
+                tracing::warn!(
+                    module = "backup",
+                    event = "restore_skip_unsafe_table",
+                    table = %table_name,
+                    "skipping table with non-alphanumeric name during restore"
+                );
                 continue;
             }
 
