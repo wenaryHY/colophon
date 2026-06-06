@@ -5,9 +5,14 @@
       {{ site_title }}
     </a>
     <nav class="header-links">
+      {% if current_user %}
       <a href="/profile">个人中心</a>
-      {% if current_user and current_user.role == "admin" %}
+      {% if current_user.role == "admin" %}
       <a href="/admin" class="header-link-admin">管理后台</a>
+      {% endif %}
+      <a href="#" onclick="fetch('/api/v1/auth/logout',{method:'POST'}).then(function(){location.href='/'});return false">退出</a>
+      {% else %}
+      <a href="/admin">登录</a>
       {% endif %}
     </nav>
   </div>
