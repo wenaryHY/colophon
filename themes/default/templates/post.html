@@ -226,6 +226,23 @@ a{color:var(--accent);text-decoration:none}
   .comment-body{padding-left:0}
   .site-footer{flex-direction:column;gap:10px;align-items:flex-start}
 }
+/* Bottom Nav — 固定底部导航条 */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  display:flex;justify-content:center;align-items:center;gap:clamp(24px,6vw,48px);
+  padding:12px 16px max(12px,env(safe-area-inset-bottom));
+  background:var(--card);border-top:1px solid var(--border);
+  font-size:12px;font-weight:600;letter-spacing:0.06em;
+  text-transform:uppercase;
+}
+.bottom-nav a,.bottom-nav button{
+  color:var(--muted);text-decoration:none;border:none;background:none;
+  cursor:pointer;font:inherit;padding:8px 4px;
+  transition:color 0.15s;
+}
+.bottom-nav a:hover,.bottom-nav button:hover,
+.bottom-nav a.active,.bottom-nav button.active{color:var(--accent)}
+body{padding-bottom:56px}
 </style>
 {{ plugin_head|safe }}
 </head>
@@ -324,6 +341,12 @@ a{color:var(--accent);text-decoration:none}
 
   </footer>
 </div>
+<nav class="bottom-nav">
+  <a href="/">HOME</a>
+  <a href="/?category=">CATEGORIES</a>
+  <a href="/profile">ABOUT</a>
+  <button onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
+</nav>
 {{ plugin_body|safe }}
 </body>
 <script>
@@ -336,6 +359,24 @@ a{color:var(--accent);text-decoration:none}
 <script src="{{ theme_assets_url('js/site-api.js') }}"></script>
 <script src="{{ theme_assets_url('js/comments.js') }}"></script>
 <script>window.initComments();</script>
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.style.colorScheme === 'dark';
+  html.style.colorScheme = isDark ? 'light' : 'dark';
+  const btn = document.querySelector('.bottom-nav button');
+  if (btn) btn.textContent = isDark ? '☀' : '☾';
+  localStorage.setItem('theme', isDark ? 'light' : 'dark');
+}
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'dark') {
+    document.documentElement.style.colorScheme = 'dark';
+    const btn = document.querySelector('.bottom-nav button');
+    if (btn) btn.textContent = '☾';
+  }
+})();
+</script>
 </html>
 
 
