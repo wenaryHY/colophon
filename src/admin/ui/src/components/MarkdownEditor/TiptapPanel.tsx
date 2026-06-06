@@ -17,7 +17,7 @@ const EscapeFocusTrap = Extension.create({
   addKeyboardShortcuts() {
     return {
       Escape: () => {
-        this.editor.commands.blur();
+        (this.editor.view.dom as HTMLElement).blur();
         return true;
       },
     };
@@ -50,6 +50,7 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
   const isExternalUpdateRef = useRef(false);
   const [colorOpen, setColorOpen] = useState(false);
   const [focusedBtnIndex, setFocusedBtnIndex] = useState(0);
+  const focusedBtnIndexRef = useRef(0);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
@@ -100,17 +101,19 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
     const buttonEls = toolbarRef.current.querySelectorAll('.toolbar-btn, .color-trigger-btn');
     if (buttonEls.length === 0) return;
 
-    let nextIndex = focusedBtnIndex;
+    const currentIndex = focusedBtnIndexRef.current;
+    let nextIndex = currentIndex;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      nextIndex = (focusedBtnIndex + 1) % buttonEls.length;
+      nextIndex = (currentIndex + 1) % buttonEls.length;
       e.preventDefault();
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      nextIndex = (focusedBtnIndex - 1 + buttonEls.length) % buttonEls.length;
+      nextIndex = (currentIndex - 1 + buttonEls.length) % buttonEls.length;
       e.preventDefault();
     } else {
       return;
     }
 
+    focusedBtnIndexRef.current = nextIndex;
     setFocusedBtnIndex(nextIndex);
     (buttonEls[nextIndex] as HTMLElement).focus();
   };
