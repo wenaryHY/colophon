@@ -73,14 +73,11 @@ pub async fn ws_admin_handler(
             .unwrap();
     };
 
-    let claims = match decode_token(&token, &state.config.auth.secret) {
-        Ok(c) => c,
-        Err(_) => {
-            return Response::builder()
-                .status(401)
-                .body("Unauthorized".into())
-                .unwrap()
-        }
+    let Ok(claims) = decode_token(&token, &state.config.auth.secret) else {
+        return Response::builder()
+            .status(401)
+            .body("Unauthorized".into())
+            .unwrap();
     };
     if !claims.role.can_access_admin() {
         return Response::builder()

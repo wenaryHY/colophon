@@ -488,9 +488,8 @@ pub async fn serve_plugin_static(
     }
 
     // 检查插件是否启用
-    let enabled = match crate::modules::plugin::status::get_enabled_ids(&state.pool).await {
-        Ok(ids) => ids,
-        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
+    let Ok(enabled) = crate::modules::plugin::status::get_enabled_ids(&state.pool).await else {
+        return (StatusCode::INTERNAL_SERVER_ERROR).into_response();
     };
     if !enabled.contains(&plugin_slug) {
         return (StatusCode::NOT_FOUND, "404 Not Found").into_response();
