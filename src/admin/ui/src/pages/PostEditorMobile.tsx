@@ -93,7 +93,6 @@ function insertMarkdownToEditor(text: string) {
 function AppbarMenu({
   status, setStatus, categoryId, setCategoryId,
   selectedTagIds, toggleTag, categories, tags,
-  editorMode, setEditorMode,
   handleSave, saving,
   t, esc, format, setAppbarMenuOpen,
   publishStatusOpen, setPublishStatusOpen,
@@ -108,8 +107,6 @@ function AppbarMenu({
   toggleTag: (id: string) => void;
   categories: Category[];
   tags: Tag[];
-  editorMode: EditorMode;
-  setEditorMode: (m: EditorMode) => void;
   handleSave: () => void;
   saving: boolean;
   t: (key: string) => string;
@@ -198,18 +195,6 @@ function AppbarMenu({
             )) : <span style={{ padding: '10px 12px 10px 24px', fontSize: '0.8rem', color: 'var(--md-outline)', display: 'block' }}>{t('noTagsAvailable')}</span>}
           </div>
         )}
-
-        {/* —— 源码模式 —— */}
-        <button
-          onClick={() => { setEditorMode(editorMode === 'source' ? 'wysiwyg' : 'source'); setAppbarMenuOpen(false); }}
-          style={MENU_ITEM_STYLE}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-          {t('sourceCode')}
-          <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--md-on-surface-muted)', background: 'var(--md-surface-container)', padding: '2px 8px', borderRadius: 'var(--radius-full)' }}>
-            {editorMode === 'source' ? t('enabled') : t('disabled')}
-          </span>
-        </button>
 
         <div style={{ height: 1, background: 'var(--md-outline-variant)', margin: '4px 0' }} />
 
@@ -597,7 +582,7 @@ export default function PostEditorMobile() {
   const [draftRecovery, setDraftRecovery] = useState<DraftData | null>(null);
 
   // 移动端特有 state
-  const [editorMode, setEditorMode] = useState<EditorMode>('source');
+  const [editorMode, setEditorMode] = useState<EditorMode>('wysiwyg');
   const [appbarMenuOpen, setAppbarMenuOpen] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [tagsMenuOpen, setTagsMenuOpen] = useState(false);
@@ -940,7 +925,6 @@ export default function PostEditorMobile() {
               categoryId={categoryId} setCategoryId={setCategoryId}
               selectedTagIds={selectedTagIds} toggleTag={toggleTag}
               categories={categories} tags={tags}
-              editorMode={editorMode} setEditorMode={setEditorMode}
               handleSave={handleSave} saving={saving}
               t={t} esc={esc} format={format}
               setAppbarMenuOpen={setAppbarMenuOpen}
@@ -1090,7 +1074,7 @@ export default function PostEditorMobile() {
             onChange={setContent}
             onHtmlChange={setContentHtml}
             onModeChange={setEditorMode}
-            showTabBar={false}
+            showTabBar={true}
           />
         </div>
 
