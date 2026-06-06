@@ -301,11 +301,27 @@ export default function Posts() {
                   <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, color: 'var(--md-on-surface)', lineHeight: 1.4 }}>
                     {esc(post.title)}
                   </h3>
+                  {post.excerpt && (
+                    <div style={{
+                      fontSize: 13,
+                      color: 'var(--md-on-surface-variant)',
+                      marginTop: 4,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}>
+                      {esc(post.excerpt)}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <StatusBadge status={post.status} />
                     {category && (
                       <span style={T.catBadge}>{category.name}</span>
                     )}
+                    {post.tags?.map((tag) => (
+                      <span key={tag.id} style={T.catBadge}>{tag.name}</span>
+                    ))}
                     <span style={{ fontSize: '12px', color: 'var(--md-on-surface-variant)' }}>
                       {post.created_at?.slice(0, 10)}
                     </span>

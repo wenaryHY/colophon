@@ -783,7 +783,7 @@ pub async fn preview_page(
             preview.style.display = 'block';
             const iframe = document.createElement('iframe');
             iframe.style.cssText = 'width:100%;height:100vh;border:none';
-            iframe.sandbox = 'allow-scripts';
+            iframe.sandbox = 'allow-scripts allow-same-origin';
             iframe.srcdoc = html;
             preview.appendChild(iframe);
         } catch (err) {
