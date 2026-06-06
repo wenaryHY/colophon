@@ -10,10 +10,20 @@
       {% if current_user.role == "admin" %}
       <a href="/admin" class="header-link-admin">管理后台</a>
       {% endif %}
+      <button data-theme-toggle onclick="toggleTheme()" aria-label="切换暗色模式" style="font-size:16px;border:none;background:none;cursor:pointer;color:var(--muted);padding:4px">☀</button>
       <a href="#" onclick="fetch('/api/v1/auth/logout',{method:'POST'}).then(function(){location.href='/'});return false">退出</a>
       {% else %}
       <a href="/admin">登录</a>
+      <button data-theme-toggle onclick="toggleTheme()" aria-label="切换暗色模式" style="font-size:16px;border:none;background:none;cursor:pointer;color:var(--muted);padding:4px">☀</button>
       {% endif %}
     </nav>
   </div>
 </header>
+<script>
+(function(){
+  if(window.location.pathname==='/profile'){
+    var link = document.querySelector('.header-links a[href="/profile"]');
+    if(link){ link.textContent='返回首页'; link.href='/'; }
+  }
+})();
+</script>
