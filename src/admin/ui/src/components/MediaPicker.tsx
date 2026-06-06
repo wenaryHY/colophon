@@ -10,7 +10,7 @@ import type { MediaItem, PaginatedResponse } from '../types';
 import { Modal } from './Modal';
 import { IconSearch, IconFolder, IconUpload, Spinner, IconAlertCircle } from './Icons';
 import { paginationPages } from '../lib/api';
-import { uploadMedia } from '../lib/media';
+import { uploadMedia, type UploadProgress } from '../lib/media';
 import { useI18n } from '../i18n';
 import { useToast } from '../contexts/ToastContext';
 
@@ -46,6 +46,7 @@ export function MediaPicker({ open, onClose }: Props) {
   // ── 上传 tab 状态 ──
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
 
   // ── 高亮自动清除 ──
   useEffect(() => {
@@ -104,8 +105,11 @@ export function MediaPicker({ open, onClose }: Props) {
 
   async function doUpload(file: File) {
     setIsUploading(true);
+    setUploadProgress(null);
     try {
-      const uploaded = await uploadMedia(file);
+      const uploaded = await uploadMedia(file, (progress) => {
+        setUploadProgress(progress);
+      });
       toast(t('uploadSuccess'), 'success');
       setNewlyUploadedId(uploaded.id);
       // 刷新列表，切到第一页
@@ -119,6 +123,7 @@ export function MediaPicker({ open, onClose }: Props) {
       setUploadingFile(null);
     } finally {
       setIsUploading(false);
+      setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
@@ -364,22 +369,51 @@ export function MediaPicker({ open, onClose }: Props) {
             </button>
           </div>
 
-          {/* 上传中状态 */}
+          {/* 上传中 / 进度状态 */}
           {isUploading && uploadingFile && (
-            <div style={{
-              marginTop: '20px',
-              padding: '14px 18px',
-              borderRadius: '12px',
-              background: 'var(--md-surface-container)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-            }}>
-              <Spinner size={18} />
-              <span style={{ fontSize: '13px', color: 'var(--md-on-surface-variant)', wordBreak: 'break-all' }}>
-                {uploadingFile.name}
-              </span>
-            </div>
+            uploadProgress ? (
+              <div style={{
+                width: '100%',
+                marginTop: 12,
+              }}>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  fontSize: 12, color: 'var(--md-on-surface-variant)',
+                  marginBottom: 4,
+                }}>
+                  <span>{uploadingFile.name}</span>
+                  <span>{uploadProgress.percentage}%</span>
+                </div>
+                <div style={{
+                  width: '100%', height: 4,
+                  background: 'var(--md-surface-container-highest)',
+                  borderRadius: 2, overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${uploadProgress.percentage}%`,
+                    height: '100%',
+                    background: 'var(--md-primary)',
+                    borderRadius: 2,
+                    transition: 'width 0.15s ease',
+                  }} />
+                </div>
+              </div>
+            ) : (
+              <div style={{
+                marginTop: '20px',
+                padding: '14px 18px',
+                borderRadius: '12px',
+                background: 'var(--md-surface-container)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <Spinner size={18} />
+                <span style={{ fontSize: '13px', color: 'var(--md-on-surface-variant)', wordBreak: 'break-all' }}>
+                  {uploadingFile.name}
+                </span>
+              </div>
+            )
           )}
 
           {/* 上传失败状态 */}

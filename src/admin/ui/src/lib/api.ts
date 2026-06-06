@@ -19,6 +19,10 @@ export class ApiClientError extends Error {
 
 let accessToken: string | null = null;
 
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
 export function setAccessToken(token: string) {
   accessToken = token;
 }
