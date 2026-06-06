@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiData, API, API_PREFIX, getQueryClient } from '../lib/api';
-import { esc } from '../lib/utils';
+import { esc, generateSlugPreviewFromTitle } from '../lib/utils';
 import { SlotRenderer } from '../lib/slots';
 import type { AdminPost, Category, Tag } from '../types';
 
@@ -49,6 +49,7 @@ export default function PostEditor() {
 
   // 表单字段
   const [title, setTitle] = useState('');
+  const [userProvidedSlugOverride, setUserProvidedSlugOverride] = useState('');
   const [content, setContent] = useState('');
   const [contentHtml, setContentHtml] = useState('');
   const [excerpt, setExcerpt] = useState('');
@@ -132,6 +133,7 @@ export default function PostEditor() {
     setSelectedTagIds(postData.tags?.map((tag) => tag.id) || []);
     setContentType(postData.content_type || 'post');
     setPageEditMode(postData.page_render_mode === 'custom_html' ? 'custom_html' : 'editor');
+    setUserProvidedSlugOverride(postData.slug || '');
     // 检查本地草稿：如果草稿时间比服务器数据更新且内容不同，提示恢复
     const draft = restoreDraft();
     if (draft && (!postData.updated_at || draft.savedAt > new Date(postData.updated_at).getTime())) {
@@ -207,6 +209,11 @@ export default function PostEditor() {
         pinned: false,
         page_render_mode: renderMode,
       };
+
+      const trimmedSlugOverride = userProvidedSlugOverride.trim();
+      if (trimmedSlugOverride) {
+        body.slug = trimmedSlugOverride;
+      }
 
       if (contentType === 'post') {
         body.tag_ids = selectedTagIds;
@@ -399,6 +406,18 @@ export default function PostEditor() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <Input
+              label={t('postSlugLabel')}
+              placeholder={generateSlugPreviewFromTitle(title)}
+              value={userProvidedSlugOverride}
+              onChange={(e) => setUserProvidedSlugOverride(e.target.value)}
+            />
+            <span style={{ fontSize: '12px', color: 'var(--md-on-surface-variant)' }}>
+              {t('postSlugAutoHint')}
+            </span>
+          </div>
 
           {pageEditMode === 'editor' ? (
             <>

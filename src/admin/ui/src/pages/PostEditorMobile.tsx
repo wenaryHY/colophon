@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiData, API, API_PREFIX, getQueryClient } from '../lib/api';
-import { esc } from '../lib/utils';
+import { esc, generateSlugPreviewFromTitle } from '../lib/utils';
 import type { AdminPost, Category, Tag } from '../types';
 
 import { Button } from '../components/Button';
@@ -610,6 +610,7 @@ export default function PostEditorMobile() {
 
   // 表单字段
   const [title, setTitle] = useState('');
+  const [userProvidedSlugOverride, setUserProvidedSlugOverride] = useState('');
   const [content, setContent] = useState('');
   const [contentHtml, setContentHtml] = useState('');
   const [excerpt, setExcerpt] = useState('');
@@ -713,6 +714,7 @@ export default function PostEditorMobile() {
     setSelectedTagIds(postData.tags?.map((tag) => tag.id) || []);
     setContentType(postData.content_type || 'post');
     setPageEditMode(postData.page_render_mode === 'custom_html' ? 'custom_html' : 'editor');
+    setUserProvidedSlugOverride(postData.slug || '');
     const draft = restoreDraft();
     if (draft && (!postData.updated_at || draft.savedAt > new Date(postData.updated_at).getTime())) {
       const isContentActuallyDifferent =
@@ -786,6 +788,11 @@ export default function PostEditorMobile() {
         pinned: false,
         page_render_mode: renderMode,
       };
+
+      const trimmedSlugOverride = userProvidedSlugOverride.trim();
+      if (trimmedSlugOverride) {
+        body.slug = trimmedSlugOverride;
+      }
 
       if (contentType === 'post') {
         body.tag_ids = selectedTagIds;
@@ -1031,6 +1038,19 @@ export default function PostEditorMobile() {
               border: 'none', padding: '8px 0',
             }}
           />
+        </div>
+
+        {/* URL Slug */}
+        <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Input
+            label={t('postSlugLabel')}
+            placeholder={generateSlugPreviewFromTitle(title)}
+            value={userProvidedSlugOverride}
+            onChange={(e) => setUserProvidedSlugOverride(e.target.value)}
+          />
+          <span style={{ fontSize: 12, color: 'var(--md-on-surface-variant)' }}>
+            {t('postSlugAutoHint')}
+          </span>
         </div>
 
         {/* 分隔线 */}

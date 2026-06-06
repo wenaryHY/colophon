@@ -60,6 +60,35 @@ fn normalize_page_render_mode(value: Option<&str>, is_page: bool) -> String {
     }
 }
 
+/// Returns a slug that is unique across all posts (including soft-deleted ones in
+/// the trash). If `desired_slug` is already taken, a 6-character random suffix is
+/// appended and retried until a free slug is found, so callers never surface a
+/// conflict error to the user.
+async fn resolve_unique_post_slug(
+    pool: &sqlx::SqlitePool,
+    desired_slug: &str,
+    exclude_post_id: Option<&str>,
+) -> AppResult<String> {
+    if !repository::slug_exists(pool, desired_slug, exclude_post_id).await? {
+        return Ok(desired_slug.to_string());
+    }
+    const MAX_RETRY_ATTEMPTS_FOR_SLUG_RANDOM_SUFFIX: u32 = 10;
+    for _attempt in 0..MAX_RETRY_ATTEMPTS_FOR_SLUG_RANDOM_SUFFIX {
+        let random_suffix: String = Uuid::new_v4().to_string().chars().take(6).collect();
+        let slug_with_random_suffix = format!("{}-{}", desired_slug, random_suffix);
+        if !repository::slug_exists(pool, &slug_with_random_suffix, exclude_post_id).await? {
+            return Ok(slug_with_random_suffix);
+        }
+    }
+    // After 10 failed attempts, fall back to a full UUID suffix
+    let fallback_suffix = Uuid::new_v4().to_string();
+    let slug_with_long_suffix = format!("{}-{}", desired_slug, fallback_suffix);
+    if !repository::slug_exists(pool, &slug_with_long_suffix, exclude_post_id).await? {
+        return Ok(slug_with_long_suffix);
+    }
+    Err(AppError::Anyhow(anyhow::anyhow!("unable to generate unique slug after max retries")))
+}
+
 async fn attach_admin_post(state: &AppState, post: AdminPost) -> AppResult<AdminPostResponse> {
     let tags = repository::list_post_tags(&state.pool, &post.id).await?;
     Ok(AdminPostResponse { post, tags })
@@ -180,20 +209,17 @@ pub async fn create_post(
         .filter(|s| !s.is_empty())
         .unwrap_or_default();
 
-    let base_slug = body
+    let slug_from_user_or_generated_from_title = body
         .slug
         .filter(|value| !value.trim().is_empty())
+        .map(|value| value.trim().to_string())
         .unwrap_or_else(|| slugify(&body.title));
 
-    let mut slug = base_slug.clone();
-    if repository::slug_exists(&state.pool, &slug, None).await? {
-        let random_suffix: String = Uuid::new_v4()
-            .to_string()
-            .chars()
-            .take(6)
-            .collect();
-        slug = format!("{}-{}", base_slug, random_suffix);
-    }
+    let mut slug = resolve_unique_post_slug(
+        &state.pool,
+        &slug_from_user_or_generated_from_title,
+        None,
+    ).await?;
 
     let status = normalize_status(body.status.as_deref())?;
     let visibility = normalize_visibility(body.visibility.as_deref())?;
@@ -237,9 +263,7 @@ pub async fn create_post(
         content_type = data.content_type.clone();
     }
 
-    if repository::slug_exists(&state.pool, &slug, None).await? {
-        return Err(AppError::Conflict("post slug already exists".into()));
-    }
+    slug = resolve_unique_post_slug(&state.pool, &slug, None).await?;
 
     let id = repository::insert_post(
         &state.pool,
@@ -354,7 +378,12 @@ pub async fn update_post(
     };
 
     let mut title = body.title.unwrap_or(current.title.clone());
-    let mut slug = body.slug.unwrap_or(current.slug.clone());
+    let slug_from_user_or_kept_from_current = body
+        .slug
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| current.slug.clone());
+    let mut slug = resolve_unique_post_slug(&state.pool, &slug_from_user_or_kept_from_current, Some(id)).await?;
     let mut excerpt = body.excerpt.or(current.excerpt.clone());
     let cover_media_id = body.cover_media_id.or(current.cover_media_id.clone());
     let status = normalize_status(body.status.as_deref().or(Some(&current.status)))?;
@@ -397,9 +426,7 @@ pub async fn update_post(
         content_type = data.content_type.clone();
     }
 
-    if repository::slug_exists(&state.pool, &slug, Some(id)).await? {
-        return Err(AppError::Conflict("post slug already exists".into()));
-    }
+    slug = resolve_unique_post_slug(&state.pool, &slug, Some(id)).await?;
 
     repository::update_post(
         &state.pool,
@@ -548,4 +575,78 @@ fn extract_zip(data: &[u8], dest_dir: &std::path::Path) -> AppResult<()> {
         std::fs::write(&outpath, &buf).map_err(AppError::Io)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod resolve_unique_post_slug_tests {
+    use super::*;
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr;
+
+    async fn new_migrated_pool() -> sqlx::SqlitePool {
+        let connect_options = SqliteConnectOptions::from_str("sqlite::memory:")
+            .expect("parse sqlite url")
+            .foreign_keys(false);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(connect_options)
+            .await
+            .expect("connect in-memory sqlite");
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("run migrations");
+        pool
+    }
+
+    async fn insert_post_with_slug(pool: &sqlx::SqlitePool, slug: &str) -> String {
+        repository::insert_post(
+            pool, "test-author", "Title", slug, None, "", "", None, "draft", "public", None,
+            true, false, "post", None, "editor",
+        )
+        .await
+        .expect("insert post")
+    }
+
+    #[tokio::test]
+    async fn returns_desired_slug_when_unused() {
+        let pool = new_migrated_pool().await;
+        let resolved = resolve_unique_post_slug(&pool, "unused-slug", None)
+            .await
+            .unwrap();
+        assert_eq!(resolved, "unused-slug");
+    }
+
+    #[tokio::test]
+    async fn appends_random_suffix_when_slug_taken() {
+        let pool = new_migrated_pool().await;
+        insert_post_with_slug(&pool, "taken-slug").await;
+        let resolved = resolve_unique_post_slug(&pool, "taken-slug", None)
+            .await
+            .unwrap();
+        assert_ne!(resolved, "taken-slug");
+        assert!(resolved.starts_with("taken-slug-"));
+        assert_eq!(resolved.len(), "taken-slug".len() + 1 + 6);
+    }
+
+    #[tokio::test]
+    async fn treats_trashed_post_slug_as_taken() {
+        let pool = new_migrated_pool().await;
+        let id = insert_post_with_slug(&pool, "trashed-slug").await;
+        repository::delete_post(&pool, &id).await.unwrap();
+        let resolved = resolve_unique_post_slug(&pool, "trashed-slug", None)
+            .await
+            .unwrap();
+        assert!(resolved.starts_with("trashed-slug-"));
+    }
+
+    #[tokio::test]
+    async fn keeps_slug_when_only_conflict_is_excluded_post() {
+        let pool = new_migrated_pool().await;
+        let id = insert_post_with_slug(&pool, "my-own-slug").await;
+        let resolved = resolve_unique_post_slug(&pool, "my-own-slug", Some(&id))
+            .await
+            .unwrap();
+        assert_eq!(resolved, "my-own-slug");
+    }
 }
