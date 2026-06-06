@@ -102,12 +102,14 @@ fn matches_cached_origin(
 pub async fn build_router(state: Arc<AppState>) -> Router {
     let port = state.config.server.port;
 
+    let is_production = state.config.runtime.mode.eq_ignore_ascii_case("production");
+
     let base_origins: Vec<HeaderValue> = {
         let mut v = vec![
             format!("http://localhost:{port}").parse::<HeaderValue>().unwrap(),
             format!("http://127.0.0.1:{port}").parse::<HeaderValue>().unwrap(),
         ];
-        if port != 5173 {
+        if !is_production && port != 5173 {
             v.push("http://localhost:5173".parse::<HeaderValue>().unwrap());
             v.push("http://127.0.0.1:5173".parse::<HeaderValue>().unwrap());
         }

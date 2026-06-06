@@ -55,9 +55,16 @@ pub async fn ws_admin_handler(
     headers: HeaderMap,
     Query(params): Query<WsAdminParams>,
 ) -> Response {
-    let token = params
-        .token
-        .or_else(|| session_token_from_headers(&headers));
+    let token = if let Some(query_token) = params.token {
+        tracing::warn!(
+            module = "ws",
+            event = "ws_token_via_query_param",
+            "WebSocket token passed via query parameter; prefer cookie or Authorization header"
+        );
+        Some(query_token)
+    } else {
+        session_token_from_headers(&headers)
+    };
 
     let Some(token) = token else {
         return Response::builder()

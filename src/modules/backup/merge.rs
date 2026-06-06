@@ -36,6 +36,14 @@ fn hash_bytes(data: &[u8]) -> String {
     hex::encode(hasher.finalize())
 }
 
+fn is_safe_sqlite_ident(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 128
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 fn quote_sqlite_ident(name: &str) -> String {
     let escaped = name.replace('"', "\"\"");
     format!("\"{}\"", escaped)
@@ -168,6 +176,16 @@ async fn merge_upsert_table(
         return Ok(());
     }
 
+    if columns.iter().any(|c| !is_safe_sqlite_ident(c)) {
+        tracing::warn!(
+            module = "backup",
+            event = "merge_skip_unsafe_columns",
+            table = %table,
+            "skipping table with non-alphanumeric column names during merge restore"
+        );
+        return Ok(());
+    }
+
     let quoted_table = quote_sqlite_ident(table);
     let column_list = columns
         .iter()
@@ -254,6 +272,15 @@ async fn merge_database(state: &AppState, db_bytes: &[u8]) -> AppResult<()> {
                 continue;
             }
             if !restore_set.contains(&table) {
+                continue;
+            }
+            if !is_safe_sqlite_ident(&table) {
+                tracing::warn!(
+                    module = "backup",
+                    event = "merge_skip_unsafe_table",
+                    table = %table,
+                    "skipping table with non-alphanumeric name during merge restore"
+                );
                 continue;
             }
 
