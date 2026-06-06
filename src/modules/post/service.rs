@@ -174,7 +174,7 @@ pub async fn list_admin_posts(
     .await?;
 
     // 批量取所有文章的标签（1 次查询替代 N 次）
-    let post_ids: Vec<String> = posts.iter().map(|p| p.id.clone()).collect();
+    let post_ids: Vec<String> = posts.iter().map(|post| post.id.clone()).collect();
     let tags_map = repository::list_tags_for_posts(&state.pool, &post_ids).await?;
 
     let mut items = Vec::with_capacity(posts.len());
