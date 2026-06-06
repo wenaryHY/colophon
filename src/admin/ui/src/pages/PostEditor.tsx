@@ -407,18 +407,6 @@ export default function PostEditor() {
             onChange={(e) => setTitle(e.target.value)}
           />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <Input
-              label={t('postSlugLabel')}
-              placeholder={generateSlugPreviewFromTitle(title)}
-              value={userProvidedSlugOverride}
-              onChange={(e) => setUserProvidedSlugOverride(e.target.value)}
-            />
-            <span style={{ fontSize: '12px', color: 'var(--md-on-surface-variant)' }}>
-              {t('postSlugAutoHint')}
-            </span>
-          </div>
-
           {pageEditMode === 'editor' ? (
             <>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -594,6 +582,26 @@ export default function PostEditor() {
               <option value="draft">{t('draftOption')}</option>
               <option value="published">{t('publishedOption')}</option>
             </Select>
+          </div>
+
+          {/* URL Slug */}
+          <div style={{
+            background: 'var(--md-surface-container)',
+            borderRadius: 'var(--radius-lg)', padding: '20px',
+          }}>
+            <div style={{
+              fontSize: '11.5px', fontWeight: 800, color: 'var(--md-on-surface-variant)',
+              textTransform: 'uppercase', letterSpacing: '0.07em',
+              marginBottom: '14px',
+            }}>{t('postSlugLabel')}</div>
+            <Input
+              placeholder={generateSlugPreviewFromTitle(title)}
+              value={userProvidedSlugOverride}
+              onChange={(e) => setUserProvidedSlugOverride(e.target.value)}
+            />
+            <span style={{ fontSize: '11.5px', color: 'var(--md-on-surface-variant)', display: 'block', marginTop: '8px' }}>
+              {t('postSlugAutoHint')}
+            </span>
           </div>
 
           {/* 分类和标签 */}
