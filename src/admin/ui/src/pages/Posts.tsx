@@ -325,6 +325,35 @@ export default function Posts() {
                     <span style={{ fontSize: '12px', color: 'var(--md-on-surface-variant)' }}>
                       {post.created_at?.slice(0, 10)}
                     </span>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '2px' }}>
+                      <button
+                        type="button"
+                        title={t('viewOnHomepage')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const url = buildPublicUrl(siteUrl, post.slug, post.content_type, post.page_render_mode);
+                          window.open(url, '_blank');
+                        }}
+                        style={{
+                          ...T.iconBtn('var(--md-on-surface-variant)'),
+                          width: '32px', height: '32px',
+                        }}
+                        onPointerDown={e => e.stopPropagation()}
+                      ><IconEye size={16} /></button>
+                      <button
+                        type="button"
+                        title={t('deletePost')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget({ id: post.id, title: post.title });
+                        }}
+                        style={{
+                          ...T.iconBtn('var(--md-error)'),
+                          width: '32px', height: '32px',
+                        }}
+                        onPointerDown={e => e.stopPropagation()}
+                      ><IconTrash2 size={16} /></button>
+                    </div>
                   </div>
                 </div>
               );

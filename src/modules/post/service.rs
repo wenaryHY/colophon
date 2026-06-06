@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use pulldown_cmark::{html, Options, Parser};
 use slug::slugify;
+use uuid::Uuid;
 
 use crate::{
     modules::plugin::hook::{
@@ -197,10 +198,20 @@ pub async fn create_post(
         .filter(|s| !s.is_empty())
         .unwrap_or_default();
 
-    let mut slug = body
+    let base_slug = body
         .slug
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| slugify(&body.title));
+
+    let mut slug = base_slug.clone();
+    if repository::slug_exists(&state.pool, &slug, None).await? {
+        let random_suffix: String = Uuid::new_v4()
+            .to_string()
+            .chars()
+            .take(6)
+            .collect();
+        slug = format!("{}-{}", base_slug, random_suffix);
+    }
 
     let status = normalize_status(body.status.as_deref())?;
     let visibility = normalize_visibility(body.visibility.as_deref())?;

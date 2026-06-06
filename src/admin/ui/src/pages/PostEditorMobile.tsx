@@ -15,7 +15,7 @@ import { IconFileText, IconPencil } from '../components/Icons';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
 import { useAutoSaveDraft, type DraftData } from '../hooks/useAutoSaveDraft';
-import { usePreview } from '../preview';
+import { usePreview, SESSION_STORAGE_KEY_FOR_PREVIEW_PARAMETERS_PASSED_TO_NEW_TAB } from '../preview';
 
 type PageEditMode = 'editor' | 'custom_html';
 
@@ -463,8 +463,39 @@ function PreviewSheet({
   previewMode: 'content' | 'theme';
   setPreviewMode: (m: 'content' | 'theme') => void;
   onClose: () => void;
-  preview: { openInNewTab: (mode?: 'content' | 'theme') => void };
+  preview: {
+    openInNewTab: (mode?: 'content' | 'theme') => void;
+    getRequestParams: () => { content: string; content_type: string } | null;
+    getThemeParams: () => { theme_slug: string; theme_config?: string } | null;
+  };
 }) {
+  const [iframeReady, setIframeReady] = useState(false);
+
+  // 每次打开或切换模式时：先清旧 sessionStorage，写入新参数，再加载 iframe
+  useEffect(() => {
+    setIframeReady(false);
+    sessionStorage.removeItem(SESSION_STORAGE_KEY_FOR_PREVIEW_PARAMETERS_PASSED_TO_NEW_TAB);
+
+    const requestParams = preview.getRequestParams();
+    const themeParams = preview.getThemeParams();
+    const previewData = {
+      mode: previewMode,
+      content: requestParams?.content || '',
+      content_type: requestParams?.content_type || 'post',
+      theme_slug: themeParams?.theme_slug || '',
+      theme_config: themeParams?.theme_config || '',
+    };
+
+    sessionStorage.setItem(
+      SESSION_STORAGE_KEY_FOR_PREVIEW_PARAMETERS_PASSED_TO_NEW_TAB,
+      JSON.stringify(previewData),
+    );
+
+    // 延迟一帧确保 sessionStorage 写入后再渲染 iframe
+    const timer = setTimeout(() => setIframeReady(true), 50);
+    return () => clearTimeout(timer);
+  }, [previewMode]);
+
   return (
     <>
       {/* 遮罩 */}
@@ -521,13 +552,22 @@ function PreviewSheet({
           </button>
         </div>
 
-        {/* Body — 使用 iframe 加载预览 */}
+        {/* Body — 使用 iframe 加载预览（sessionStorage 就绪后才渲染） */}
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 300 }}>
-          <iframe
-            src={`/preview?mode=${previewMode}`}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title="文章预览"
-          />
+          {iframeReady ? (
+            <iframe
+              src={`/preview?mode=${previewMode}`}
+              style={{ width: '100%', height: '100%', border: 'none' }}
+              title="文章预览"
+            />
+          ) : (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              height: '100%', color: 'var(--md-on-surface-variant)', fontSize: '14px',
+            }}>
+              正在加载预览...
+            </div>
+          )}
         </div>
 
         {/* Footer */}
