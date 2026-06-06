@@ -164,7 +164,14 @@ pub async fn upload_theme_archive(
         Ok(())
     })();
     if let Err(err) = extract_result {
-        let _ = std::fs::remove_dir_all(&theme_dir);
+        if let Err(e) = std::fs::remove_dir_all(&theme_dir) {
+            tracing::warn!(
+                module = "theme",
+                path = %theme_dir.display(),
+                error = %e,
+                "failed to clean up theme directory after extraction error"
+            );
+        }
         return Err(err);
     }
 

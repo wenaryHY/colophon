@@ -189,7 +189,7 @@ async fn dispatch_webhooks_for_event(
             let duration_ms = start.elapsed().as_millis() as i64;
 
             // 记录投递日志
-            let _ = repository::insert_delivery(
+            if let Err(e) = repository::insert_delivery(
                 &pool,
                 &webhook.id,
                 &event,
@@ -200,27 +200,52 @@ async fn dispatch_webhooks_for_event(
                 duration_ms,
                 success,
             )
-            .await;
+            .await
+            {
+                tracing::error!(
+                    module = "webhook",
+                    webhook_id = %webhook.id,
+                    error = %e,
+                    "failed to insert delivery record"
+                );
+            }
 
             // 更新最后触发时间
             let now = Utc::now().to_rfc3339();
             let last_error = if success { None } else { Some(response_body.as_str()) };
-            let _ = repository::update_webhook_last_trigger(
+            if let Err(e) = repository::update_webhook_last_trigger(
                 &pool,
                 &webhook.id,
                 &now,
                 last_error,
             )
-            .await;
+            .await
+            {
+                tracing::error!(
+                    module = "webhook",
+                    webhook_id = %webhook.id,
+                    error = %e,
+                    "failed to update webhook last_trigger"
+                );
+            }
         }));
     }
 
     // 等待所有 webhook 完成，带总超时保护
-    let _ = tokio::time::timeout(
+    if tokio::time::timeout(
         Duration::from_secs(config.timeout_seconds),
         future::join_all(handles),
     )
-    .await;
+    .await
+    .is_err()
+    {
+        tracing::warn!(
+            module = "webhook",
+            event = event,
+            timeout_seconds = config.timeout_seconds,
+            "webhook dispatch batch timed out"
+        );
+    }
 }
 
 /// 发送单个 webhook 请求，支持重试
@@ -314,7 +339,17 @@ async fn try_send_webhook(
 
     let response = req.send().await?;
     let status = response.status().as_u16() as i64;
-    let body = response.text().await.unwrap_or_default();
+    let body = match response.text().await {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!(
+                module = "webhook",
+                error = %e,
+                "failed to read webhook response body"
+            );
+            String::new()
+        }
+    };
     Ok((status, body))
 }
 
