@@ -1,7 +1,11 @@
 # InkForge
 
-> A fast, opinionated CMS for creators who own their content.
-> Built with Rust. Deploy in minutes.
+[![English](https://img.shields.io/badge/lang-English-blue)](README.md)
+[![中文](https://img.shields.io/badge/lang-中文-ff6b35)](README.zh-CN.md)
+
+> A CMS that runs as a single file.
+> No Node.js. No runtime. No Docker required.
+> `scp` it to your server and you're done.
 
 ## Quick Start
 
