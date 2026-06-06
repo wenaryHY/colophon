@@ -39,18 +39,18 @@ export default function Login() {
     function tryRender() {
       if (cancelled) return;
       const el = document.getElementById('turnstile-widget');
-      const t = (window as any).turnstile;
-      if (!el || !t || typeof t.render !== 'function') {
+      const turnstileWidget = (window as any).turnstile;
+      if (!el || !turnstileWidget || typeof turnstileWidget.render !== 'function') {
         // 还没就绪，50ms 后重试
         setTimeout(tryRender, 50);
         return;
       }
       // 先清掉可能残留的旧 widget（防止重复渲染）
       const existingIframe = el.querySelector('iframe');
-      if (existingIframe && typeof t.remove === 'function') {
-        t.remove('#turnstile-widget');
+      if (existingIframe && typeof turnstileWidget.remove === 'function') {
+        turnstileWidget.remove('#turnstile-widget');
       }
-      widgetId = t.render('#turnstile-widget', {
+      widgetId = turnstileWidget.render('#turnstile-widget', {
         sitekey: '0x4AAAAAADffbuvTrWkvKyda',
         theme: 'dark',
         callback: (token: string) => {
@@ -73,9 +73,9 @@ export default function Login() {
     return () => {
       cancelled = true;
       // 销毁 Turnstile widget，防止下次挂载时残留
-      const t = (window as any).turnstile;
-      if (widgetId && t && typeof t.remove === 'function') {
-        t.remove('#turnstile-widget');
+      const turnstileWidget = (window as any).turnstile;
+      if (widgetId && turnstileWidget && typeof turnstileWidget.remove === 'function') {
+        turnstileWidget.remove('#turnstile-widget');
       }
       turnstileRef.current = null;
       setTurnstileReady(false);

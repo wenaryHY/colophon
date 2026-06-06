@@ -20,7 +20,7 @@ interface StatsCardProps {
 }
 
 export function StatsCard({ icon, value, label, theme = 'orange' }: StatsCardProps) {
-  const t = THEME_MAP[theme];
+  const themeStyles = THEME_MAP[theme];
 
   return (
     <div style={{
@@ -40,9 +40,9 @@ export function StatsCard({ icon, value, label, theme = 'orange' }: StatsCardPro
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         <div style={{
           width: '40px', height: '40px', borderRadius: 'var(--radius-md)',
-          background: t.iconBg,
+          background: themeStyles.iconBg,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: t.accent,
+          color: themeStyles.accent,
         }}>{icon}</div>
       </div>
       <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--md-on-surface)', letterSpacing: '-0.5px', lineHeight: 1.15 }}>

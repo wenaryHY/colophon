@@ -228,9 +228,9 @@ function DeliveriesPanel({
         </div>
       ) : (
         <>
-          {deliveries.map((d) => (
+          {deliveries.map((delivery) => (
             <div
-              key={d.id}
+              key={delivery.id}
               style={{
                 borderRadius: 'var(--radius-md)',
                 background: 'var(--md-surface-container-lowest)',
@@ -248,26 +248,26 @@ function DeliveriesPanel({
                     borderRadius: 'var(--radius-full)',
                     fontSize: '11px',
                     fontWeight: 600,
-                    background: d.success ? '#dcfce7' : '#fef2f2',
-                    color: d.success ? '#16a34a' : '#dc2626',
+                    background: delivery.success ? '#dcfce7' : '#fef2f2',
+                    color: delivery.success ? '#16a34a' : '#dc2626',
                   }}>
-                    {d.success ? t('webhookStatusSuccess') : t('webhookStatusFailed')}
+                    {delivery.success ? t('webhookStatusSuccess') : t('webhookStatusFailed')}
                   </span>
                   <span style={{ color: 'var(--md-on-surface-variant)' }}>
-                    {d.event}
+                    {delivery.event}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', color: 'var(--md-outline)' }}>
-                  {d.response_status && (
-                    <span>HTTP {d.response_status}</span>
+                  {delivery.response_status && (
+                    <span>HTTP {delivery.response_status}</span>
                   )}
-                  {d.duration_ms != null && (
-                    <span>{t('webhookDuration')}: {d.duration_ms}ms</span>
+                  {delivery.duration_ms != null && (
+                    <span>{t('webhookDuration')}: {delivery.duration_ms}ms</span>
                   )}
-                  <span>{timeAgo(d.created_at)}</span>
+                  <span>{timeAgo(delivery.created_at)}</span>
                 </div>
               </div>
-              {d.response_body && d.response_status && d.response_status >= 400 && (
+              {delivery.response_body && delivery.response_status && delivery.response_status >= 400 && (
                 <div style={{
                   fontSize: '11px',
                   color: 'var(--md-error)',
@@ -279,7 +279,7 @@ function DeliveriesPanel({
                   maxHeight: '80px',
                   overflow: 'auto',
                 }}>
-                  {d.response_body.substring(0, 300)}
+                  {delivery.response_body.substring(0, 300)}
                 </div>
               )}
             </div>
