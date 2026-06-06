@@ -18,6 +18,7 @@ const EscapeFocusTrap = Extension.create({
     return {
       Escape: () => {
         (this.editor.view.dom as HTMLElement).blur();
+        document.body.focus();
         return true;
       },
     };
@@ -50,7 +51,6 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
   const isExternalUpdateRef = useRef(false);
   const [colorOpen, setColorOpen] = useState(false);
   const [focusedBtnIndex, setFocusedBtnIndex] = useState(0);
-  const focusedBtnIndexRef = useRef(0);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
@@ -98,10 +98,15 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
 
   const handleToolbarKeyDown = (e: React.KeyboardEvent) => {
     if (!toolbarRef.current) return;
-    const buttonEls = toolbarRef.current.querySelectorAll('.toolbar-btn, .color-trigger-btn');
+    const buttonEls = Array.from(
+      toolbarRef.current.querySelectorAll('.toolbar-btn, .color-trigger-btn')
+    ) as HTMLElement[];
     if (buttonEls.length === 0) return;
 
-    const currentIndex = focusedBtnIndexRef.current;
+    const activeEl = document.activeElement as HTMLElement;
+    const currentIndex = buttonEls.indexOf(activeEl);
+    if (currentIndex === -1) return; // Focus is not on the toolbar buttons
+
     let nextIndex = currentIndex;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
       nextIndex = (currentIndex + 1) % buttonEls.length;
@@ -113,9 +118,20 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
       return;
     }
 
-    focusedBtnIndexRef.current = nextIndex;
     setFocusedBtnIndex(nextIndex);
-    (buttonEls[nextIndex] as HTMLElement).focus();
+    buttonEls[nextIndex].focus();
+  };
+
+  const handleToolbarFocus = (e: React.FocusEvent) => {
+    if (!toolbarRef.current) return;
+    const buttonEls = Array.from(
+      toolbarRef.current.querySelectorAll('.toolbar-btn, .color-trigger-btn')
+    ) as HTMLElement[];
+    
+    const targetIndex = buttonEls.indexOf(e.target as HTMLElement);
+    if (targetIndex !== -1) {
+      setFocusedBtnIndex(targetIndex);
+    }
   };
 
   // Sync external value changes (e.g. from CodeMirror source panel)
@@ -152,6 +168,7 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
       <div
         ref={toolbarRef}
         onKeyDown={handleToolbarKeyDown}
+        onFocus={handleToolbarFocus}
         role="toolbar"
         aria-label={t('editorToolbar')}
         aria-controls="tiptap-content-area"
