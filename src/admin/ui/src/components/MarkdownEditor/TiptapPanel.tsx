@@ -18,7 +18,6 @@ const EscapeFocusTrap = Extension.create({
     return {
       Escape: () => {
         (this.editor.view.dom as HTMLElement).blur();
-        document.body.focus();
         return true;
       },
     };
@@ -50,8 +49,6 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
   const { t } = useI18n();
   const isExternalUpdateRef = useRef(false);
   const [colorOpen, setColorOpen] = useState(false);
-  const [focusedBtnIndex, setFocusedBtnIndex] = useState(0);
-  const toolbarRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -96,42 +93,25 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
     },
   });
 
-  const handleToolbarKeyDown = (e: React.KeyboardEvent) => {
-    if (!toolbarRef.current) return;
-    const buttonEls = Array.from(
-      toolbarRef.current.querySelectorAll('.toolbar-btn, .color-trigger-btn')
-    ) as HTMLElement[];
-    if (buttonEls.length === 0) return;
-
-    const activeEl = document.activeElement as HTMLElement;
-    const currentIndex = buttonEls.indexOf(activeEl);
-    if (currentIndex === -1) return; // Focus is not on the toolbar buttons
-
-    let nextIndex = currentIndex;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      nextIndex = (currentIndex + 1) % buttonEls.length;
-      e.preventDefault();
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      nextIndex = (currentIndex - 1 + buttonEls.length) % buttonEls.length;
-      e.preventDefault();
-    } else {
-      return;
-    }
-
-    setFocusedBtnIndex(nextIndex);
-    buttonEls[nextIndex].focus();
-  };
-
-  const handleToolbarFocus = (e: React.FocusEvent) => {
-    if (!toolbarRef.current) return;
-    const buttonEls = Array.from(
-      toolbarRef.current.querySelectorAll('.toolbar-btn, .color-trigger-btn')
-    ) as HTMLElement[];
-    
-    const targetIndex = buttonEls.indexOf(e.target as HTMLElement);
-    if (targetIndex !== -1) {
-      setFocusedBtnIndex(targetIndex);
-    }
+  /// 工具栏焦点导航：从当前焦点按钮移动到上一个或下一个按钮。
+  /// 使用 `document.activeElement` 确定当前位置，避免 React state 闭包问题。
+  const navigateToolbarFocus = (
+    currentButton: HTMLElement,
+    direction: 'next' | 'prev',
+  ) => {
+    const toolbar = currentButton.closest('[role="toolbar"]');
+    if (!toolbar) return;
+    const buttons = Array.from(
+      toolbar.querySelectorAll<HTMLElement>('.toolbar-btn, .color-trigger-btn'),
+    );
+    if (buttons.length === 0) return;
+    const currentIndex = buttons.indexOf(currentButton);
+    if (currentIndex === -1) return;
+    const nextIndex =
+      direction === 'next'
+        ? (currentIndex + 1) % buttons.length
+        : (currentIndex - 1 + buttons.length) % buttons.length;
+    buttons[nextIndex]?.focus();
   };
 
   // Sync external value changes (e.g. from CodeMirror source panel)
@@ -166,9 +146,6 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* 格式化工具栏 */}
       <div
-        ref={toolbarRef}
-        onKeyDown={handleToolbarKeyDown}
-        onFocus={handleToolbarFocus}
         role="toolbar"
         aria-label={t('editorToolbar')}
         aria-controls="tiptap-content-area"
@@ -184,7 +161,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('h1')}
           aria-pressed={editor.isActive('heading', { level: 1 })}
-          tabIndex={focusedBtnIndex === 0 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           className={`toolbar-btn ${editor.isActive('heading', { level: 1 }) ? 'is-active' : ''}`}
         >H1</button>
@@ -192,7 +185,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('h2')}
           aria-pressed={editor.isActive('heading', { level: 2 })}
-          tabIndex={focusedBtnIndex === 1 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           className={`toolbar-btn ${editor.isActive('heading', { level: 2 }) ? 'is-active' : ''}`}
         >H2</button>
@@ -200,7 +209,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('h3')}
           aria-pressed={editor.isActive('heading', { level: 3 })}
-          tabIndex={focusedBtnIndex === 2 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           className={`toolbar-btn ${editor.isActive('heading', { level: 3 }) ? 'is-active' : ''}`}
         >H3</button>
@@ -210,7 +235,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('bold')}
           aria-pressed={editor.isActive('bold')}
-          tabIndex={focusedBtnIndex === 3 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleBold().run()}
           className={`toolbar-btn ${editor.isActive('bold') ? 'is-active' : ''}`}
         ><b>B</b></button>
@@ -218,7 +259,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('italic')}
           aria-pressed={editor.isActive('italic')}
-          tabIndex={focusedBtnIndex === 4 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleItalic().run()}
           className={`toolbar-btn ${editor.isActive('italic') ? 'is-active' : ''}`}
         ><i>I</i></button>
@@ -226,7 +283,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('underline')}
           aria-pressed={editor.isActive('underline')}
-          tabIndex={focusedBtnIndex === 5 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           className={`toolbar-btn ${editor.isActive('underline') ? 'is-active' : ''}`}
         ><u>U</u></button>
@@ -234,7 +307,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('strike')}
           aria-pressed={editor.isActive('strike')}
-          tabIndex={focusedBtnIndex === 6 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleStrike().run()}
           className={`toolbar-btn ${editor.isActive('strike') ? 'is-active' : ''}`}
         ><s>S</s></button>
@@ -244,7 +333,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('blockquote')}
           aria-pressed={editor.isActive('blockquote')}
-          tabIndex={focusedBtnIndex === 7 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           className={`toolbar-btn ${editor.isActive('blockquote') ? 'is-active' : ''}`}
         >"</button>
@@ -252,7 +357,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('codeBlock')}
           aria-pressed={editor.isActive('codeBlock')}
-          tabIndex={focusedBtnIndex === 8 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
           className={`toolbar-btn ${editor.isActive('codeBlock') ? 'is-active' : ''}`}
         >&lt;/&gt;</button>
@@ -260,7 +381,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('bulletList')}
           aria-pressed={editor.isActive('bulletList')}
-          tabIndex={focusedBtnIndex === 9 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           className={`toolbar-btn ${editor.isActive('bulletList') ? 'is-active' : ''}`}
         >•</button>
@@ -268,7 +405,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('orderedList')}
           aria-pressed={editor.isActive('orderedList')}
-          tabIndex={focusedBtnIndex === 10 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           className={`toolbar-btn ${editor.isActive('orderedList') ? 'is-active' : ''}`}
         >1.</button>
@@ -278,7 +431,23 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
           role="button"
           aria-label={t('link')}
           aria-pressed={editor.isActive('link')}
-          tabIndex={focusedBtnIndex === 11 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+              return;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'next');
+              return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              navigateToolbarFocus(e.currentTarget, 'prev');
+              return;
+            }
+          }}
           onClick={() => {
             const url = window.prompt(t('url'));
             if (url) editor.chain().focus().setLink({ href: url }).run();
@@ -289,8 +458,24 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
         <span style={{ position: 'relative' }}>
           <button
             role="button"
+            onKeyDown={(e) => {
+              if (e.key === 'Tab') {
+                e.preventDefault();
+                navigateToolbarFocus(e.currentTarget, e.shiftKey ? 'prev' : 'next');
+                return;
+              }
+              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                navigateToolbarFocus(e.currentTarget, 'next');
+                return;
+              }
+              if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigateToolbarFocus(e.currentTarget, 'prev');
+                return;
+              }
+            }}
             className={`color-trigger-btn toolbar-btn ${editor.isActive('textStyle') ? 'is-active' : ''}`}
-            tabIndex={focusedBtnIndex === 12 ? 0 : -1}
             onClick={() => setColorOpen(!colorOpen)}
             aria-label={t('textColor')}
             aria-haspopup="true"
