@@ -60,3 +60,97 @@ pub fn hash_token(token: &str) -> String {
     hasher.update(token.as_bytes());
     hex::encode(hasher.finalize())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TEST_SECRET: &str = "test-jwt-secret-for-unit-tests";
+
+    #[test]
+    fn issue_and_decode_roundtrip() {
+        let token = issue_token(
+            TEST_SECRET,
+            3600,
+            "user-1".into(),
+            "alice".into(),
+            "admin".into(),
+        )
+        .unwrap();
+        let claims = decode_token(&token, TEST_SECRET).unwrap();
+        assert_eq!(claims.sub, "user-1");
+        assert_eq!(claims.username, "alice");
+        assert_eq!(claims.role, "admin");
+    }
+
+    #[test]
+    fn decode_rejects_wrong_secret() {
+        let token = issue_token(
+            TEST_SECRET,
+            3600,
+            "user-1".into(),
+            "alice".into(),
+            "admin".into(),
+        )
+        .unwrap();
+        assert!(decode_token(&token, "wrong-secret").is_err());
+    }
+
+    #[test]
+    fn decode_rejects_garbage() {
+        assert!(decode_token("not.a.jwt", TEST_SECRET).is_err());
+    }
+
+    #[test]
+    fn generate_refresh_token_is_64_hex_chars() {
+        let token = generate_refresh_token();
+        assert_eq!(token.len(), 64);
+        assert!(token.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn generate_refresh_token_is_unique() {
+        let t1 = generate_refresh_token();
+        let t2 = generate_refresh_token();
+        assert_ne!(t1, t2);
+    }
+
+    #[test]
+    fn hash_token_is_deterministic() {
+        let h1 = hash_token("my_token");
+        let h2 = hash_token("my_token");
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn hash_token_produces_64_hex_chars() {
+        let h = hash_token("some_token");
+        assert_eq!(h.len(), 64);
+        assert!(h.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn hash_token_different_inputs_differ() {
+        let h1 = hash_token("token_a");
+        let h2 = hash_token("token_b");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn issued_token_has_correct_expiry_range() {
+        let lifetime = 7200u64;
+        let before = chrono::Utc::now().timestamp();
+        let token = issue_token(
+            TEST_SECRET,
+            lifetime,
+            "u1".into(),
+            "bob".into(),
+            "user".into(),
+        )
+        .unwrap();
+        let after = chrono::Utc::now().timestamp();
+        let claims = decode_token(&token, TEST_SECRET).unwrap();
+        assert!(claims.exp >= before + lifetime as i64);
+        assert!(claims.exp <= after + lifetime as i64);
+    }
+}

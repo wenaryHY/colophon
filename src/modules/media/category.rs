@@ -167,6 +167,52 @@ fn infer_category_by_extension(ext: &str) -> String {
     .to_string()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn infer_image_extensions() {
+        for ext in &["jpg", "jpeg", "png", "webp", "gif", "svg", "bmp"] {
+            assert_eq!(infer_category_by_extension(ext), "image", "ext={ext}");
+        }
+    }
+
+    #[test]
+    fn infer_audio_extensions() {
+        for ext in &["mp3", "ogg", "wav", "m4a", "flac"] {
+            assert_eq!(infer_category_by_extension(ext), "audio", "ext={ext}");
+        }
+    }
+
+    #[test]
+    fn infer_video_extensions() {
+        for ext in &["mp4", "mov", "avi", "mkv", "webm"] {
+            assert_eq!(infer_category_by_extension(ext), "video", "ext={ext}");
+        }
+    }
+
+    #[test]
+    fn infer_document_extensions() {
+        for ext in &["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt"] {
+            assert_eq!(infer_category_by_extension(ext), "document", "ext={ext}");
+        }
+    }
+
+    #[test]
+    fn infer_archive_extensions() {
+        for ext in &["zip", "rar", "7z", "tar", "gz"] {
+            assert_eq!(infer_category_by_extension(ext), "archive", "ext={ext}");
+        }
+    }
+
+    #[test]
+    fn infer_unknown_extension_returns_other() {
+        assert_eq!(infer_category_by_extension("xyz"), "other");
+        assert_eq!(infer_category_by_extension(""), "other");
+    }
+}
+
 async fn list_categories_repo<'e, E>(executor: E) -> Result<Vec<MediaCategory>, sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,

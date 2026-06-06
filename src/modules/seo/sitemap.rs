@@ -87,6 +87,50 @@ async fn build_sitemap_xml_inner(site_url: &str, state: &AppState) -> Result<Str
     Ok(xml)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn infer_localhost_uses_http() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, "localhost:3000".parse().unwrap());
+        assert_eq!(
+            infer_site_url_from_host_header(&headers),
+            "http://localhost:3000"
+        );
+    }
+
+    #[test]
+    fn infer_loopback_uses_http() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, "127.0.0.1:8080".parse().unwrap());
+        assert_eq!(
+            infer_site_url_from_host_header(&headers),
+            "http://127.0.0.1:8080"
+        );
+    }
+
+    #[test]
+    fn infer_public_domain_uses_https() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, "example.com".parse().unwrap());
+        assert_eq!(
+            infer_site_url_from_host_header(&headers),
+            "https://example.com"
+        );
+    }
+
+    #[test]
+    fn infer_missing_host_defaults_to_localhost() {
+        let headers = HeaderMap::new();
+        assert_eq!(
+            infer_site_url_from_host_header(&headers),
+            "http://localhost"
+        );
+    }
+}
+
 /// Handler for GET /sitemap.xml
 pub async fn serve_sitemap(
     State(state): State<Arc<AppState>>,

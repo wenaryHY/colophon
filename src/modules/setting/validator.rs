@@ -76,3 +76,95 @@ fn ensure_admin_path(url: &url::Url) -> AppResult<()> {
         "admin_url path must be /admin".into(),
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_site_url_strips_trailing_slash() {
+        let result = normalize_site_url("https://example.com/").unwrap();
+        assert_eq!(result, "https://example.com");
+    }
+
+    #[test]
+    fn normalize_site_url_accepts_plain_origin() {
+        let result = normalize_site_url("https://example.com").unwrap();
+        assert_eq!(result, "https://example.com");
+    }
+
+    #[test]
+    fn normalize_site_url_rejects_path() {
+        assert!(normalize_site_url("https://example.com/blog").is_err());
+    }
+
+    #[test]
+    fn normalize_site_url_rejects_query() {
+        assert!(normalize_site_url("https://example.com/?x=1").is_err());
+    }
+
+    #[test]
+    fn normalize_site_url_rejects_fragment() {
+        assert!(normalize_site_url("https://example.com/#top").is_err());
+    }
+
+    #[test]
+    fn normalize_site_url_rejects_ftp_scheme() {
+        assert!(normalize_site_url("ftp://example.com").is_err());
+    }
+
+    #[test]
+    fn normalize_site_url_rejects_credentials() {
+        assert!(normalize_site_url("https://user:pass@example.com").is_err());
+    }
+
+    #[test]
+    fn normalize_admin_url_accepts_valid() {
+        let result = normalize_admin_url("https://example.com/admin").unwrap();
+        assert_eq!(result, "https://example.com/admin");
+    }
+
+    #[test]
+    fn normalize_admin_url_strips_trailing_slash() {
+        let result = normalize_admin_url("https://example.com/admin/").unwrap();
+        assert_eq!(result, "https://example.com/admin");
+    }
+
+    #[test]
+    fn normalize_admin_url_rejects_wrong_path() {
+        assert!(normalize_admin_url("https://example.com/dashboard").is_err());
+    }
+
+    #[test]
+    fn canonical_admin_url_from_site_url_appends_admin() {
+        let result = canonical_admin_url_from_site_url("https://example.com").unwrap();
+        assert_eq!(result, "https://example.com/admin");
+    }
+
+    #[test]
+    fn normalize_bool_string_accepts_true() {
+        assert_eq!(normalize_bool_string("true", "field").unwrap(), "true");
+    }
+
+    #[test]
+    fn normalize_bool_string_accepts_false() {
+        assert_eq!(normalize_bool_string("false", "field").unwrap(), "false");
+    }
+
+    #[test]
+    fn normalize_bool_string_trims_whitespace() {
+        assert_eq!(normalize_bool_string("  true  ", "field").unwrap(), "true");
+    }
+
+    #[test]
+    fn normalize_bool_string_rejects_invalid() {
+        assert!(normalize_bool_string("yes", "field").is_err());
+        assert!(normalize_bool_string("1", "field").is_err());
+    }
+
+    #[test]
+    fn normalize_site_url_http_scheme_accepted() {
+        let result = normalize_site_url("http://localhost:3000").unwrap();
+        assert_eq!(result, "http://localhost:3000");
+    }
+}
