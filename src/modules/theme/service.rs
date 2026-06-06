@@ -27,8 +27,16 @@ impl ThemeService {
             let path = entry.path();
 
             if path.is_dir() {
-                if let Ok(manifest) = self.load_manifest(&path) {
-                    themes.push(manifest);
+                match self.load_manifest(&path) {
+                    Ok(manifest) => themes.push(manifest),
+                    Err(e) => {
+                        tracing::warn!(
+                            module = "theme",
+                            path = %path.display(),
+                            error = %e,
+                            "failed to load theme manifest, skipping"
+                        );
+                    }
                 }
             }
         }

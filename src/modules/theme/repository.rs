@@ -40,7 +40,21 @@ where
     .fetch_optional(executor)
     .await?;
 
-    Ok(record.and_then(|(json_str,)| serde_json::from_str(&json_str).ok()))
+    match record {
+        Some((json_str,)) => match serde_json::from_str(&json_str) {
+            Ok(config) => Ok(Some(config)),
+            Err(e) => {
+                tracing::warn!(
+                    module = "theme",
+                    theme_slug = %theme_slug,
+                    error = %e,
+                    "failed to deserialize theme config JSON, returning None"
+                );
+                Ok(None)
+            }
+        },
+        None => Ok(None),
+    }
 }
 
 pub async fn set_active_theme<'e, E>(executor: E, theme_slug: &str) -> AppResult<()>

@@ -171,17 +171,29 @@ pub async fn create_comment(
         status: status.to_string(),
         created_at: created_at.clone(),
     };
-    let _ = state.event_tx.send(event);
+    if let Err(e) = state.event_tx.send(event) {
+        tracing::warn!(
+            module = "comment",
+            error = %e,
+            "failed to broadcast CommentCreated event"
+        );
+    }
 
     // 直接通过的评论也推送 WS，前台文章页实时显示
     if status == "approved" {
-        let _ = state.event_tx.send(ServerEvent::CommentApproved {
+        if let Err(e) = state.event_tx.send(ServerEvent::CommentApproved {
             id: comment_id.clone(),
             post_id: post.id.clone(),
             author_name: auth.username.clone(),
             content: content.clone(),
             created_at,
-        });
+        }) {
+            tracing::warn!(
+                module = "comment",
+                error = %e,
+                "failed to broadcast CommentApproved event"
+            );
+        }
     }
 
     tracing::info!(
@@ -280,7 +292,13 @@ pub async fn approve_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_
         content: comment.content,
         created_at: comment.created_at,
     };
-    let _ = state.event_tx.send(event);
+    if let Err(e) = state.event_tx.send(event) {
+        tracing::warn!(
+            module = "comment",
+            error = %e,
+            "failed to broadcast CommentApproved event"
+        );
+    }
 
     Ok(serde_json::json!({ "approved": true }))
 }
@@ -296,7 +314,13 @@ pub async fn delete_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_j
 
     // WS：通知管理后台评论已删除
     let event = ServerEvent::CommentDeleted { id: id.to_string() };
-    let _ = state.event_tx.send(event);
+    if let Err(e) = state.event_tx.send(event) {
+        tracing::warn!(
+            module = "comment",
+            error = %e,
+            "failed to broadcast CommentDeleted event"
+        );
+    }
 
     Ok(serde_json::json!({ "deleted": true }))
 }

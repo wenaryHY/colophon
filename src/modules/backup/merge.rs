@@ -363,13 +363,21 @@ pub async fn merge_restore_backup(
         }
         Err(err) => {
             let message = err.to_string();
-            let _ = repository::update_backup_status(
+            if let Err(status_err) = repository::update_backup_status(
                 &state.pool,
                 &backup.id,
                 BackupStatus::Failed.as_str(),
                 Some(&message),
             )
-            .await;
+            .await
+            {
+                tracing::error!(
+                    module = "backup",
+                    backup_id = %backup.id,
+                    error = %status_err,
+                    "failed to update backup status to Failed after merge error"
+                );
+            }
         }
     }
 

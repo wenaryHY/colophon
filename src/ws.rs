@@ -131,7 +131,14 @@ async fn handle_ws(
 
         let json = match serde_json::to_string(&event) {
             Ok(j) => j,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::warn!(
+                    module = "ws",
+                    error = %e,
+                    "failed to serialize WebSocket event"
+                );
+                continue;
+            }
         };
 
         if sender.send(Message::Text(json.into())).await.is_err() {

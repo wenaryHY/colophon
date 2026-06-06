@@ -164,7 +164,14 @@ pub async fn logout(
         jar.get(auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN)
     {
         let token_hash = jwt::hash_token(cookie.value());
-        let _ = repository::revoke_refresh_token(&state.pool, &token_hash).await;
+        if let Err(e) = repository::revoke_refresh_token(&state.pool, &token_hash).await {
+            tracing::warn!(
+                module = "auth",
+                event = "logout_revoke_failed",
+                error = %e,
+                "failed to revoke refresh token during logout"
+            );
+        }
     }
 
     let json = Json(ApiResponse::success(

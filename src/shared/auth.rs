@@ -101,7 +101,7 @@ async fn authenticate_via_api_key(
                 error = ?e,
                 "database error during API key lookup"
             );
-            Ok(None)
+            Err(AppError::Sqlx(e))
         }
     }
 }
