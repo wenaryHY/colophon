@@ -8,7 +8,7 @@ use crate::{
         auth::AuthUser,
         error::{AppError, AppResult},
         pagination::PaginationQuery,
-        response::PaginatedResponse,
+        response::{action_json, deleted_json, PaginatedResponse},
     },
     state::AppState,
     ws::ServerEvent,
@@ -246,7 +246,7 @@ pub async fn delete_own_comment(
         user_id = %auth.id,
         "own comment deleted"
     );
-    Ok(serde_json::json!({ "deleted": true }))
+    deleted_json()
 }
 
 pub async fn list_admin_comments(
@@ -282,13 +282,13 @@ pub async fn approve_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_
     };
     let _ = state.event_tx.send(event);
 
-    Ok(serde_json::json!({ "approved": true }))
+    action_json("approved", true)
 }
 
 pub async fn reject_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     // reject 暂无专门 WS 事件（仅管理后台可见，管理员主动刷新即可）
     repository::update_status(&state.pool, id, "rejected").await?;
-    Ok(serde_json::json!({ "rejected": true }))
+    action_json("rejected", true)
 }
 
 pub async fn delete_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
@@ -298,7 +298,7 @@ pub async fn delete_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_j
     let event = ServerEvent::CommentDeleted { id: id.to_string() };
     let _ = state.event_tx.send(event);
 
-    Ok(serde_json::json!({ "deleted": true }))
+    deleted_json()
 }
 
 pub async fn restore_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
@@ -306,7 +306,7 @@ pub async fn restore_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_
     if !restored {
         return Err(AppError::NotFound);
     }
-    Ok(serde_json::json!({ "restored": true }))
+    action_json("restored", true)
 }
 
 pub async fn purge_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
@@ -314,7 +314,7 @@ pub async fn purge_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_js
     if !purged {
         return Err(AppError::NotFound);
     }
-    Ok(serde_json::json!({ "purged": true }))
+    action_json("purged", true)
 }
 
 /// 查询该用户最后一条评论的时间，若距现在不足 10 秒则拒绝
