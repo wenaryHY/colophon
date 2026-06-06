@@ -10,7 +10,7 @@
 ## Quick Start
 
 ```bash
-# Prerequisites: Rust 1.75+, Node.js 18+, SQLite 3
+# Prerequisites: Rust 1.75+, Node.js 22+, SQLite 3
 git clone https://github.com/wenaryHY/inkforge.git
 cd inkforge
 cd src/admin/ui && npm ci && cd -

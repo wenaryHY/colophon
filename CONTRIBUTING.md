@@ -20,7 +20,7 @@ InkForge is a Rust CMS that compiles to a single static binary, with a React adm
 ### Prerequisites
 
 - Rust 1.75+
-- Node.js 18+
+- Node.js 22+
 - SQLite 3
 
 ### Setup
