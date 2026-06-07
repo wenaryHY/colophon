@@ -3,7 +3,13 @@ use std::sync::Arc;
 use chrono::{NaiveDateTime, Utc};
 
 use crate::{
-    modules::{post::repository as post_repository, setting::repository as setting_repository},
+    modules::{
+        post::{
+            post_types::{PostStatus, Visibility},
+            repository as post_repository,
+        },
+        setting::repository as setting_repository,
+    },
     shared::{
         auth::AuthUser,
         error::{AppError, AppResult},
@@ -97,7 +103,10 @@ pub async fn create_comment(
     let post = post_repository::find_comment_target(&state.pool, slug)
         .await?
         .ok_or(AppError::NotFound)?;
-    if post.status != "published" || post.visibility != "public" || post.allow_comment == 0 {
+    if post.status != PostStatus::Published
+        || post.visibility != Visibility::Public
+        || post.allow_comment == 0
+    {
         tracing::warn!(
             module = "comment",
             event = "create_rejected_post_state",

@@ -23,31 +23,20 @@ use super::{
         AdminPostResponse, CreatePostRequest, PostQuery, PublicPostResponse, SearchQuery,
         UpdatePostRequest,
     },
+    post_types::{ContentType, PostStatus, Visibility},
     repository,
 };
 
-fn normalize_status(value: Option<&str>) -> AppResult<String> {
-    let status = value.unwrap_or("draft");
-    if !matches!(status, "draft" | "published" | "trashed") {
-        return Err(AppError::BadRequest("invalid post status".into()));
-    }
-    Ok(status.to_string())
+fn normalize_status(value: Option<PostStatus>) -> AppResult<PostStatus> {
+    Ok(value.unwrap_or_default())
 }
 
-fn normalize_visibility(value: Option<&str>) -> AppResult<String> {
-    let visibility = value.unwrap_or("public");
-    if !matches!(visibility, "public" | "private") {
-        return Err(AppError::BadRequest("invalid visibility".into()));
-    }
-    Ok(visibility.to_string())
+fn normalize_visibility(value: Option<Visibility>) -> AppResult<Visibility> {
+    Ok(value.unwrap_or(Visibility::Public))
 }
 
-fn normalize_content_type(value: Option<&str>) -> AppResult<String> {
-    let ct = value.unwrap_or("post");
-    if !matches!(ct, "post" | "page") {
-        return Err(AppError::BadRequest("invalid content_type, must be 'post' or 'page'".into()));
-    }
-    Ok(ct.to_string())
+fn normalize_content_type(value: Option<ContentType>) -> AppResult<ContentType> {
+    Ok(value.unwrap_or_default())
 }
 
 fn normalize_page_render_mode(value: Option<&str>, is_page: bool) -> String {
@@ -158,18 +147,18 @@ pub async fn list_admin_posts(
     let (page, page_size, offset) = pagination.normalized(10, 100);
     let posts = repository::list_admin_posts(
         &state.pool,
-        query.status.as_deref(),
+        query.status,
         query.keyword.as_deref(),
-        query.content_type.as_deref(),
+        query.content_type,
         page_size,
         offset,
     )
     .await?;
     let total = repository::count_admin_posts(
         &state.pool,
-        query.status.as_deref(),
+        query.status,
         query.keyword.as_deref(),
-        query.content_type.as_deref(),
+        query.content_type,
     )
     .await?;
 
@@ -203,8 +192,8 @@ pub async fn create_post(
     }
 
     let mut title = body.title.trim().to_string();
-    let mut content_type = normalize_content_type(body.content_type.as_deref())?;
-    let is_page = content_type == "page";
+    let mut content_type = normalize_content_type(body.content_type)?;
+    let is_page = content_type.is_page();
     let page_render_mode = normalize_page_render_mode(body.page_render_mode.as_deref(), is_page);
 
     // Both content_md and custom_html_path are preserved independently.
@@ -226,8 +215,8 @@ pub async fn create_post(
         None,
     ).await?;
 
-    let status = normalize_status(body.status.as_deref())?;
-    let visibility = normalize_visibility(body.visibility.as_deref())?;
+    let status = normalize_status(body.status)?;
+    let visibility = normalize_visibility(body.visibility)?;
     let mut content_html = body.content_html
         .filter(|h| !h.trim().is_empty())
         .map(|h| sanitize_html(&h))
@@ -248,7 +237,7 @@ pub async fn create_post(
             slug: slug.clone(),
             tags: tags.clone(),
             category_id: category_id.clone(),
-            content_type: content_type.clone(),
+            content_type: content_type.to_string(),
             request_ip: None,
             user_agent: None,
         }),
@@ -265,7 +254,7 @@ pub async fn create_post(
         slug = data.slug.clone();
         tags = data.tags.clone();
         category_id = data.category_id.clone();
-        content_type = data.content_type.clone();
+        content_type = data.content_type.parse()?;
     }
 
     slug = resolve_unique_post_slug(&state.pool, &slug, None).await?;
@@ -279,19 +268,19 @@ pub async fn create_post(
         &content_md,
         &content_html,
         body.cover_media_id.as_deref(),
-        &status,
-        &visibility,
+        status,
+        visibility,
         category_id.as_deref(),
-        body.allow_comment.unwrap_or(content_type == "post"),
+        body.allow_comment.unwrap_or(content_type.is_post()),
         body.pinned.unwrap_or(false),
-        &content_type,
+        content_type,
         body.custom_html_path.as_deref(),
         &page_render_mode,
     )
     .await?;
 
     // Pages don't have tags
-    if content_type == "post" && (has_original_tags || !tags.is_empty()) {
+    if content_type.is_post() && (has_original_tags || !tags.is_empty()) {
         repository::replace_tags(&state.pool, &id, &tags).await?;
     }
 
@@ -299,7 +288,7 @@ pub async fn create_post(
     let post = repository::get_admin_post(&state.pool, &id)
         .await?
         .ok_or(AppError::NotFound)?;
-    let old_status = "".to_string();
+    let old_status = PostStatus::Draft.to_string();
     let after_save_ctx = HookContext {
         hook_name: "post.after_save".into(),
         data: HookData::PostAfterSave(PostAfterSaveData {
@@ -307,7 +296,7 @@ pub async fn create_post(
             title: post.title.clone(),
             slug: post.slug.clone(),
             is_new: true,
-            status: post.status.clone(),
+            status: post.status.to_string(),
             old_status: Some(old_status.clone()),
         }),
     };
@@ -316,15 +305,15 @@ pub async fn create_post(
         .await;
 
     // =============== Hook: post.after_publish (Action) ===============
-    if post.status == "published" {
+    if post.status == PostStatus::Published {
         let publish_ctx = HookContext {
             hook_name: "post.after_publish".into(),
             data: HookData::PostAfterPublish(PostAfterPublishData {
                 post_id: id.clone(),
                 title: post.title.clone(),
                 slug: post.slug.clone(),
-                old_status: old_status,
-                new_status: "published".to_string(),
+                old_status,
+                new_status: PostStatus::Published.to_string(),
             }),
         };
         hook_registry
@@ -345,15 +334,14 @@ pub async fn update_post(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    let old_status = current.status.clone();
+    let old_status = current.status;
 
     let mut content_type = normalize_content_type(
         body.content_type
-            .as_deref()
-            .or(Some(&current.content_type)),
+            .or(Some(current.content_type)),
     )?;
 
-    let is_page = content_type == "page";
+    let is_page = content_type.is_page();
     let page_render_mode = normalize_page_render_mode(
         body.page_render_mode
             .as_deref()
@@ -391,9 +379,9 @@ pub async fn update_post(
     let mut slug = resolve_unique_post_slug(&state.pool, &slug_from_user_or_kept_from_current, Some(id)).await?;
     let mut excerpt = body.excerpt.or(current.excerpt.clone());
     let cover_media_id = body.cover_media_id.or(current.cover_media_id.clone());
-    let status = normalize_status(body.status.as_deref().or(Some(&current.status)))?;
+    let status = normalize_status(body.status.or(Some(current.status)))?;
     let visibility =
-        normalize_visibility(body.visibility.as_deref().or(Some(&current.visibility)))?;
+        normalize_visibility(body.visibility.or(Some(current.visibility)))?;
     let mut category_id = body.category_id.or(current.category_id.clone());
     let allow_comment = body.allow_comment.unwrap_or(current.allow_comment == 1);
     let pinned = body.pinned.unwrap_or(current.pinned == 1);
@@ -411,7 +399,7 @@ pub async fn update_post(
             slug: slug.clone(),
             tags: tags.clone(),
             category_id: category_id.clone(),
-            content_type: content_type.clone(),
+            content_type: content_type.to_string(),
             request_ip: None,
             user_agent: None,
         }),
@@ -428,7 +416,7 @@ pub async fn update_post(
         slug = data.slug.clone();
         tags = data.tags.clone();
         category_id = data.category_id.clone();
-        content_type = data.content_type.clone();
+        content_type = data.content_type.parse()?;
     }
 
     slug = resolve_unique_post_slug(&state.pool, &slug, Some(id)).await?;
@@ -442,12 +430,12 @@ pub async fn update_post(
         &content_md,
         &content_html,
         cover_media_id.as_deref(),
-        &status,
-        &visibility,
+        status,
+        visibility,
         category_id.as_deref(),
         allow_comment,
         pinned,
-        &content_type,
+        content_type,
         custom_html_path,
         &page_render_mode,
         current.published_at.as_deref(),
@@ -455,7 +443,7 @@ pub async fn update_post(
     .await?;
 
     // Pages don't have tags; only update tags for posts
-    if content_type == "post" && (has_original_tags || !tags.is_empty()) {
+    if content_type.is_post() && (has_original_tags || !tags.is_empty()) {
         repository::replace_tags(&state.pool, id, &tags).await?;
     }
 
@@ -470,8 +458,8 @@ pub async fn update_post(
             title: post.title.clone(),
             slug: post.slug.clone(),
             is_new: false,
-            status: post.status.clone(),
-            old_status: Some(old_status.clone()),
+            status: post.status.to_string(),
+            old_status: Some(old_status.to_string()),
         }),
     };
     hook_registry
@@ -479,15 +467,15 @@ pub async fn update_post(
         .await;
 
     // =============== Hook: post.after_publish (Action) ===============
-    if post.status == "published" && old_status != "published" {
+    if post.status == PostStatus::Published && old_status != PostStatus::Published {
         let publish_ctx = HookContext {
             hook_name: "post.after_publish".into(),
             data: HookData::PostAfterPublish(PostAfterPublishData {
                 post_id: id.to_string(),
                 title: post.title.clone(),
                 slug: post.slug.clone(),
-                old_status,
-                new_status: "published".to_string(),
+                old_status: old_status.to_string(),
+                new_status: PostStatus::Published.to_string(),
             }),
         };
         hook_registry
@@ -606,8 +594,9 @@ mod resolve_unique_post_slug_tests {
 
     async fn insert_post_with_slug(pool: &sqlx::SqlitePool, slug: &str) -> String {
         repository::insert_post(
-            pool, "test-author", "Title", slug, None, "", "", None, "draft", "public", None,
-            true, false, "post", None, "editor",
+            pool, "test-author", "Title", slug, None, "", "", None,
+            PostStatus::Draft, Visibility::Public, None,
+            true, false, ContentType::Post, None, "editor",
         )
         .await
         .expect("insert post")

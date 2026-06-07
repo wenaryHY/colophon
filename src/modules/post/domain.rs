@@ -1,10 +1,12 @@
 use serde::Serialize;
 use sqlx::FromRow;
 
+use super::post_types::{ContentType, PostStatus, Visibility};
+
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct SitemapItem {
     pub slug: String,
-    pub content_type: String,
+    pub content_type: ContentType,
     pub published_at: Option<String>,
     pub updated_at: String,
 }
@@ -15,7 +17,7 @@ pub struct PublicPostSummary {
     pub title: String,
     pub slug: String,
     pub excerpt: Option<String>,
-    pub content_type: String,
+    pub content_type: ContentType,
     pub published_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -31,7 +33,7 @@ pub struct PublicPostDetail {
     pub slug: String,
     pub excerpt: Option<String>,
     pub content_html: String,
-    pub content_type: String,
+    pub content_type: ContentType,
     pub allow_comment: i64,
     pub published_at: Option<String>,
     pub created_at: String,
@@ -51,12 +53,12 @@ pub struct AdminPost {
     pub content_md: String,
     pub content_html: String,
     pub cover_media_id: Option<String>,
-    pub status: String,
-    pub visibility: String,
+    pub status: PostStatus,
+    pub visibility: Visibility,
     pub category_id: Option<String>,
     pub allow_comment: i64,
     pub pinned: i64,
-    pub content_type: String,
+    pub content_type: ContentType,
     pub custom_html_path: Option<String>,
     pub page_render_mode: String,
     pub published_at: Option<String>,
@@ -69,7 +71,7 @@ pub struct AdminPost {
 pub struct CommentTargetPost {
     pub id: String,
     pub title: String,
-    pub status: String,
-    pub visibility: String,
+    pub status: PostStatus,
+    pub visibility: Visibility,
     pub allow_comment: i64,
 }

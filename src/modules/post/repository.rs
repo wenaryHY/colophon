@@ -6,6 +6,7 @@ use uuid::Uuid;
 use super::domain::{
     AdminPost, CommentTargetPost, PublicPostDetail, PublicPostSummary, SitemapItem,
 };
+use super::post_types::{ContentType, PostStatus, Visibility};
 use crate::modules::tag::domain::Tag;
 
 #[allow(dead_code)]
@@ -396,9 +397,9 @@ where
 
 pub async fn list_admin_posts<'e, E>(
     executor: E,
-    status: Option<&str>,
+    status: Option<PostStatus>,
     keyword: Option<&str>,
-    content_type: Option<&str>,
+    content_type: Option<ContentType>,
     limit: i64,
     offset: i64,
 ) -> Result<Vec<AdminPost>, sqlx::Error>
@@ -531,9 +532,9 @@ where
 
 pub async fn count_admin_posts<'e, E>(
     executor: E,
-    status: Option<&str>,
+    status: Option<PostStatus>,
     keyword: Option<&str>,
-    content_type: Option<&str>,
+    content_type: Option<ContentType>,
 ) -> Result<i64, sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
@@ -655,12 +656,12 @@ pub async fn insert_post<'e, E>(
     content_md: &str,
     content_html: &str,
     cover_media_id: Option<&str>,
-    status: &str,
-    visibility: &str,
+    status: PostStatus,
+    visibility: Visibility,
     category_id: Option<&str>,
     allow_comment: bool,
     pinned: bool,
-    content_type: &str,
+    content_type: ContentType,
     custom_html_path: Option<&str>,
     page_render_mode: &str,
 ) -> Result<String, sqlx::Error>
@@ -668,7 +669,7 @@ where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
     let id = Uuid::new_v4().to_string();
-    let published_at = if status == "published" {
+    let published_at = if status == PostStatus::Published {
         Some(chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string())
     } else {
         None
@@ -713,12 +714,12 @@ pub async fn update_post<'e, E>(
     content_md: &str,
     content_html: &str,
     cover_media_id: Option<&str>,
-    status: &str,
-    visibility: &str,
+    status: PostStatus,
+    visibility: Visibility,
     category_id: Option<&str>,
     allow_comment: bool,
     pinned: bool,
-    content_type: &str,
+    content_type: ContentType,
     custom_html_path: Option<&str>,
     page_render_mode: &str,
     current_published_at: Option<&str>,
@@ -728,7 +729,7 @@ where
 {
     // 只在从非 published 状态首次发布时才设置 published_at；
     // 若已发布则保留原时间；若切换回 draft/trashed 则清空。
-    let published_at: Option<String> = if status == "published" {
+    let published_at: Option<String> = if status == PostStatus::Published {
         Some(
             current_published_at
                 .map(|t| t.to_string())
@@ -806,13 +807,13 @@ where
 pub struct PageCustomHtml {
     pub id: String,
     pub title: String,
-    pub content_type: String,
+    pub content_type: ContentType,
     pub custom_html_path: Option<String>,
     pub page_render_mode: String,
     pub content_md: String,
     pub content_html: String,
-    pub status: String,
-    pub visibility: String,
+    pub status: PostStatus,
+    pub visibility: Visibility,
 }
 
 pub async fn get_page_by_slug<'e, E>(

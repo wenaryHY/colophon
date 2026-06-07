@@ -7,7 +7,10 @@ use axum::{
 };
 
 use crate::{
-    modules::{post::repository as post_repository, setting::repository as setting_repository},
+    modules::{
+        post::{post_types::ContentType, repository as post_repository},
+        setting::repository as setting_repository,
+    },
     state::AppState,
 };
 
@@ -69,7 +72,7 @@ async fn build_sitemap_xml_inner(site_url: &str, state: &AppState) -> Result<Str
     ));
 
     for post in posts {
-        let path_prefix = if post.content_type == "page" { "pages" } else { "posts" };
+        let path_prefix = if post.content_type == ContentType::Page { "pages" } else { "posts" };
         let post_url = format!("{site_url}/{path_prefix}/{}", post.slug);
         let lastmod = &post.updated_at[..10];
         xml.push_str(&format!(

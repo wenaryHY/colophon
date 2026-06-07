@@ -2,13 +2,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::modules::tag::domain::Tag;
 
+use super::post_types::{ContentType, PostStatus, Visibility};
+
 #[derive(Debug, Deserialize)]
 pub struct PostQuery {
     pub page: Option<i64>,
     pub page_size: Option<i64>,
     pub keyword: Option<String>,
-    pub status: Option<String>,
-    pub content_type: Option<String>,
+    pub status: Option<PostStatus>,
+    pub content_type: Option<ContentType>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,13 +29,13 @@ pub struct CreatePostRequest {
     pub excerpt: Option<String>,
     pub content_md: Option<String>,
     pub cover_media_id: Option<String>,
-    pub status: Option<String>,
-    pub visibility: Option<String>,
+    pub status: Option<PostStatus>,
+    pub visibility: Option<Visibility>,
     pub category_id: Option<String>,
     pub tag_ids: Option<Vec<String>>,
     pub allow_comment: Option<bool>,
     pub pinned: Option<bool>,
-    pub content_type: Option<String>,
+    pub content_type: Option<ContentType>,
     pub custom_html_path: Option<String>,
     pub page_render_mode: Option<String>,
     pub content_html: Option<String>,
@@ -46,13 +48,13 @@ pub struct UpdatePostRequest {
     pub excerpt: Option<String>,
     pub content_md: Option<String>,
     pub cover_media_id: Option<String>,
-    pub status: Option<String>,
-    pub visibility: Option<String>,
+    pub status: Option<PostStatus>,
+    pub visibility: Option<Visibility>,
     pub category_id: Option<String>,
     pub tag_ids: Option<Vec<String>>,
     pub allow_comment: Option<bool>,
     pub pinned: Option<bool>,
-    pub content_type: Option<String>,
+    pub content_type: Option<ContentType>,
     pub custom_html_path: Option<String>,
     pub page_render_mode: Option<String>,
     pub content_html: Option<String>,

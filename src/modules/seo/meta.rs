@@ -3,6 +3,8 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
+use crate::modules::post::post_types::ContentType;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SeoMeta {
     pub title: String,
@@ -125,7 +127,7 @@ pub fn build_post_meta(
 ) -> SeoMeta {
     build_post_meta_with_content_type(
         site_title, site_url, post_title, post_slug, post_excerpt,
-        post_html, site_keywords, og_image, "post",
+        post_html, site_keywords, og_image, ContentType::Post,
     )
 }
 
@@ -138,13 +140,13 @@ pub fn build_post_meta_with_content_type(
     post_html: &str,
     site_keywords: &str,
     og_image: &str,
-    content_type: &str,
+    content_type: ContentType,
 ) -> SeoMeta {
     let description = post_excerpt
         .filter(|value| !value.trim().is_empty())
         .map(|value| value.trim().to_string())
         .unwrap_or_else(|| generate_excerpt(post_html, 160));
-    let path_prefix = if content_type == "page" { "pages" } else { "posts" };
+    let path_prefix = if content_type.is_page() { "pages" } else { "posts" };
     let canonical_url = format!("{}/{}/{}", site_url.trim_end_matches('/'), path_prefix, post_slug);
     let title = format!("{} - {}", post_title, site_title);
 
@@ -198,7 +200,7 @@ pub fn build_post_json_ld(
 ) -> JsonLdNode {
     build_post_json_ld_with_content_type(
         site_title, site_url, post_title, post_slug, post_excerpt,
-        author_name, published_at, updated_at, "post",
+        author_name, published_at, updated_at, ContentType::Post,
     )
 }
 
@@ -211,12 +213,12 @@ pub fn build_post_json_ld_with_content_type(
     author_name: &str,
     published_at: Option<&str>,
     updated_at: &str,
-    content_type: &str,
+    content_type: ContentType,
 ) -> JsonLdNode {
     let mut extra = HashMap::new();
     extra.insert("headline".to_string(), serde_json::json!(post_title));
     extra.insert("description".to_string(), serde_json::json!(post_excerpt));
-    let path_prefix = if content_type == "page" { "pages" } else { "posts" };
+    let path_prefix = if content_type.is_page() { "pages" } else { "posts" };
     extra.insert(
         "mainEntityOfPage".to_string(),
         serde_json::json!(format!(

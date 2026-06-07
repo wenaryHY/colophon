@@ -8,6 +8,7 @@ use axum::{
 };
 
 use crate::{
+    modules::post::post_types::ContentType,
     shared::{
         auth::AdminUser,
         error::{AppError, AppResult},
@@ -268,7 +269,7 @@ pub async fn render_post(
     // ── Check if this is a page with custom_html render mode → redirect to /pages/:slug ──
     let page_info = crate::modules::post::repository::get_page_by_slug(&state.pool, &slug).await?;
     if let Some(ref p) = page_info {
-        if p.content_type == "page" && p.page_render_mode == "custom_html" {
+        if p.content_type == ContentType::Page && p.page_render_mode == "custom_html" {
             tracing::info!(
                 module = "theme",
                 event = "redirect_page_to_custom",
@@ -339,7 +340,7 @@ pub async fn render_post(
         &p.content_html,
         "",  // seo_keywords
         &og_image,
-        &p.content_type,
+        p.content_type,
     );
 
     let json_ld = crate::modules::seo::meta::build_post_json_ld_with_content_type(
@@ -351,7 +352,7 @@ pub async fn render_post(
         &p.author_display_name,
         p.published_at.as_deref(),
         &p.updated_at,
-        &p.content_type,
+        p.content_type,
     );
 
     let comments = crate::modules::comment::repository::list_approved_for_post(&state.pool, &p.id)
@@ -574,8 +575,8 @@ pub async fn preview_theme(
     if content.len() > 1_048_576 {
         return Err(AppError::BadRequest("content exceeds 1MB limit".into()));
     }
-    let content_type = match req.content_type.as_str() {
-        "post" | "page" => req.content_type.clone(),
+    let content_type: ContentType = match req.content_type.as_str() {
+        "post" | "page" => req.content_type.parse().map_err(|e: AppError| e)?,
         other => return Err(AppError::BadRequest(
             format!("invalid content_type '{}', must be 'post' or 'page'", other)
         )),
@@ -623,7 +624,7 @@ pub async fn preview_theme(
         slug: "_preview_".into(),
         excerpt: None,
         content_html,
-        content_type: content_type.clone(),
+        content_type,
         allow_comment: 0,
         published_at: None,
         created_at: now.clone(),
@@ -640,7 +641,7 @@ pub async fn preview_theme(
     ).await?;
 
     // 选择模板
-    let template_name = if content_type == "page" && env.get_template("page.html").is_ok() {
+    let template_name = if content_type.is_page() && env.get_template("page.html").is_ok() {
         "page.html"
     } else {
         "post.html"

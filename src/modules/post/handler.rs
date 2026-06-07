@@ -18,6 +18,7 @@ use crate::{
 
 use super::{
     dto::{AdminPostResponse, CreatePostRequest, PostQuery, PublicPostResponse, SearchQuery},
+    post_types::{ContentType, PostStatus, Visibility},
     service,
 };
 
@@ -153,7 +154,7 @@ pub async fn render_custom_page(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    if page.content_type != "page" || page.status != "published" || page.visibility != "public" {
+    if page.content_type != ContentType::Page || page.status != PostStatus::Published || page.visibility != Visibility::Public {
         return Err(AppError::NotFound);
     }
 
@@ -187,13 +188,13 @@ pub async fn render_custom_page(
             let seo_meta = seo::meta::build_post_meta_with_content_type(
                 &ctx.site_title, &ctx.site_url,
                 &page.title, &slug, Some(description.as_str()), &page.content_html,
-                "", og_image, &page.content_type,
+                "", og_image, page.content_type,
             );
 
             let json_ld = seo::meta::build_post_json_ld_with_content_type(
                 &ctx.site_title, &ctx.site_url,
                 &page.title, &slug, &description,
-                "", None, "", &page.content_type,
+                "", None, "", page.content_type,
             );
 
             let html = tmpl
