@@ -57,7 +57,7 @@ pub async fn register(
         "received registration request"
     );
     let expires_in_seconds = state.config.auth.expires_in_seconds;
-    let is_production = state.config.is_production();
+    let cookie_secure = state.config.cookie_secure();
     let (login_data, refresh_token) = service::register(
         state,
         body,
@@ -67,13 +67,13 @@ pub async fn register(
     .await?;
     let access_token = login_data.access_token.clone();
     let refresh_cookie =
-        build_refresh_cookie(&refresh_token, REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS, is_production);
+        build_refresh_cookie(&refresh_token, REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS, cookie_secure);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
     let json = Json(ApiResponse::success(login_data));
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
-    let session_cookie = build_session_cookie(&access_token, expires_in_seconds, is_production);
+    let session_cookie = build_session_cookie(&access_token, expires_in_seconds, cookie_secure);
     resp_headers.append(
         axum::http::header::SET_COOKIE,
         axum::http::HeaderValue::from_str(&session_cookie).unwrap(),
@@ -128,18 +128,18 @@ pub async fn login(
         (expires_in_seconds, SHORT_MAX_AGE)
     };
 
-    let is_production = state.config.is_production();
+    let cookie_secure = state.config.cookie_secure();
     let (login_data, refresh_token) =
         service::login(state, body, session_max_age, refresh_max_age).await?;
     let access_token = login_data.access_token.clone();
 
-    let refresh_cookie = build_refresh_cookie(&refresh_token, refresh_max_age, is_production);
+    let refresh_cookie = build_refresh_cookie(&refresh_token, refresh_max_age, cookie_secure);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
     let json = Json(ApiResponse::success(login_data));
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(axum::http::header::SET_COOKIE, refresh_header);
-    let session_cookie = build_session_cookie(&access_token, session_max_age, is_production);
+    let session_cookie = build_session_cookie(&access_token, session_max_age, cookie_secure);
     resp_headers.append(
         axum::http::header::SET_COOKIE,
         axum::http::HeaderValue::from_str(&session_cookie).unwrap(),
@@ -179,9 +179,9 @@ pub async fn logout(
     let json = Json(ApiResponse::success(
         serde_json::json!({ "logged_out": true }),
     ));
-    let is_production = state.config.is_production();
-    let clear_refresh = build_clear_refresh_cookie(is_production);
-    let clear_session = build_clear_session_cookie(is_production);
+    let cookie_secure = state.config.cookie_secure();
+    let clear_refresh = build_clear_refresh_cookie(cookie_secure);
+    let clear_session = build_clear_session_cookie(cookie_secure);
 
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(
@@ -295,8 +295,8 @@ pub async fn refresh_token(
     );
 
     // 设置新 refresh_token cookie + 返回 access_token JSON
-    let is_production = state.config.is_production();
-    let refresh_cookie = build_refresh_cookie(&new_token, REMEMBER_ME_MAX_AGE, is_production);
+    let cookie_secure = state.config.cookie_secure();
+    let refresh_cookie = build_refresh_cookie(&new_token, REMEMBER_ME_MAX_AGE, cookie_secure);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
     let json = Json(ApiResponse::success(serde_json::json!({
         "access_token": access_token,
@@ -309,7 +309,7 @@ pub async fn refresh_token(
     let session_cookie = build_session_cookie(
         &access_token,
         state.config.auth.expires_in_seconds,
-        is_production,
+        cookie_secure,
     );
     resp_headers.append(
         axum::http::header::SET_COOKIE,
@@ -330,8 +330,8 @@ const REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS: u64 = 86400;
 // ── Cookie helpers ──
 
 /// 构建 refresh_token 的 HttpOnly Secure SameSite=Strict cookie
-fn build_refresh_cookie(token: &str, max_age_seconds: u64, is_production: bool) -> String {
-    let secure = if is_production { "; Secure" } else { "" };
+fn build_refresh_cookie(token: &str, max_age_seconds: u64, cookie_secure: bool) -> String {
+    let secure = if cookie_secure { "; Secure" } else { "" };
     format!(
         "{name}={token}; Path=/api/v1/auth/refresh; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}",
         name = auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN,
@@ -339,8 +339,8 @@ fn build_refresh_cookie(token: &str, max_age_seconds: u64, is_production: bool) 
 }
 
 /// 清除 refresh_token cookie
-fn build_clear_refresh_cookie(is_production: bool) -> String {
-    let secure = if is_production { "; Secure" } else { "" };
+fn build_clear_refresh_cookie(cookie_secure: bool) -> String {
+    let secure = if cookie_secure { "; Secure" } else { "" };
     format!(
         "{name}=; Path=/api/v1/auth/refresh; Max-Age=0; HttpOnly; SameSite=Strict{secure}",
         name = auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN,
@@ -348,8 +348,8 @@ fn build_clear_refresh_cookie(is_production: bool) -> String {
 }
 
 /// 构建 session cookie（access_token），Path=/
-fn build_session_cookie(access_token: &str, max_age_seconds: u64, is_production: bool) -> String {
-    let secure = if is_production { "; Secure" } else { "" };
+fn build_session_cookie(access_token: &str, max_age_seconds: u64, cookie_secure: bool) -> String {
+    let secure = if cookie_secure { "; Secure" } else { "" };
     format!(
         "{name}={access_token}; Path=/; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}",
         name = auth_constants::SESSION_COOKIE_NAME_FOR_JWT_ACCESS_TOKEN,
@@ -357,8 +357,8 @@ fn build_session_cookie(access_token: &str, max_age_seconds: u64, is_production:
 }
 
 /// 清除 session cookie（access_token）
-fn build_clear_session_cookie(is_production: bool) -> String {
-    let secure = if is_production { "; Secure" } else { "" };
+fn build_clear_session_cookie(cookie_secure: bool) -> String {
+    let secure = if cookie_secure { "; Secure" } else { "" };
     format!(
         "{name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict{secure}",
         name = auth_constants::SESSION_COOKIE_NAME_FOR_JWT_ACCESS_TOKEN,

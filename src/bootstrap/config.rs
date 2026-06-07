@@ -37,6 +37,9 @@ pub struct AuthConfig {
     /// Cloudflare Turnstile 前端 site key（可选，为空则不渲染 widget）
     #[serde(default)]
     pub turnstile_site_key: String,
+    /// 是否给 cookie 加 Secure 标记（默认 false；ACME 成功后自动改 true，或手动设环境变量）
+    #[serde(default)]
+    pub cookie_secure: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -80,6 +83,11 @@ impl AppConfig {
         self.runtime.mode.eq_ignore_ascii_case("production")
     }
 
+    /// cookie 是否加 Secure 标记（独立于 runtime.mode，由 INKFORGE__AUTH__COOKIE_SECURE 控制）
+    pub fn cookie_secure(&self) -> bool {
+        self.auth.cookie_secure
+    }
+
     pub fn load() -> Result<Self> {
         Ok(config::Config::builder()
             .add_source(config::File::with_name("config/default").required(false))
@@ -93,6 +101,7 @@ impl AppConfig {
             .set_default("auth.allow_insecure_default_secret", false)?
             .set_default("auth.turnstile_secret", "")?
             .set_default("auth.turnstile_site_key", "")?
+            .set_default("auth.cookie_secure", false)?
             .set_default("storage.upload_dir", "uploads")?
             .set_default("storage.max_upload_size_mb", 10)?
             .set_default("theme.theme_dir", "themes")?
