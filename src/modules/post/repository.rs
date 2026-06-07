@@ -9,7 +9,6 @@ use super::domain::{
 use super::post_types::{ContentType, NewPostParams, PostStatus, UpdatePostParams, Visibility};
 use crate::modules::tag::domain::Tag;
 
-#[allow(dead_code)]
 pub async fn list_recent_public_posts<'e, E>(
     executor: E,
     limit: i64,

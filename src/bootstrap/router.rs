@@ -423,6 +423,8 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         })
         .route("/admin/", get(redirect_admin_with_trailing_slash))
         .route("/sitemap.xml", get(modules::seo::sitemap::serve_sitemap))
+        .route("/rss.xml", get(modules::post::feed::render_atom_feed))
+        .route("/feed", get(modules::post::feed::redirect_feed_to_rss))
         .route("/robots.txt", get(modules::seo::robots::serve_robots))
         .route("/favicon.ico", get(|| async { axum::http::StatusCode::NO_CONTENT }))
         .route("/ws/admin", get(ws::ws_admin_handler))
