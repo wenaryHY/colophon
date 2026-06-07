@@ -615,7 +615,7 @@ export default function PostEditor() {
               marginBottom: '16px',
             }}>{t('categoryAndTags')}</div>
             <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-              <SelectItem value="">{t('noCategory')}</SelectItem>
+              <SelectItem value="__none__">{t('noCategory')}</SelectItem>
               {categories.map((cat) => (<SelectItem key={cat.id} value={cat.id}>{esc(cat.name)}</SelectItem>))}
             </Select>
             {contentType === 'post' && (

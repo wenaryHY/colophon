@@ -33,17 +33,17 @@ export default function Upload() {
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [page, setPage] = useState(1);
-  const [kind, setKind] = useState('');
-  const [category, setCategory] = useState('');
-  const [keyword, setKeyword] = useState('');
+  const [kind, setKind] = useState('__all__');
+  const [category, setCategory] = useState('__all__');
+  const [keyword, setKeyword] = useState('__all__');
   const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
+  const [renameValue, setRenameValue] = useState('__all__');
 
   const { data: payload, isLoading } = useQuery({
     queryKey: ['media', { page, kind, category, keyword }],
     queryFn: () => {
       const query = new URLSearchParams({ page: String(page), page_size: '16' });
-      if (kind) query.set('kind', kind);
+      if (kind && kind !== '__all__') query.set('kind', kind);
       if (category) query.set('category', category);
       if (keyword.trim()) query.set('keyword', keyword.trim());
       return apiData<PaginatedResponse<MediaItem>>(`${API_PREFIX}/admin/media?${query.toString()}`);
@@ -254,7 +254,7 @@ export default function Upload() {
             </div>
             <div style={{ width: '130px' }}>
               <IfSelect value={kind} onChange={(e) => { setKind(e.target.value); setPage(1); }}>
-                <SelectItem value="">{t('allTypes')}</SelectItem>
+                <SelectItem value="__all__">{t('allTypes')}</SelectItem>
                 <SelectItem value="image">{t('imageType')}</SelectItem>
                 <SelectItem value="audio">{t('audioType')}</SelectItem>
               </IfSelect>

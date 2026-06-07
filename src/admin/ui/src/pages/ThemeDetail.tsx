@@ -276,7 +276,7 @@ function ThemeConfigFieldInput({ field, value, onChange, t, format }: ThemeConfi
         value={(value as string) || field.default || ''}
         onChange={(e) => onChange(e.target.value)}
       >
-        <SelectItem value="">{t('pleaseSelectOption')}</SelectItem>
+        <SelectItem value="__none__">{t('pleaseSelectOption')}</SelectItem>
         {field.options.map((opt) => (
           <SelectItem key={opt.value} value={opt.value}>
             {opt.label}
