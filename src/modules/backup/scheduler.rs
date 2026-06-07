@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
-use chrono::{Duration, Utc};
+use chrono::Utc;
+use cron::Schedule;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::{shared::error::AppError, state::AppState};
@@ -24,7 +25,9 @@ pub async fn start_backup_scheduler(state: Arc<AppState>) -> Result<(), AppError
     let provider = BackupProvider::from_str(&schedule.provider)
         .ok_or_else(|| AppError::BadRequest("invalid backup provider".into()))?;
 
-    let cron = frequency.cron_expression(schedule.hour as u32, schedule.minute as u32);
+    let schedule_hour = schedule.hour as u32;
+    let schedule_minute = schedule.minute as u32;
+    let cron = frequency.cron_expression(schedule_hour, schedule_minute);
     let scheduler = JobScheduler::new()
         .await
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("create scheduler failed: {e}")))?;
@@ -35,8 +38,12 @@ pub async fn start_backup_scheduler(state: Arc<AppState>) -> Result<(), AppError
         Box::pin(async move {
             match service::create_backup(state.clone(), provider).await {
                 Ok(_) => {
-                    // Update last_run_at and compute approximate next_run_at
-                    if let Err(err) = update_run_times_after_backup(&state, &frequency).await {
+                    // Update last_run_at and compute next_run_at from cron expression
+                    if let Err(err) = update_run_times_after_backup(
+                        &state, &frequency, schedule_hour, schedule_minute,
+                    )
+                    .await
+                    {
                         tracing::error!(error = ?err, "failed to update schedule run times after backup");
                     }
                 }
@@ -83,18 +90,16 @@ async fn stop_backup_scheduler(state: &AppState) {
     }
 }
 
-/// Update `last_run_at` (now) and `next_run_at` (approximate) after a successful backup.
+/// Update `last_run_at` (now) and `next_run_at` (computed from cron expression) after a successful backup.
 async fn update_run_times_after_backup(
     state: &AppState,
     frequency: &BackupScheduleFrequency,
+    hour: u32,
+    minute: u32,
 ) -> Result<(), AppError> {
     let now = Utc::now();
-    let next = now
-        + match frequency {
-            BackupScheduleFrequency::Daily => Duration::days(1),
-            BackupScheduleFrequency::Weekly => Duration::days(7),
-            BackupScheduleFrequency::Monthly => Duration::days(30),
-        };
+    let cron_expr = frequency.cron_expression(hour, minute);
+    let next = calculate_next_run_at_from_cron_expression(&cron_expr);
     repository::update_schedule_run_time(
         &state.pool,
         &now.to_rfc3339(),
@@ -102,4 +107,13 @@ async fn update_run_times_after_backup(
     )
     .await?;
     Ok(())
+}
+
+/// 基于 cron 表达式计算下一次触发时间。
+/// 如果 cron 表达式无效，fallback 到 now + 1 小时。
+fn calculate_next_run_at_from_cron_expression(cron_expression: &str) -> chrono::DateTime<Utc> {
+    Schedule::from_str(cron_expression)
+        .ok()
+        .and_then(|schedule| schedule.upcoming(Utc).next())
+        .unwrap_or_else(|| Utc::now() + chrono::Duration::hours(1))
 }

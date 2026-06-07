@@ -197,6 +197,16 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       [onChange, closeDropdown],
     );
 
+    // ── 打开下拉时锁住 body 滚动，避免页面跟随下拉框滚动 ──
+    useEffect(() => {
+      if (!isOpen) return;
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    }, [isOpen]);
+
     // ── 点击外部关闭 ──
     useEffect(() => {
       if (!isOpen) return;
@@ -464,6 +474,7 @@ function DropdownPortalInstance({
       style={{ ...DROPDOWN_CONTAINER_STYLE, ...dropdownStyle }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onWheel={(e) => e.stopPropagation()}
     >
       {children}
     </div>,

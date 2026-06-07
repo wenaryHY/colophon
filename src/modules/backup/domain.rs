@@ -60,6 +60,7 @@ impl BackupStatus {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum BackupScheduleFrequency {
+    Hourly,
     Daily,
     Weekly,
     Monthly,
@@ -68,6 +69,7 @@ pub enum BackupScheduleFrequency {
 impl BackupScheduleFrequency {
     pub fn as_str(&self) -> &str {
         match self {
+            BackupScheduleFrequency::Hourly => "hourly",
             BackupScheduleFrequency::Daily => "daily",
             BackupScheduleFrequency::Weekly => "weekly",
             BackupScheduleFrequency::Monthly => "monthly",
@@ -76,6 +78,7 @@ impl BackupScheduleFrequency {
 
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
+            "hourly" => Some(BackupScheduleFrequency::Hourly),
             "daily" => Some(BackupScheduleFrequency::Daily),
             "weekly" => Some(BackupScheduleFrequency::Weekly),
             "monthly" => Some(BackupScheduleFrequency::Monthly),
@@ -85,6 +88,7 @@ impl BackupScheduleFrequency {
 
     pub fn cron_expression(&self, hour: u32, minute: u32) -> String {
         match self {
+            BackupScheduleFrequency::Hourly => format!("0 {} * * * * *", minute),
             BackupScheduleFrequency::Daily => format!("0 {} {} * * * *", minute, hour),
             BackupScheduleFrequency::Weekly => format!("0 {} {} * * 0 *", minute, hour),
             BackupScheduleFrequency::Monthly => format!("0 {} {} 1 * * *", minute, hour),

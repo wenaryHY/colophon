@@ -1,11 +1,13 @@
 use std::{
     io::{Cursor, Read, Write},
     path::{Path, PathBuf},
+    str::FromStr,
     sync::Arc,
 };
 
 use anyhow::Context;
 use chrono::Utc;
+use cron::Schedule;
 use sha2::{Digest, Sha256};
 use sqlx::Row;
 use tokio::fs;
@@ -735,6 +737,15 @@ pub async fn get_schedule(state: Arc<AppState>) -> AppResult<BackupScheduleRespo
     })
 }
 
+/// 基于 cron 表达式计算下一次触发时间。
+/// 如果 cron 表达式无效，fallback 到 now + 1 小时。
+fn calculate_next_run_at_from_cron_expression(cron_expression: &str) -> chrono::DateTime<Utc> {
+    Schedule::from_str(cron_expression)
+        .ok()
+        .and_then(|schedule| schedule.upcoming(Utc).next())
+        .unwrap_or_else(|| Utc::now() + chrono::Duration::hours(1))
+}
+
 pub async fn update_schedule(
     state: Arc<AppState>,
     request: BackupScheduleRequest,
@@ -760,15 +771,11 @@ pub async fn update_schedule(
     )
     .await?;
 
-    // Set next_run_at based on new schedule config (do NOT set last_run_at here;
+    // Set next_run_at based on cron expression (do NOT set last_run_at here;
     // last_run_at is only updated when a backup actually executes).
     if request.enabled {
-        let next_run_at = Utc::now()
-            + chrono::Duration::days(match frequency {
-                BackupScheduleFrequency::Daily => 1,
-                BackupScheduleFrequency::Weekly => 7,
-                BackupScheduleFrequency::Monthly => 30,
-            });
+        let cron = frequency.cron_expression(request.hour, request.minute);
+        let next_run_at = calculate_next_run_at_from_cron_expression(&cron);
         repository::set_next_run_at(&state.pool, &next_run_at.to_rfc3339()).await?;
     }
 

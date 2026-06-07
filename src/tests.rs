@@ -89,14 +89,18 @@ mod domain_tests {
 
     #[test]
     fn backup_frequency_cron_expressions() {
+        // cron crate v0.12 uses 7-field format: sec min hour dom month dow year
+        let hourly = BackupScheduleFrequency::Hourly;
+        assert_eq!(hourly.cron_expression(0, 30), "0 30 * * * * *");
+
         let daily = BackupScheduleFrequency::Daily;
-        assert_eq!(daily.cron_expression(2, 30), "30 2 * * *");
+        assert_eq!(daily.cron_expression(2, 30), "0 30 2 * * * *");
 
         let weekly = BackupScheduleFrequency::Weekly;
-        assert_eq!(weekly.cron_expression(3, 0), "0 3 * * 0");
+        assert_eq!(weekly.cron_expression(3, 0), "0 0 3 * * 0 *");
 
         let monthly = BackupScheduleFrequency::Monthly;
-        assert_eq!(monthly.cron_expression(1, 15), "15 1 1 * *");
+        assert_eq!(monthly.cron_expression(1, 15), "0 15 1 1 * * *");
     }
 }
 
