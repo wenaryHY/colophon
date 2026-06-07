@@ -8,7 +8,6 @@ import {
   useImperativeHandle,
   type ReactNode,
   type CSSProperties,
-  type Ref,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -214,6 +213,20 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
         const target = e.target as HTMLElement;
         if (triggerRef.current?.contains(target)) return;
         if (dropdownRef.current?.contains(target)) return;
+
+        // Bounding box collision detection to robustly handle scrollbar clicks or browser-specific issues
+        const rect = dropdownRef.current?.getBoundingClientRect();
+        if (rect) {
+          if (
+            e.clientX >= rect.left &&
+            e.clientX <= rect.right &&
+            e.clientY >= rect.top &&
+            e.clientY <= rect.bottom
+          ) {
+            return;
+          }
+        }
+
         closeDropdown();
       };
 
@@ -221,16 +234,25 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       return () => document.removeEventListener('mousedown', handleMouseDown);
     }, [isOpen, closeDropdown]);
 
-    // ── 滚动、窗口尺寸变化关闭 ──
+    // ── 窗口尺寸变化关闭 ──
     useEffect(() => {
       if (!isOpen) return;
 
-      // scroll listener removed: body is overflow:hidden, page can't scroll
-      const handleResize = () => closeDropdown();
-      // window scroll listener removed
+      let prevWidth = window.innerWidth;
+      let prevHeight = window.innerHeight;
+
+      const handleResize = () => {
+        const currWidth = window.innerWidth;
+        const currHeight = window.innerHeight;
+        if (currWidth !== prevWidth || currHeight !== prevHeight) {
+          prevWidth = currWidth;
+          prevHeight = currHeight;
+          closeDropdown();
+        }
+      };
+
       window.addEventListener('resize', handleResize);
       return () => {
-        // window scroll listener removed
         window.removeEventListener('resize', handleResize);
       };
     }, [isOpen, closeDropdown]);
@@ -383,11 +405,13 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           </span>
         </div>
 
-        {/* ── 下拉弹出层（Portal 到 body） ── */}
-        {isOpen && options.length > 0 && (
-          <DropdownPortalInstance
-            dropdownRef={dropdownRef}
-            dropdownStyle={dropdownStyle}
+        {/* ── 下拉弹出层（Portal 直接渲染到 body） ── */}
+        {isOpen && options.length > 0 && createPortal(
+          <div
+            ref={dropdownRef}
+            role="listbox"
+            style={{ ...DROPDOWN_CONTAINER_STYLE, ...dropdownStyle }}
+            onWheel={(e) => e.stopPropagation()}
           >
             {options.map((opt, idx) => {
               const isSelected = opt.value === stringValue;
@@ -416,7 +440,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
                 </div>
               );
             })}
-          </DropdownPortalInstance>
+          </div>,
+          document.body,
         )}
       </div>
     );
@@ -425,68 +450,3 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
 
 Select.displayName = 'Select';
 
-// ── Portal 辅助组件 ──
-// 使用 createPortal 将下拉渲染到 document.body，避免被父级 overflow/clip 裁剪
-
-interface DropdownPortalInstanceProps {
-  dropdownRef: Ref<HTMLDivElement>;
-  dropdownStyle: CSSProperties;
-  children: ReactNode;
-}
-
-function DropdownPortalInstance({
-  dropdownRef,
-  dropdownStyle,
-  children,
-}: DropdownPortalInstanceProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  // 惰性创建容器 div，仅一次
-  if (!containerRef.current && typeof document !== 'undefined') {
-    containerRef.current = document.createElement('div');
-  }
-
-  // Assign dropdownRef to the portal container so that scrollbar clicks
-  // (which target this container, not the inner listbox) are correctly
-  // identified as internal by the outside-click handler's contains() check.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (typeof dropdownRef === 'function') {
-      dropdownRef(el);
-    } else if (dropdownRef && 'current' in dropdownRef) {
-      (dropdownRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-    }
-    return () => {
-      if (typeof dropdownRef === 'function') {
-        dropdownRef(null);
-      } else if (dropdownRef && 'current' in dropdownRef) {
-        (dropdownRef as React.MutableRefObject<HTMLDivElement | null>).current = null;
-      }
-    };
-  }, [dropdownRef]);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    document.body.appendChild(el);
-    return () => {
-      if (el.parentNode) {
-        el.parentNode.removeChild(el);
-      }
-    };
-  }, []);
-
-  if (!containerRef.current) return null;
-
-  return createPortal(
-    <div
-      role="listbox"
-      style={{ ...DROPDOWN_CONTAINER_STYLE, ...dropdownStyle }}
-      onWheel={(e) => e.stopPropagation()}
-    >
-      {children}
-    </div>,
-    containerRef.current,
-  );
-}
