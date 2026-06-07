@@ -9,6 +9,7 @@ pub async fn insert_api_key<'e, E>(
     name: &str,
     key_prefix: &str,
     key_hash: &str,
+    permissions: &str,
     expires_at: Option<&str>,
 ) -> Result<String, sqlx::Error>
 where
@@ -17,13 +18,14 @@ where
     let id = Uuid::new_v4().to_string();
     sqlx::query(
         "INSERT INTO api_keys (id, user_id, name, key_prefix, key_hash, permissions, expires_at)
-         VALUES (?, ?, ?, ?, ?, 'read_only', ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(user_id)
     .bind(name)
     .bind(key_prefix)
     .bind(key_hash)
+    .bind(permissions)
     .bind(expires_at)
     .execute(executor)
     .await?;

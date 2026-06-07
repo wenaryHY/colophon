@@ -48,6 +48,12 @@ pub async fn create_api_key(
         ));
     }
 
+    let permissions = if body.permissions.trim().is_empty() {
+        "read_only"
+    } else {
+        body.permissions.trim()
+    };
+
     let (full_key, key_prefix, key_hash) = service::generate_api_key_and_hash();
     let expires_at = body.expires_at.as_deref().filter(|s| !s.trim().is_empty());
 
@@ -57,6 +63,7 @@ pub async fn create_api_key(
         name,
         &key_prefix,
         &key_hash,
+        permissions,
         expires_at,
     )
     .await?;

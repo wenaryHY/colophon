@@ -57,8 +57,9 @@ pub fn session_token_from_headers(headers: &HeaderMap) -> Option<String> {
 }
 
 /// 从 X-API-Key header 提取并 hash，查询 DB 验证
-/// API Key 权限固定为 read_only，仅能访问需要 AuthUser 的公开内容 API。
-/// 管理操作（/api/v1/admin/*）需要 AdminUser (JWT session)，API Key 无法访问。
+/// API Key 权限由创建时指定的 permissions 字段决定：
+/// - read_only → Role::Member（仅 GET 路由）
+/// - read_write → Role::Admin（全权限，包括 /api/v1/admin/*）
 async fn authenticate_via_api_key(
     api_key_plaintext: &str,
     app_state: &Arc<AppState>,
@@ -97,8 +98,9 @@ async fn authenticate_via_api_key(
                 "authenticated via API key"
             );
 
-            // API Key 的 permissions 字段决定该 Key 的权限范围（固定为 read_only），
-            // 映射到 Role::Member（无法访问管理后台）
+            // API Key 的 permissions 字段决定该 Key 的权限范围：
+            // - "read_only" → Role::Member（无法访问管理后台）
+            // - "read_write" → Role::Admin（可访问管理后台）
             let role = row.permissions.parse::<Role>()?;
 
             Ok(Some(AuthUser {

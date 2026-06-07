@@ -1,7 +1,9 @@
 use sha2::{Digest, Sha256};
 
-// API Key 权限固定为 read_only，仅能访问需要 AuthUser 的公开内容 API。
-// 管理操作（/api/v1/admin/*）需要 AdminUser (JWT session)，API Key 无法访问。
+// API Key 权限由创建时指定的 permissions 字段决定（"read_only" 或 "read_write"）。
+// read_only → 映射为 Role::Member，仅能访问需要 AuthUser 的公开内容 API。
+// read_write → 映射为 Role::Admin，可访问 /api/v1/admin/* 管理操作。
+// 未指定时默认为 "read_only"。
 
 /// 生成新的 API Key
 /// 返回：(完整明文key仅展示一次, key_prefix, key_hash)

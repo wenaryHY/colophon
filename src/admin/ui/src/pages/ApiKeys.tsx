@@ -9,6 +9,7 @@ import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Input } from '../components/Input';
+import { Select, SelectItem } from '../components/Select';
 import { EmptyState } from '../components/EmptyState';
 import { Skeleton } from '../components/Skeleton';
 import { IconKey, IconPlus, IconTrash2, IconCopy, IconPencil } from '../components/Icons';
@@ -28,6 +29,7 @@ export default function ApiKeys() {
   // 创建弹窗
   const [createOpen, setCreateOpen] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
+  const [permissions, setPermissions] = useState('read_only');
   const [newKeyExpiresAt, setNewKeyExpiresAt] = useState('');
   // 创建成功后显示完整 key
   const [createdKey, setCreatedKey] = useState<CreateApiKeyResponse | null>(null);
@@ -41,7 +43,7 @@ export default function ApiKeys() {
   const [revokeTarget, setRevokeTarget] = useState<ApiKeyListItem | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: (body: { name: string; expires_at?: string }) =>
+    mutationFn: (body: { name: string; permissions: string; expires_at?: string }) =>
       apiData<CreateApiKeyResponse>(`${API_PREFIX}/admin/api-keys`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -87,6 +89,7 @@ export default function ApiKeys() {
 
   function openCreate() {
     setNewKeyName('');
+    setPermissions('read_only');
     setNewKeyExpiresAt('');
     setCreatedKey(null);
     setCreateOpen(true);
@@ -104,6 +107,7 @@ export default function ApiKeys() {
     }
     createMutation.mutate({
       name: newKeyName.trim(),
+      permissions,
       expires_at: newKeyExpiresAt || undefined,
     });
   }
@@ -337,6 +341,14 @@ export default function ApiKeys() {
               placeholder={t('apiKeyNamePlaceholder')}
               autoFocus
             />
+            <Select
+              label={t('permissionLabel')}
+              value={permissions}
+              onChange={(e) => setPermissions(e.target.value)}
+            >
+              <SelectItem value="read_only">{t('readOnly')} (read_only)</SelectItem>
+              <SelectItem value="read_write">{t('readWrite')} (read_write)</SelectItem>
+            </Select>
             <Input
               label={t('apiKeyExpires')}
               type="datetime-local"

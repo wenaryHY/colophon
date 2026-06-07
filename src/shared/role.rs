@@ -85,6 +85,10 @@ impl FromStr for Role {
                 // API Key 认证的用户映射为 Member：read_only 权限等价于 Member
                 Ok(Role::Member)
             }
+            "read_write" => {
+                // API Key 认证的用户映射为 Admin：read_write 权限等价于 Admin
+                Ok(Role::Admin)
+            }
             other => Err(AppError::BadRequest(format!(
                 "invalid role value encountered during parsing: '{other}'"
             ))),
@@ -153,6 +157,7 @@ mod tests {
         assert_eq!("admin".parse::<Role>().unwrap(), Role::Admin);
         assert_eq!("member".parse::<Role>().unwrap(), Role::Member);
         assert_eq!("read_only".parse::<Role>().unwrap(), Role::Member);
+        assert_eq!("read_write".parse::<Role>().unwrap(), Role::Admin);
     }
 
     #[test]
