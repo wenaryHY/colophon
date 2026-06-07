@@ -7,7 +7,44 @@
 > 不需要 Node.js。不需要运行时。不需要 Docker。
 > `scp` 到服务器上就完事了。
 
-## 快速开始
+## 安装
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/main/scripts/install.sh | sudo bash
+```
+
+完成。打开 `http://YOUR_SERVER_IP:2000/admin` 开始设置。
+
+<details>
+<summary>安装脚本做了什么？</summary>
+
+1. 检测操作系统（Ubuntu/Debian/CentOS）和架构（x86_64/aarch64）
+2. 安装系统依赖（sqlite3、ca-certificates）
+3. 从 GitHub Releases 下载最新版二进制
+4. 创建专用系统用户 `inkforge`
+5. 创建目录：`/opt/inkforge`（程序）、`/var/lib/inkforge`（数据）、`/etc/inkforge`（密钥）
+6. 生成随机 JWT 密钥
+7. 安装并启动 systemd 服务，监听 2000 端口
+
+</details>
+
+**管理服务：**
+
+```bash
+systemctl status inkforge     # 查看状态
+systemctl restart inkforge    # 重启
+journalctl -u inkforge -f     # 查看日志
+```
+
+**更新版本：**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/main/scripts/install.sh | sudo bash
+```
+
+重新运行安装脚本会下载最新版本并替换二进制，数据和配置不会丢失。
+
+### 从源码构建
 
 ```bash
 # 前置条件：Rust 1.75+、Node.js 22+、SQLite 3

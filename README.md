@@ -7,7 +7,44 @@
 > No Node.js. No runtime. No Docker required.
 > `scp` it to your server and you're done.
 
-## Quick Start
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/main/scripts/install.sh | sudo bash
+```
+
+That's it. Open `http://YOUR_SERVER_IP:2000/admin` and follow the setup wizard.
+
+<details>
+<summary>What does the install script do?</summary>
+
+1. Detects your OS (Ubuntu/Debian/CentOS) and architecture (x86_64/aarch64)
+2. Installs system dependencies (sqlite3, ca-certificates)
+3. Downloads the latest release binary from GitHub Releases
+4. Creates a dedicated `inkforge` system user
+5. Sets up directories: `/opt/inkforge` (app), `/var/lib/inkforge` (data), `/etc/inkforge` (secrets)
+6. Generates a random JWT secret
+7. Installs and starts the systemd service on port 2000
+
+</details>
+
+**Manage your installation:**
+
+```bash
+systemctl status inkforge     # check status
+systemctl restart inkforge    # restart
+journalctl -u inkforge -f     # view logs
+```
+
+**Update to a new version:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/main/scripts/install.sh | sudo bash
+```
+
+Re-running the installer downloads the latest version and replaces the binary. Your data and config are preserved.
+
+### Build from Source
 
 ```bash
 # Prerequisites: Rust 1.75+, Node.js 22+, SQLite 3

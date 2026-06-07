@@ -51,7 +51,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     handleAuthExpiredRef.current = () => {
       clearAuth();
-      toast(t('permissionDeniedToAdmin'), 'error');
+      // 检查系统是否处于 setup 阶段（尚未初始化），避免误报"权限不足"
+      fetch(`${API_PREFIX}/setup/status`)
+        .then(res => res.json())
+        .then(data => {
+          if (data?.data?.installed === false) {
+            // 系统未初始化，用户正在 setup 页 — 跳过 toast
+            return;
+          }
+          toast(t('permissionDeniedToAdmin'), 'error');
+        })
+        .catch(() => {
+          // setup/status 查询失败，fallback 到正常 toast 逻辑
+          toast(t('permissionDeniedToAdmin'), 'error');
+        });
     };
   });
 
