@@ -35,16 +35,16 @@ export default function Upload() {
   const [page, setPage] = useState(1);
   const [kind, setKind] = useState('__all__');
   const [category, setCategory] = useState('__all__');
-  const [keyword, setKeyword] = useState('__all__');
+  const [keyword, setKeyword] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('__all__');
+  const [renameValue, setRenameValue] = useState('');
 
   const { data: payload, isLoading } = useQuery({
     queryKey: ['media', { page, kind, category, keyword }],
     queryFn: () => {
       const query = new URLSearchParams({ page: String(page), page_size: '16' });
       if (kind && kind !== '__all__') query.set('kind', kind);
-      if (category) query.set('category', category);
+      if (category && category !== '__all__') query.set('category', category);
       if (keyword.trim()) query.set('keyword', keyword.trim());
       return apiData<PaginatedResponse<MediaItem>>(`${API_PREFIX}/admin/media?${query.toString()}`);
     },
