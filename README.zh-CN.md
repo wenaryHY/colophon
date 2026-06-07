@@ -7,13 +7,17 @@
 > 不需要 Node.js。不需要运行时。不需要 Docker。
 > `scp` 到服务器上就完事了。
 
-## 安装
+## 快速开始
+
+### 一行安装（Linux VPS）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/install.sh | bash
 ```
 
-完成。打开 `http://YOUR_SERVER_IP:2000/admin` 开始设置。
+打开 `http://YOUR_SERVER_IP:2000/admin` 开始设置你的站点。
+
+支持 Debian/Ubuntu（apt）和 Fedora/CentOS（dnf/yum），x86_64 和 aarch64 架构。
 
 <details>
 <summary>安装脚本做了什么？</summary>
@@ -39,7 +43,7 @@ journalctl -u inkforge -f     # 查看日志
 **更新版本：**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/install.sh | bash
 ```
 
 重新运行安装脚本会下载最新版本并替换二进制，数据和配置不会丢失。
@@ -226,7 +230,7 @@ cargo build --release -p inkforge
 
 - **暴力破解防护：** 通过 `governor` 实现登录速率限制，可配置突发和每秒配额
 - **密码存储：** Argon2id 哈希，随机每密码盐值
-- **会话管理：** HTTP-only 安全 Cookie，7 天过期，服务端可撤销
+- **会话管理：** HTTP-only Cookie（可选 Secure 标记），7 天过期，服务端可撤销
 - **API Key：** 用于 headless CMS 访问的限定范围密钥，可从管理后台吊销
 - **垃圾评论防护：** 内置蜜罐字段，可选 Cloudflare Turnstile 集成
 - **内容净化：** 用户提交的 HTML 在渲染前通过 `ammonia` 清洗

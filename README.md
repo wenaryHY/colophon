@@ -7,13 +7,17 @@
 > No Node.js. No runtime. No Docker required.
 > `scp` it to your server and you're done.
 
-## Install
+## Quick Start
+
+### One-Line Install (Linux VPS)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/install.sh | bash
 ```
 
-That's it. Open `http://YOUR_SERVER_IP:2000/admin` and follow the setup wizard.
+Open `http://YOUR_SERVER_IP:2000/admin` to set up your site.
+
+Supports Debian/Ubuntu (apt) and Fedora/CentOS (dnf/yum) on x86_64 and aarch64.
 
 <details>
 <summary>What does the install script do?</summary>
@@ -39,7 +43,7 @@ journalctl -u inkforge -f     # view logs
 **Update to a new version:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/main/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/install.sh | bash
 ```
 
 Re-running the installer downloads the latest version and replaces the binary. Your data and config are preserved.
@@ -226,7 +230,7 @@ Copy `target/release/inkforge`, your `config/` directory, `migrations/`, and `th
 
 - **Brute-force protection:** login rate limiting via `governor` with configurable burst and per-second quotas
 - **Password storage:** Argon2id hashing with random per-password salt
-- **Session management:** HTTP-only secure cookies with 7-day expiry and server-side revocation
+- **Session management:** HTTP-only cookies with optional Secure flag, 7-day expiry and server-side revocation
 - **API keys:** scoped keys for headless CMS access, revocable from the admin panel
 - **Spam prevention:** built-in honeypot fields and optional Cloudflare Turnstile integration
 - **Content sanitization:** user-submitted HTML is cleaned through `ammonia` before rendering
