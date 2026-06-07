@@ -171,7 +171,6 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const triggerRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const isMouseInDropdownRef = useRef(false);
 
     useImperativeHandle(ref, () => triggerRef.current as HTMLDivElement);
 
@@ -212,15 +211,14 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       if (!isOpen) return;
 
       const handleMouseDown = (e: globalThis.MouseEvent) => {
-        if (isMouseInDropdownRef.current) return;
         const target = e.target as HTMLElement;
         if (triggerRef.current?.contains(target)) return;
         if (dropdownRef.current?.contains(target)) return;
         closeDropdown();
       };
 
-      document.addEventListener('mousedown', handleMouseDown, true);
-      return () => document.removeEventListener('mousedown', handleMouseDown, true);
+      document.addEventListener('mousedown', handleMouseDown);
+      return () => document.removeEventListener('mousedown', handleMouseDown);
     }, [isOpen, closeDropdown]);
 
     // ── 滚动、窗口尺寸变化关闭 ──
@@ -390,8 +388,6 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           <DropdownPortalInstance
             dropdownRef={dropdownRef}
             dropdownStyle={dropdownStyle}
-            onMouseEnter={() => { isMouseInDropdownRef.current = true; }}
-            onMouseLeave={() => { isMouseInDropdownRef.current = false; }}
           >
             {options.map((opt, idx) => {
               const isSelected = opt.value === stringValue;
@@ -435,16 +431,12 @@ Select.displayName = 'Select';
 interface DropdownPortalInstanceProps {
   dropdownRef: Ref<HTMLDivElement>;
   dropdownStyle: CSSProperties;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
   children: ReactNode;
 }
 
 function DropdownPortalInstance({
   dropdownRef,
   dropdownStyle,
-  onMouseEnter,
-  onMouseLeave,
   children,
 }: DropdownPortalInstanceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -472,8 +464,6 @@ function DropdownPortalInstance({
       ref={dropdownRef}
       role="listbox"
       style={{ ...DROPDOWN_CONTAINER_STYLE, ...dropdownStyle }}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
       onWheel={(e) => e.stopPropagation()}
     >
       {children}

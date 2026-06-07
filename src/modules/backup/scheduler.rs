@@ -98,7 +98,8 @@ async fn update_run_times_after_backup(
     minute: u32,
 ) -> Result<(), AppError> {
     let now = Utc::now();
-    let cron_expr = frequency.cron_expression(hour, minute);
+    let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(hour, minute);
+    let cron_expr = frequency.cron_expression(utc_hour, utc_minute);
     let next = calculate_next_run_at_from_cron_expression(&cron_expr);
     repository::update_schedule_run_time(
         &state.pool,
