@@ -77,7 +77,7 @@ curl -fSL --progress-bar -o "${TMPDIR}/${ASSET_NAME}" "$DOWNLOAD_URL" \
     || error "Download failed. Check network and retry."
 
 info "Extracting..."
-tar -xzf "${TMPDIR}/${ASSET_NAME}" -C "$TMPDIR"
+tar -xzf "${TMPDIR}/${ASSET_NAME}" -C "$TMPDIR" --strip-components=1
 
 # ── 5. Create system user ──
 if ! id "$SERVICE_USER" >/dev/null 2>&1; then
