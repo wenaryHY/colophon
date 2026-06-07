@@ -155,7 +155,7 @@ fn matches_cached_origin(
 pub async fn build_router(state: Arc<AppState>) -> Router {
     let port = state.config.server.port;
 
-    let is_production = state.config.runtime.mode.eq_ignore_ascii_case("production");
+    let is_production = state.config.is_production();
 
     let base_origins: Vec<HeaderValue> = {
         let mut v = vec![

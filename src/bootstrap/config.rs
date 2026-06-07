@@ -75,6 +75,11 @@ fn default_webhook_max_concurrency() -> usize { 5 }
 fn default_webhook_timeout_seconds() -> u64 { 60 }
 
 impl AppConfig {
+    /// 是否为生产模式（运行时判断，非编译期）
+    pub fn is_production(&self) -> bool {
+        self.runtime.mode.eq_ignore_ascii_case("production")
+    }
+
     pub fn load() -> Result<Self> {
         Ok(config::Config::builder()
             .add_source(config::File::with_name("config/default").required(false))
@@ -110,7 +115,7 @@ impl AppConfig {
             return Ok(());
         }
 
-        if self.runtime.mode.eq_ignore_ascii_case("production")
+        if self.is_production()
             && !self.auth.allow_insecure_default_secret
         {
             bail!(

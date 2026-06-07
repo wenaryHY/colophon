@@ -27,10 +27,11 @@ pub async fn initialize(
 ) -> AppResult<axum::response::Response> {
     let (payload, refresh_token) = service::initialize(state.clone(), body).await?;
 
-    let refresh_cookie = build_refresh_cookie(&refresh_token);
+    let is_production = state.config.is_production();
+    let refresh_cookie = build_refresh_cookie(&refresh_token, is_production);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
     let session_cookie =
-        build_session_cookie(&payload.token, state.config.auth.expires_in_seconds);
+        build_session_cookie(&payload.token, state.config.auth.expires_in_seconds, is_production);
     let session_header = axum::http::HeaderValue::from_str(&session_cookie).unwrap();
 
     let json = Json(ApiResponse::success(payload));
@@ -41,16 +42,16 @@ pub async fn initialize(
     Ok((headers, json).into_response())
 }
 
-fn build_session_cookie(token: &str, max_age_seconds: u64) -> String {
-    let secure = if cfg!(debug_assertions) { "" } else { "; Secure" };
+fn build_session_cookie(token: &str, max_age_seconds: u64, is_production: bool) -> String {
+    let secure = if is_production { "; Secure" } else { "" };
     format!(
         "{name}={token}; Path=/; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}",
         name = auth_constants::SESSION_COOKIE_NAME_FOR_JWT_ACCESS_TOKEN,
     )
 }
 
-fn build_refresh_cookie(token: &str) -> String {
-    let secure = if cfg!(debug_assertions) { "" } else { "; Secure" };
+fn build_refresh_cookie(token: &str, is_production: bool) -> String {
+    let secure = if is_production { "; Secure" } else { "" };
     format!(
         "{name}={token}; Path=/api/v1/auth/refresh; Max-Age={SETUP_REFRESH_MAX_AGE}; HttpOnly; SameSite=Strict{secure}",
         name = auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN,
