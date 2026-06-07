@@ -45,8 +45,8 @@ export interface AdminPost {
   status: 'draft' | 'published' | 'trashed';
   visibility: 'public' | 'private';
   category_id: string | null;
-  allow_comment: number;
-  pinned: number;
+  allow_comment: boolean;
+  pinned: boolean;
   content_type: 'post' | 'page';
   custom_html_path: string | null;
   page_render_mode: 'editor' | 'custom_html';

@@ -625,7 +625,7 @@ pub async fn preview_theme(
         excerpt: None,
         content_html,
         content_type,
-        allow_comment: 0,
+        allow_comment: false,
         published_at: None,
         created_at: now.clone(),
         updated_at: now,

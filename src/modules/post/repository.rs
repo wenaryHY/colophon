@@ -395,6 +395,7 @@ where
     Ok(map)
 }
 
+/// 管理后台文章列表——动态构建 WHERE 条件，替代 8-arm match。
 pub async fn list_admin_posts<'e, E>(
     executor: E,
     status: Option<PostStatus>,
@@ -406,130 +407,36 @@ pub async fn list_admin_posts<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    match (status, keyword, content_type) {
-        (Some(status), Some(keyword), Some(ct)) => {
-            let like = format!("%{}%", keyword);
-            sqlx::query_as::<_, AdminPost>(
-                "SELECT * FROM posts
-                 WHERE deleted_at IS NULL AND status = ? AND content_type = ? AND (title LIKE ? OR excerpt LIKE ? OR content_md LIKE ?)
-                 ORDER BY pinned DESC, published_at DESC, created_at DESC
-                 LIMIT ? OFFSET ?",
-            )
-            .bind(status)
-            .bind(ct)
-            .bind(&like)
-            .bind(&like)
-            .bind(&like)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(executor)
-            .await
-        }
-        (Some(status), Some(keyword), None) => {
-            let like = format!("%{}%", keyword);
-            sqlx::query_as::<_, AdminPost>(
-                "SELECT * FROM posts
-                 WHERE deleted_at IS NULL AND status = ? AND (title LIKE ? OR excerpt LIKE ? OR content_md LIKE ?)
-                 ORDER BY pinned DESC, published_at DESC, created_at DESC
-                 LIMIT ? OFFSET ?",
-            )
-            .bind(status)
-            .bind(&like)
-            .bind(&like)
-            .bind(&like)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(executor)
-            .await
-        }
-        (Some(status), None, Some(ct)) => {
-            sqlx::query_as::<_, AdminPost>(
-                "SELECT * FROM posts
-                 WHERE deleted_at IS NULL AND status = ? AND content_type = ?
-                 ORDER BY pinned DESC, published_at DESC, created_at DESC
-                 LIMIT ? OFFSET ?",
-            )
-            .bind(status)
-            .bind(ct)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(executor)
-            .await
-        }
-        (Some(status), None, None) => {
-            sqlx::query_as::<_, AdminPost>(
-                "SELECT * FROM posts
-                 WHERE deleted_at IS NULL AND status = ?
-                 ORDER BY pinned DESC, published_at DESC, created_at DESC
-                 LIMIT ? OFFSET ?",
-            )
-            .bind(status)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(executor)
-            .await
-        }
-        (None, Some(keyword), Some(ct)) => {
-            let like = format!("%{}%", keyword);
-            sqlx::query_as::<_, AdminPost>(
-                "SELECT * FROM posts
-                 WHERE deleted_at IS NULL AND content_type = ? AND (title LIKE ? OR excerpt LIKE ? OR content_md LIKE ?)
-                 ORDER BY pinned DESC, published_at DESC, created_at DESC
-                 LIMIT ? OFFSET ?",
-            )
-            .bind(ct)
-            .bind(&like)
-            .bind(&like)
-            .bind(&like)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(executor)
-            .await
-        }
-        (None, Some(keyword), None) => {
-            let like = format!("%{}%", keyword);
-            sqlx::query_as::<_, AdminPost>(
-                "SELECT * FROM posts
-                 WHERE deleted_at IS NULL AND (title LIKE ? OR excerpt LIKE ? OR content_md LIKE ?)
-                 ORDER BY pinned DESC, published_at DESC, created_at DESC
-                 LIMIT ? OFFSET ?",
-            )
-            .bind(&like)
-            .bind(&like)
-            .bind(&like)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(executor)
-            .await
-        }
-        (None, None, Some(ct)) => {
-            sqlx::query_as::<_, AdminPost>(
-                "SELECT * FROM posts
-                 WHERE deleted_at IS NULL AND content_type = ?
-                 ORDER BY pinned DESC, published_at DESC, created_at DESC
-                 LIMIT ? OFFSET ?",
-            )
-            .bind(ct)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(executor)
-            .await
-        }
-        (None, None, None) => {
-            sqlx::query_as::<_, AdminPost>(
-                "SELECT * FROM posts
-                 WHERE deleted_at IS NULL
-                 ORDER BY pinned DESC, published_at DESC, created_at DESC
-                 LIMIT ? OFFSET ?",
-            )
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(executor)
-            .await
-        }
+    let mut builder = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+        "SELECT * FROM posts WHERE deleted_at IS NULL",
+    );
+
+    if let Some(s) = status {
+        builder.push(" AND status = ").push_bind(s);
     }
+    if let Some(kw) = keyword {
+        let pattern = format!("%{}%", kw);
+        builder
+            .push(" AND (title LIKE ")
+            .push_bind(pattern.clone())
+            .push(" OR excerpt LIKE ")
+            .push_bind(pattern.clone())
+            .push(" OR content_md LIKE ")
+            .push_bind(pattern)
+            .push(")");
+    }
+    if let Some(ct) = content_type {
+        builder.push(" AND content_type = ").push_bind(ct);
+    }
+
+    builder.push(" ORDER BY pinned DESC, published_at DESC, created_at DESC");
+    builder.push(" LIMIT ").push_bind(limit);
+    builder.push(" OFFSET ").push_bind(offset);
+
+    builder.build_query_as::<AdminPost>().fetch_all(executor).await
 }
 
+/// 管理后台文章计数——与 list_admin_posts 共享相同的动态 WHERE 构建模式。
 pub async fn count_admin_posts<'e, E>(
     executor: E,
     status: Option<PostStatus>,
@@ -539,80 +446,29 @@ pub async fn count_admin_posts<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    match (status, keyword, content_type) {
-        (Some(status), Some(keyword), Some(ct)) => {
-            let like = format!("%{}%", keyword);
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL AND status = ? AND content_type = ? AND (title LIKE ? OR excerpt LIKE ? OR content_md LIKE ?)",
-            )
-            .bind(status)
-            .bind(ct)
-            .bind(&like)
-            .bind(&like)
-            .bind(&like)
-            .fetch_one(executor)
-            .await
-        }
-        (Some(status), Some(keyword), None) => {
-            let like = format!("%{}%", keyword);
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL AND status = ? AND (title LIKE ? OR excerpt LIKE ? OR content_md LIKE ?)",
-            )
-            .bind(status)
-            .bind(&like)
-            .bind(&like)
-            .bind(&like)
-            .fetch_one(executor)
-            .await
-        }
-        (Some(status), None, Some(ct)) => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL AND status = ? AND content_type = ?")
-                .bind(status)
-                .bind(ct)
-                .fetch_one(executor)
-                .await
-        }
-        (Some(status), None, None) => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL AND status = ?")
-                .bind(status)
-                .fetch_one(executor)
-                .await
-        }
-        (None, Some(keyword), Some(ct)) => {
-            let like = format!("%{}%", keyword);
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL AND content_type = ? AND (title LIKE ? OR excerpt LIKE ? OR content_md LIKE ?)",
-            )
-            .bind(ct)
-            .bind(&like)
-            .bind(&like)
-            .bind(&like)
-            .fetch_one(executor)
-            .await
-        }
-        (None, Some(keyword), None) => {
-            let like = format!("%{}%", keyword);
-            sqlx::query_scalar(
-                "SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL AND (title LIKE ? OR excerpt LIKE ? OR content_md LIKE ?)",
-            )
-            .bind(&like)
-            .bind(&like)
-            .bind(&like)
-            .fetch_one(executor)
-            .await
-        }
-        (None, None, Some(ct)) => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL AND content_type = ?")
-                .bind(ct)
-                .fetch_one(executor)
-                .await
-        }
-        (None, None, None) => {
-            sqlx::query_scalar("SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL")
-                .fetch_one(executor)
-                .await
-        }
+    let mut builder = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+        "SELECT COUNT(*) FROM posts WHERE deleted_at IS NULL",
+    );
+
+    if let Some(s) = status {
+        builder.push(" AND status = ").push_bind(s);
     }
+    if let Some(kw) = keyword {
+        let pattern = format!("%{}%", kw);
+        builder
+            .push(" AND (title LIKE ")
+            .push_bind(pattern.clone())
+            .push(" OR excerpt LIKE ")
+            .push_bind(pattern.clone())
+            .push(" OR content_md LIKE ")
+            .push_bind(pattern)
+            .push(")");
+    }
+    if let Some(ct) = content_type {
+        builder.push(" AND content_type = ").push_bind(ct);
+    }
+
+    builder.build_query_scalar::<i64>().fetch_one(executor).await
 }
 
 pub async fn get_admin_post<'e, E>(executor: E, id: &str) -> Result<Option<AdminPost>, sqlx::Error>
@@ -693,8 +549,8 @@ where
     .bind(status)
     .bind(visibility)
     .bind(category_id)
-    .bind(if allow_comment { 1 } else { 0 })
-    .bind(if pinned { 1 } else { 0 })
+    .bind(allow_comment)
+    .bind(pinned)
     .bind(content_type)
     .bind(custom_html_path)
     .bind(page_render_mode)
@@ -756,8 +612,8 @@ where
     .bind(status)
     .bind(visibility)
     .bind(category_id)
-    .bind(if allow_comment { 1 } else { 0 })
-    .bind(if pinned { 1 } else { 0 })
+    .bind(allow_comment)
+    .bind(pinned)
     .bind(content_type)
     .bind(custom_html_path)
     .bind(page_render_mode)

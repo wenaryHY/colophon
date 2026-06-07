@@ -383,8 +383,8 @@ pub async fn update_post(
     let visibility =
         normalize_visibility(body.visibility.or(Some(current.visibility)))?;
     let mut category_id = body.category_id.or(current.category_id.clone());
-    let allow_comment = body.allow_comment.unwrap_or(current.allow_comment == 1);
-    let pinned = body.pinned.unwrap_or(current.pinned == 1);
+    let allow_comment = body.allow_comment.unwrap_or(current.allow_comment);
+    let pinned = body.pinned.unwrap_or(current.pinned);
     let mut tags = body.tag_ids.clone().unwrap_or_default();
     let has_original_tags = body.tag_ids.is_some();
 

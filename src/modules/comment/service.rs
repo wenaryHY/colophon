@@ -105,7 +105,7 @@ pub async fn create_comment(
         .ok_or(AppError::NotFound)?;
     if post.status != PostStatus::Published
         || post.visibility != Visibility::Public
-        || post.allow_comment == 0
+        || !post.allow_comment
     {
         tracing::warn!(
             module = "comment",
