@@ -121,7 +121,16 @@ export async function api<T = unknown>(path: string, opts: RequestInit = {}, isR
   }
 
   if (!response.ok) {
-    throw new ApiClientError(response.status, `Request failed: ${response.status}`);
+    let errorMessage = `Request failed: ${response.status}`;
+    try {
+      const errorBody = await response.json() as { message?: string };
+      if (errorBody.message) {
+        errorMessage = errorBody.message;
+      }
+    } catch {
+      // 响应体非 JSON 或解析失败，使用默认消息
+    }
+    throw new ApiClientError(response.status, errorMessage);
   }
 
   return response.json() as T;

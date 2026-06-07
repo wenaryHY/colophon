@@ -29,7 +29,7 @@ export function MediaCategorySelect({
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
     >
-      {includeEmpty && <SelectItem value="__none__">{placeholder || emptyLabel}</SelectItem>}
+      {includeEmpty && <SelectItem value="__all__">{placeholder || emptyLabel}</SelectItem>}
       {categories.map((category) => (
         <SelectItem key={category.id} value={category.slug}>
           {category.name}
