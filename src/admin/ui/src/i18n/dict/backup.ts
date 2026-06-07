@@ -20,6 +20,7 @@ export const backupDict = {
     scheduleNever: '尚未执行',
     frequencyDaily: '每天',
     frequencyHourly: '每小时',
+    hourlyHint: '每小时自动执行一次',
     providerLocal: '本地存储',
     providerS3: 'S3 兼容',
 
@@ -71,6 +72,7 @@ export const backupDict = {
     scheduleNever: 'Never',
     frequencyDaily: 'Daily',
     frequencyHourly: 'Hourly',
+    hourlyHint: 'Runs automatically every hour',
     providerLocal: 'Local Storage',
     providerS3: 'S3 Compatible',
 

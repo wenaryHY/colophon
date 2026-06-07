@@ -253,7 +253,7 @@ export default function Upload() {
               />
             </div>
             <div style={{ width: '130px' }}>
-              <IfSelect value={kind} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { setKind(e.target.value); setPage(1); }}>
+              <IfSelect value={kind} onChange={(e) => { setKind(e.target.value); setPage(1); }}>
                 <option value="">{t('allTypes')}</option>
                 <option value="image">{t('imageType')}</option>
                 <option value="audio">{t('audioType')}</option>

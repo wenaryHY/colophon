@@ -283,12 +283,16 @@ export default function Backups() {
           </Select>
         </FormRow>
 
-        <FormRow label={t('backupTime')} isMobile={isMobile}>
+        <FormRow
+          label={t('backupTime')}
+          hint={scheduleFrequency === 'hourly' ? t('hourlyHint') : undefined}
+          isMobile={isMobile}
+        >
           <TimePicker
             hour={scheduleHour}
             minute={scheduleMinute}
             onChange={(h, m) => { setScheduleHour(h); setScheduleMinute(m); }}
-            disabled={!scheduleEnabled || scheduleLoading}
+            disabled={!scheduleEnabled || scheduleLoading || scheduleFrequency === 'hourly'}
           />
         </FormRow>
 
