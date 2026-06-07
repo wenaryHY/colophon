@@ -446,6 +446,26 @@ function DropdownPortalInstance({
     containerRef.current = document.createElement('div');
   }
 
+  // Assign dropdownRef to the portal container so that scrollbar clicks
+  // (which target this container, not the inner listbox) are correctly
+  // identified as internal by the outside-click handler's contains() check.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (typeof dropdownRef === 'function') {
+      dropdownRef(el);
+    } else if (dropdownRef && 'current' in dropdownRef) {
+      (dropdownRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    }
+    return () => {
+      if (typeof dropdownRef === 'function') {
+        dropdownRef(null);
+      } else if (dropdownRef && 'current' in dropdownRef) {
+        (dropdownRef as React.MutableRefObject<HTMLDivElement | null>).current = null;
+      }
+    };
+  }, [dropdownRef]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -461,7 +481,6 @@ function DropdownPortalInstance({
 
   return createPortal(
     <div
-      ref={dropdownRef}
       role="listbox"
       style={{ ...DROPDOWN_CONTAINER_STYLE, ...dropdownStyle }}
       onWheel={(e) => e.stopPropagation()}
