@@ -120,6 +120,10 @@ function ensureSelectStylesInjected() {
       font-weight: 700;
       background: var(--md-surface-container-low);
     }
+    .SelectTrigger[data-focus-visible] {
+      border-color: var(--md-primary);
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.18);
+    }
   `;
   document.head.appendChild(style);
 }
@@ -155,6 +159,7 @@ export function Select({
       >
         <RadixSelect.Trigger
           id={id}
+          className="SelectTrigger"
           style={{
             ...TRIGGER_STYLE,
             ...(disabled ? TRIGGER_DISABLED_STYLE : {}),
@@ -184,10 +189,6 @@ export function Select({
             position="popper"
             sideOffset={4}
             style={CONTENT_STYLE}
-            onCloseAutoFocus={(e) => {
-              // 选择后重新聚焦 trigger
-              e.preventDefault();
-            }}
           >
             <RadixSelect.ScrollUpButton />
             <RadixSelect.Viewport style={{ padding: 4 }}>
