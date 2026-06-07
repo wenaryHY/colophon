@@ -150,7 +150,7 @@ Restart=always
 RestartSec=5
 
 Environment=RUST_LOG=inkforge=info
-Environment=INKFORGE__RUNTIME__MODE=production
+Environment=# RUNTIME_MODE defaults to development; set to production only when TLS is configured
 Environment=INKFORGE__SERVER__HOST=0.0.0.0
 Environment=INKFORGE__SERVER__PORT=${LISTEN_PORT}
 Environment=INKFORGE__DATABASE__URL=sqlite://${DATA_DIR}/inkforge.db?mode=rwc
