@@ -545,11 +545,6 @@ pub async fn preview_content(
     if content.len() > 1_048_576 {
         return Err(AppError::BadRequest("content exceeds 1MB limit".into()));
     }
-    if !matches!(req.content_type.as_str(), "post" | "page") {
-        return Err(AppError::BadRequest(
-            "invalid content_type, must be 'post' or 'page'".into(),
-        ));
-    }
 
     let html = crate::shared::content::markdown_to_html(&content);
     // HTTP CSP 头在 iframe srcdoc 中不生效，通过 meta 标签注入 CSP
@@ -575,12 +570,7 @@ pub async fn preview_theme(
     if content.len() > 1_048_576 {
         return Err(AppError::BadRequest("content exceeds 1MB limit".into()));
     }
-    let content_type: ContentType = match req.content_type.as_str() {
-        "post" | "page" => req.content_type.parse().map_err(|e: AppError| e)?,
-        other => return Err(AppError::BadRequest(
-            format!("invalid content_type '{}', must be 'post' or 'page'", other)
-        )),
-    };
+    let content_type = req.content_type;
 
     // TODO(security): 添加预览端点的速率限制（每用户每分钟最多 30 次）
     // 参考 src/shared/security.rs 中的 LoginRateLimiter 模式实现
