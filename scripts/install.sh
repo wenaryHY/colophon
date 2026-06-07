@@ -88,7 +88,7 @@ fi
 # ── 6. Create directory structure ──
 mkdir -p "$INSTALL_DIR" "$DATA_DIR/uploads" "$DATA_DIR/pages" \
          "$CONF_DIR" "$BACKUP_DIR" \
-         "$INSTALL_DIR/themes" "$INSTALL_DIR/src/admin" "$INSTALL_DIR/plugins"
+         "$INSTALL_DIR/themes" "$INSTALL_DIR/src/admin" "$INSTALL_DIR/src/admin/dist" "$INSTALL_DIR/plugins"
 
 # ── 7. Install files ──
 # Binary
