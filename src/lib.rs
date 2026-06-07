@@ -34,6 +34,15 @@ pub async fn serve() -> anyhow::Result<()> {
 
     let config = AppConfig::load()?;
     config.validate()?;
+
+    // 检测 Turnstile 配置不一致：secret 已配置但 site_key 为空
+    if !config.auth.turnstile_secret.is_empty() && config.auth.turnstile_site_key.is_empty() {
+        tracing::warn!(
+            "Turnstile verification is configured (turnstile_secret is set) but turnstile_site_key is empty. \
+             The Turnstile widget will not render on the login page, but backend validation is enabled. \
+             This is likely a configuration error — set INKFORGE__AUTH__TURNSTILE_SITE_KEY to match."
+        );
+    }
     std::fs::create_dir_all(&config.storage.upload_dir)?;
     std::fs::create_dir_all(&config.theme.theme_dir)?;
 

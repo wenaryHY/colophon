@@ -43,6 +43,7 @@ export const loginDict = {
 
     // Turnstile
     loadingTurnstile: '正在加载验证组件…',
+    turnstileConfigError: '验证服务暂时不可用，请刷新页面重试',
   },
   en: {
     // Title
@@ -87,5 +88,6 @@ export const loginDict = {
 
     // Turnstile
     loadingTurnstile: 'Loading verification…',
+    turnstileConfigError: 'Verification service unavailable, please refresh the page',
   },
 };

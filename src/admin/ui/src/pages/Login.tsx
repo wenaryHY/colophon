@@ -31,8 +31,31 @@ export default function Login() {
   // Turnstile widget token
   const turnstileRef = useRef<string | null>(null);
   const [turnstileReady, setTurnstileReady] = useState(false);
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null | undefined>(undefined);
+  const [turnstileConfigError, setTurnstileConfigError] = useState(false);
 
+  // 获取 Turnstile site key 配置
   useEffect(() => {
+    fetch('/api/v1/turnstile-config')
+      .then(r => r.json())
+      .then(d => setTurnstileSiteKey(d.site_key))
+      .catch(() => {
+        // 网络失败时不 fallback 到 null（那会让按钮启用），
+        // 保持 undefined 使得 turnstileReady 为 false、按钮禁用
+        setTurnstileConfigError(true);
+        console.error('Failed to load Turnstile configuration');
+      });
+  }, []);
+
+  // Turnstile widget 渲染
+  useEffect(() => {
+    if (turnstileSiteKey === undefined) return; // 配置尚未加载
+    if (turnstileSiteKey === null) {
+      // 未启用 Turnstile，直接允许提交
+      setTurnstileReady(true);
+      return;
+    }
+
     let widgetId: string | undefined;
     let cancelled = false;
 
@@ -51,7 +74,7 @@ export default function Login() {
         turnstileWidget.remove('#turnstile-widget');
       }
       widgetId = turnstileWidget.render('#turnstile-widget', {
-        sitekey: '0x4AAAAAADffbuvTrWkvKyda',
+        sitekey: turnstileSiteKey,
         theme: 'dark',
         callback: (token: string) => {
           if (!cancelled) {
@@ -80,7 +103,7 @@ export default function Login() {
       turnstileRef.current = null;
       setTurnstileReady(false);
     };
-  }, []);
+  }, [turnstileSiteKey]);
 
   const { data: setupStatus, isLoading: setupLoading } = useQuery({
     queryKey: ['setup-status'],
@@ -427,33 +450,52 @@ export default function Login() {
           <SlotRenderer target="login.form_below" />
         </div>
 
-        {/* Turnstile 验证码 widget */}
-        <div style={{ padding: '0 28px', marginTop: '8px' }}>
-          <div
-            id="turnstile-widget"
-            style={{
-              minHeight: '65px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'var(--md-surface-container-low)',
-              borderRadius: 'var(--radius-md)',
-              padding: '12px',
-            }}
-          ></div>
-          {!turnstileReady && (
+        {/* Turnstile 验证码 widget — 仅在 site_key 配置时显示 */}
+        {turnstileSiteKey ? (
+          <div style={{ padding: '0 28px', marginTop: '8px' }}>
             <div
+              id="turnstile-widget"
               style={{
-                textAlign: 'center',
-                fontSize: '12px',
-                color: 'var(--md-outline)',
-                marginTop: '6px',
+                minHeight: '65px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'var(--md-surface-container-low)',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px',
               }}
-            >
-              {t('loadingTurnstile')}
+            ></div>
+            {!turnstileReady && (
+              <div
+                style={{
+                  textAlign: 'center',
+                  fontSize: '12px',
+                  color: 'var(--md-outline)',
+                  marginTop: '6px',
+                }}
+              >
+                {t('loadingTurnstile')}
+              </div>
+            )}
+          </div>
+        ) : (turnstileSiteKey === undefined ? (
+          turnstileConfigError ? (
+            <div style={{ padding: '0 28px', marginTop: '8px' }}>
+              <span
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--md-error)',
+                }}
+              >
+                {t('turnstileConfigError')}
+              </span>
             </div>
-          )}
-        </div>
+          ) : (
+            <div style={{ padding: '0 28px', marginTop: '8px', textAlign: 'center' }}>
+              <span style={{ fontSize: '12px', color: 'var(--md-outline)' }}>{t('loadingTurnstile')}</span>
+            </div>
+          )
+        ) : null)}
 
         {/* 底部链接 */}
         <div style={{ textAlign: 'center', paddingTop: '20px', paddingBottom: '28px' }}>

@@ -34,6 +34,9 @@ pub struct AuthConfig {
     /// Cloudflare Turnstile secret key（可选，为空则跳过验证）
     #[serde(default)]
     pub turnstile_secret: String,
+    /// Cloudflare Turnstile 前端 site key（可选，为空则不渲染 widget）
+    #[serde(default)]
+    pub turnstile_site_key: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -84,6 +87,7 @@ impl AppConfig {
             .set_default("auth.expires_in_seconds", 900)?
             .set_default("auth.allow_insecure_default_secret", false)?
             .set_default("auth.turnstile_secret", "")?
+            .set_default("auth.turnstile_site_key", "")?
             .set_default("storage.upload_dir", "uploads")?
             .set_default("storage.max_upload_size_mb", 10)?
             .set_default("theme.theme_dir", "themes")?

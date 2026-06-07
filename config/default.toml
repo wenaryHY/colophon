@@ -9,6 +9,7 @@ url = "sqlite://inkforge.db?mode=rwc"
 secret = "inkforge-change-me-in-production"
 expires_in_seconds = 900
 turnstile_secret = ""
+turnstile_site_key = ""
 
 [storage]
 upload_dir = "uploads"

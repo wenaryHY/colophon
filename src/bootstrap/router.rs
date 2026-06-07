@@ -237,6 +237,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
     let v1 = Router::new()
         .route("/api/v1/health", get(health_check))
         .route("/api/v1/version", get(version_info))
+        .route("/api/v1/turnstile-config", get(modules::setup::turnstile_config::get_turnstile_config))
         .route("/api/v1/setup/status", get(modules::setup::handler::status))
         .route("/api/v1/setup/initialize", post(modules::setup::handler::initialize))
         .route("/api/v1/me", get(modules::user::handler::me))
