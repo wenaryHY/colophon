@@ -1,4 +1,4 @@
-import { Select } from '../Select';
+import { Select, SelectItem } from '../Select';
 import type { MediaCategory } from '../../types';
 
 interface MediaCategorySelectProps {
@@ -29,11 +29,11 @@ export function MediaCategorySelect({
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
     >
-      {includeEmpty && <option value="">{placeholder || emptyLabel}</option>}
+      {includeEmpty && <SelectItem value="">{placeholder || emptyLabel}</SelectItem>}
       {categories.map((category) => (
-        <option key={category.id} value={category.slug}>
+        <SelectItem key={category.id} value={category.slug}>
           {category.name}
-        </option>
+        </SelectItem>
       ))}
     </Select>
   );

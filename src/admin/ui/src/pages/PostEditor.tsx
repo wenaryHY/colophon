@@ -8,7 +8,7 @@ import type { AdminPost, Category, Tag } from '../types';
 
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { Select } from '../components/Select';
+import { Select, SelectItem } from '../components/Select';
 import { Modal } from '../components/Modal';
 import { MarkdownEditor } from '../components/MarkdownEditor';
 import {
@@ -579,8 +579,8 @@ export default function PostEditor() {
               marginBottom: '16px',
             }}>{t('publishSettings')}</div>
             <Select label={t('statusLabel')} value={status} onChange={(e) => setStatus(e.target.value as 'published' | 'draft')}>
-              <option value="draft">{t('draftOption')}</option>
-              <option value="published">{t('publishedOption')}</option>
+              <SelectItem value="draft">{t('draftOption')}</SelectItem>
+              <SelectItem value="published">{t('publishedOption')}</SelectItem>
             </Select>
           </div>
 
@@ -615,8 +615,8 @@ export default function PostEditor() {
               marginBottom: '16px',
             }}>{t('categoryAndTags')}</div>
             <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-              <option value="">{t('noCategory')}</option>
-              {categories.map((cat) => (<option key={cat.id} value={cat.id}>{esc(cat.name)}</option>))}
+              <SelectItem value="">{t('noCategory')}</SelectItem>
+              {categories.map((cat) => (<SelectItem key={cat.id} value={cat.id}>{esc(cat.name)}</SelectItem>))}
             </Select>
             {contentType === 'post' && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px', marginTop: '14px' }}>

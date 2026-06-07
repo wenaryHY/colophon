@@ -14,7 +14,7 @@ import { getQueryClient } from '../lib/api';
 import type { BackupListResponse } from '../types';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
-import { Select } from '../components/Select';
+import { Select, SelectItem } from '../components/Select';
 import { TimePicker } from '../components/TimePicker';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
@@ -278,8 +278,8 @@ export default function Backups() {
             onChange={(e) => setScheduleFrequency(e.target.value)}
             disabled={!scheduleEnabled || scheduleLoading}
           >
-            <option value="daily">{t('frequencyDaily')}</option>
-            <option value="hourly">{t('frequencyHourly')}</option>
+            <SelectItem value="daily">{t('frequencyDaily')}</SelectItem>
+            <SelectItem value="hourly">{t('frequencyHourly')}</SelectItem>
           </Select>
         </FormRow>
 
@@ -302,8 +302,8 @@ export default function Backups() {
             onChange={(e) => setScheduleProvider(e.target.value)}
             disabled={!scheduleEnabled || scheduleLoading}
           >
-            <option value="local">{t('providerLocal')}</option>
-            <option value="s3">{t('providerS3')}</option>
+            <SelectItem value="local">{t('providerLocal')}</SelectItem>
+            <SelectItem value="s3">{t('providerS3')}</SelectItem>
           </Select>
         </FormRow>
 

@@ -10,7 +10,7 @@ import type { Setting, ThemeSummary } from '../types';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { Select } from '../components/Select';
+import { Select, SelectItem } from '../components/Select';
 import { TimePicker } from '../components/TimePicker';
 import { NumberWheelPicker } from '../components/NumberWheelPicker';
 import { useToast } from '../contexts/ToastContext';
@@ -226,24 +226,24 @@ export default function Settings() {
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
             <FormRow label={t('allowRegister')} isMobile={isMobile}>
               <Select value={kv.allow_register || 'true'} onChange={(e) => update('allow_register', e.target.value)}>
-                <option value="true">{t('allowRegisterOption1')}</option><option value="false">{t('allowRegisterOption2')}</option>
+                <SelectItem value="true">{t('allowRegisterOption1')}</SelectItem><SelectItem value="false">{t('allowRegisterOption2')}</SelectItem>
               </Select>
             </FormRow>
             <FormRow label={t('allowComment')} isMobile={isMobile}>
               <Select value={kv.allow_comment || 'true'} onChange={(e) => update('allow_comment', e.target.value)}>
-                <option value="true">{t('allowCommentOption1')}</option><option value="false">{t('allowCommentOption2')}</option>
+                <SelectItem value="true">{t('allowCommentOption1')}</SelectItem><SelectItem value="false">{t('allowCommentOption2')}</SelectItem>
               </Select>
             </FormRow>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
             <FormRow label={t('commentRequireLogin')} isMobile={isMobile}>
               <Select value={kv.comment_require_login || 'true'} onChange={(e) => update('comment_require_login', e.target.value)}>
-                <option value="true">{t('requireLoginOption1')}</option><option value="false">{t('requireLoginOption2')}</option>
+                <SelectItem value="true">{t('requireLoginOption1')}</SelectItem><SelectItem value="false">{t('requireLoginOption2')}</SelectItem>
               </Select>
             </FormRow>
             <FormRow label={t('moderationMode')} isMobile={isMobile}>
               <Select value={kv.comment_moderation_mode || 'all'} onChange={(e) => update('comment_moderation_mode', e.target.value)}>
-                <option value="all">{t('moderationAll')}</option><option value="first_comment">{t('moderationFirst')}</option><option value="none">{t('moderationNone')}</option>
+                <SelectItem value="all">{t('moderationAll')}</SelectItem><SelectItem value="first_comment">{t('moderationFirst')}</SelectItem><SelectItem value="none">{t('moderationNone')}</SelectItem>
               </Select>
             </FormRow>
           </div>
@@ -259,14 +259,14 @@ export default function Settings() {
             <FormRow label={t('currentTheme')} isMobile={isMobile}>
               <Select value={kv.active_theme || activeThemeOptions[0]?.value || 'default'}
                 onChange={(e) => update('active_theme', e.target.value)}>
-                {activeThemeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {activeThemeOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
               </Select>
             </FormRow>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '18px' }}>
             <FormRow label={t('defaultMode')} isMobile={isMobile}>
               <Select value={kv.theme_default_mode || 'system'} onChange={(e) => update('theme_default_mode', e.target.value)}>
-                <option value="system">{t('modeSystem')}</option><option value="light">{t('modeLight')}</option><option value="dark">{t('modeDark')}</option>
+                <SelectItem value="system">{t('modeSystem')}</SelectItem><SelectItem value="light">{t('modeLight')}</SelectItem><SelectItem value="dark">{t('modeDark')}</SelectItem>
               </Select>
             </FormRow>
           </div>
@@ -351,8 +351,8 @@ export default function Settings() {
       <SettingSection title={t('uiSettings')} description={t('uiSettingsDesc')} isMobile={isMobile}>
         <FormRow label={t('interfaceLanguage')} isMobile={isMobile}>
           <Select value={lang} onChange={(e) => languageMutation.mutate(e.target.value as 'zh' | 'en')}>
-            <option value="zh">{t('languageZh')}</option>
-            <option value="en">{t('languageEn')}</option>
+            <SelectItem value="zh">{t('languageZh')}</SelectItem>
+            <SelectItem value="en">{t('languageEn')}</SelectItem>
           </Select>
         </FormRow>
       </SettingSection>

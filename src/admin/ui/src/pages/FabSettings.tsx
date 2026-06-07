@@ -11,7 +11,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { Select } from '../components/Select';
+import { Select, SelectItem } from '../components/Select';
 import { Modal } from '../components/Modal';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
@@ -627,9 +627,9 @@ export default function FabSettings() {
             value={formActionType}
             onChange={(e) => setFormActionType(e.target.value as 'url' | 'script' | 'event')}
           >
-            <option value="url">{t('fabActionTypeUrl')}</option>
-            <option value="script">{t('fabActionTypeScript')}</option>
-            <option value="event">{t('fabActionTypeEvent')}</option>
+            <SelectItem value="url">{t('fabActionTypeUrl')}</SelectItem>
+            <SelectItem value="script">{t('fabActionTypeScript')}</SelectItem>
+            <SelectItem value="event">{t('fabActionTypeEvent')}</SelectItem>
           </Select>
 
           {/* 执行值 */}

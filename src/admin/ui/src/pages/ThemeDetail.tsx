@@ -4,7 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { Select } from '../components/Select';
+import { Select, SelectItem } from '../components/Select';
 import { getThemeDetail, saveThemeConfig, activateTheme } from '../lib/api';
 import { getQueryClient } from '../lib/api';
 import type { ThemeConfigField } from '../types';
@@ -276,11 +276,11 @@ function ThemeConfigFieldInput({ field, value, onChange, t, format }: ThemeConfi
         value={(value as string) || field.default || ''}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="">{t('pleaseSelectOption')}</option>
+        <SelectItem value="">{t('pleaseSelectOption')}</SelectItem>
         {field.options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+          <SelectItem key={opt.value} value={opt.value}>
             {opt.label}
-          </option>
+          </SelectItem>
         ))}
       </Select>
     );

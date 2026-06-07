@@ -7,7 +7,7 @@ import type { MediaItem, PaginatedResponse } from '../types';
 import { PageHeader } from '../components/PageHeader';
 import { Card } from '../components/Card';
 import { Pagination } from '../components/Pagination';
-import { Select as IfSelect } from '../components/Select';
+import { Select as IfSelect, SelectItem } from '../components/Select';
 import { useToast } from '../contexts/ToastContext';
 import { useMediaCategories } from '../hooks/useMediaCategories';
 import { useI18n } from '../i18n';
@@ -254,9 +254,9 @@ export default function Upload() {
             </div>
             <div style={{ width: '130px' }}>
               <IfSelect value={kind} onChange={(e) => { setKind(e.target.value); setPage(1); }}>
-                <option value="">{t('allTypes')}</option>
-                <option value="image">{t('imageType')}</option>
-                <option value="audio">{t('audioType')}</option>
+                <SelectItem value="">{t('allTypes')}</SelectItem>
+                <SelectItem value="image">{t('imageType')}</SelectItem>
+                <SelectItem value="audio">{t('audioType')}</SelectItem>
               </IfSelect>
             </div>
             <div style={{ width: '130px' }}>

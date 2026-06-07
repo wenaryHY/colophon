@@ -6,7 +6,7 @@ import { useI18n } from '../i18n';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { Select } from '../components/Select';
+import { Select, SelectItem } from '../components/Select';
 
 interface SettingDef {
   key: string;
@@ -156,9 +156,9 @@ function renderControl(
       return (
         <Select value={value || s.options[0].value} onChange={(e) => onChange(e.target.value)}>
           {s.options.map((o) => (
-            <option key={o.value} value={o.value}>
+            <SelectItem key={o.value} value={o.value}>
               {o.label}
-            </option>
+            </SelectItem>
           ))}
         </Select>
       );
