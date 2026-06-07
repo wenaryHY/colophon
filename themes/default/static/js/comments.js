@@ -100,9 +100,10 @@
     isSubmitting = true;
     if (submitBtn) submitBtn.disabled = true;
 
+    const data = new FormData(form);
+    const slug = window.__POST_DATA__?.slug || '';
+
     try {
-      const data = new FormData(form);
-      const slug = window.__POST_DATA__?.slug || '';
       logDebug('submit_start', { slug });
 
       const result = await window.InkForgeApi.apiRequest(`/api/v1/posts/${slug}/comments`, {
