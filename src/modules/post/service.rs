@@ -23,7 +23,7 @@ use super::{
         AdminPostResponse, CreatePostRequest, PostQuery, PublicPostResponse, SearchQuery,
         UpdatePostRequest,
     },
-    post_types::{ContentType, PostStatus, Visibility},
+    post_types::{ContentType, NewPostParams, PostStatus, UpdatePostParams, Visibility},
     repository,
 };
 
@@ -261,21 +261,23 @@ pub async fn create_post(
 
     let id = repository::insert_post(
         &state.pool,
-        &auth.id,
-        &title,
-        &slug,
-        excerpt.as_deref(),
-        &content_md,
-        &content_html,
-        body.cover_media_id.as_deref(),
-        status,
-        visibility,
-        category_id.as_deref(),
-        body.allow_comment.unwrap_or(content_type.is_post()),
-        body.pinned.unwrap_or(false),
-        content_type,
-        body.custom_html_path.as_deref(),
-        &page_render_mode,
+        NewPostParams {
+            author_id: &auth.id,
+            title: &title,
+            slug: &slug,
+            excerpt: excerpt.as_deref(),
+            content_md: &content_md,
+            content_html: &content_html,
+            cover_media_id: body.cover_media_id.as_deref(),
+            status,
+            visibility,
+            category_id: category_id.as_deref(),
+            allow_comment: body.allow_comment.unwrap_or(content_type.is_post()),
+            pinned: body.pinned.unwrap_or(false),
+            content_type,
+            custom_html_path: body.custom_html_path.as_deref(),
+            page_render_mode: &page_render_mode,
+        },
     )
     .await?;
 
@@ -423,21 +425,23 @@ pub async fn update_post(
 
     repository::update_post(
         &state.pool,
-        id,
-        &title,
-        &slug,
-        excerpt.as_deref(),
-        &content_md,
-        &content_html,
-        cover_media_id.as_deref(),
-        status,
-        visibility,
-        category_id.as_deref(),
-        allow_comment,
-        pinned,
-        content_type,
-        custom_html_path,
-        &page_render_mode,
+        UpdatePostParams {
+            post_id: id,
+            title: &title,
+            slug: &slug,
+            excerpt: excerpt.as_deref(),
+            content_md: &content_md,
+            content_html: &content_html,
+            cover_media_id: cover_media_id.as_deref(),
+            status,
+            visibility,
+            category_id: category_id.as_deref(),
+            allow_comment,
+            pinned,
+            content_type,
+            custom_html_path,
+            page_render_mode: &page_render_mode,
+        },
         current.published_at.as_deref(),
     )
     .await?;
@@ -594,9 +598,24 @@ mod resolve_unique_post_slug_tests {
 
     async fn insert_post_with_slug(pool: &sqlx::SqlitePool, slug: &str) -> String {
         repository::insert_post(
-            pool, "test-author", "Title", slug, None, "", "", None,
-            PostStatus::Draft, Visibility::Public, None,
-            true, false, ContentType::Post, None, "editor",
+            pool,
+            NewPostParams {
+                author_id: "test-author",
+                title: "Title",
+                slug,
+                excerpt: None,
+                content_md: "",
+                content_html: "",
+                cover_media_id: None,
+                status: PostStatus::Draft,
+                visibility: Visibility::Public,
+                category_id: None,
+                allow_comment: true,
+                pinned: false,
+                content_type: ContentType::Post,
+                custom_html_path: None,
+                page_render_mode: "editor",
+            },
         )
         .await
         .expect("insert post")

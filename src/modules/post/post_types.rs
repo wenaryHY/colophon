@@ -206,6 +206,47 @@ impl_sqlx_for_str_enum!(PostStatus);
 impl_sqlx_for_str_enum!(Visibility);
 impl_sqlx_for_str_enum!(ContentType);
 
+// ── 参数 struct：替代 16/17 个零散参数的巨型函数签名 ────────────
+
+/// `insert_post` 的参数集合。
+/// 替代原先 16 个零散参数，编译器保证调用处不遗漏字段。
+pub struct NewPostParams<'a> {
+    pub author_id: &'a str,
+    pub title: &'a str,
+    pub slug: &'a str,
+    pub excerpt: Option<&'a str>,
+    pub content_md: &'a str,
+    pub content_html: &'a str,
+    pub cover_media_id: Option<&'a str>,
+    pub status: PostStatus,
+    pub visibility: Visibility,
+    pub category_id: Option<&'a str>,
+    pub allow_comment: bool,
+    pub pinned: bool,
+    pub content_type: ContentType,
+    pub custom_html_path: Option<&'a str>,
+    pub page_render_mode: &'a str,
+}
+
+/// `update_post` 的参数集合。
+pub struct UpdatePostParams<'a> {
+    pub post_id: &'a str,
+    pub title: &'a str,
+    pub slug: &'a str,
+    pub excerpt: Option<&'a str>,
+    pub content_md: &'a str,
+    pub content_html: &'a str,
+    pub cover_media_id: Option<&'a str>,
+    pub status: PostStatus,
+    pub visibility: Visibility,
+    pub category_id: Option<&'a str>,
+    pub allow_comment: bool,
+    pub pinned: bool,
+    pub content_type: ContentType,
+    pub custom_html_path: Option<&'a str>,
+    pub page_render_mode: &'a str,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

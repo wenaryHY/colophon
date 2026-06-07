@@ -1,6 +1,5 @@
 use std::sync::Arc;
-
-use chrono::{NaiveDateTime, Utc};
+use std::time::{Duration, Instant};
 
 use crate::{
     modules::{
@@ -97,8 +96,8 @@ pub async fn create_comment(
         return Err(AppError::BadRequest("comment is too long".into()));
     }
 
-    // 速率限制：同一用户 10 秒内只能提交一条评论
-    check_rate_limit(&state.pool, &auth.id).await?;
+    // 速率限制：同一用户在 COMMENT_COOLDOWN_SECONDS 秒内只能提交一条评论（内存实现，零 DB 查询）
+    check_rate_limit(&state.comment_rate_limiter, &auth.id).await?;
 
     let post = post_repository::find_comment_target(&state.pool, slug)
         .await?
@@ -350,28 +349,34 @@ pub async fn purge_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_js
     action_json("purged", true)
 }
 
-/// 查询该用户最后一条评论的时间，若距现在不足 10 秒则拒绝
-async fn check_rate_limit<'e, E>(executor: E, user_id: &str) -> AppResult<()>
-where
-    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
-{
-    let last_time: Option<String> = sqlx::query_scalar(
-        "SELECT created_at FROM comments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
-    )
-    .bind(user_id)
-    .fetch_optional(executor)
-    .await?;
+/// 评论发帖限流：同一用户在 COMMENT_COOLDOWN_SECONDS 秒内只能发一条评论。
+/// 使用内存 HashMap 替代 DB 查询，零额外 I/O 开销。
+const COMMENT_COOLDOWN_SECONDS: u64 = 10;
 
-    if let Some(ref last_time) = last_time {
-        if let Ok(last_naive) = NaiveDateTime::parse_from_str(last_time, "%Y-%m-%d %H:%M:%S") {
-            let last_dt = last_naive.and_utc();
-            let now = Utc::now();
-            let elapsed = now.signed_duration_since(last_dt);
-            if elapsed.num_seconds() < 10 {
-                return Err(AppError::BadRequest("评论发送过快，请稍后再试".into()));
-            }
+async fn check_rate_limit(
+    limiter: &tokio::sync::Mutex<std::collections::HashMap<String, Instant>>,
+    user_id: &str,
+) -> AppResult<()> {
+    let now = Instant::now();
+    let mut map = limiter.lock().await;
+
+    // 清理过期条目，避免 HashMap 无限增长
+    map.retain(|_key, &mut last_time| {
+        now.duration_since(last_time) < Duration::from_secs(COMMENT_COOLDOWN_SECONDS)
+    });
+
+    if let Some(&last_time) = map.get(user_id) {
+        let elapsed = now.duration_since(last_time);
+        if elapsed < Duration::from_secs(COMMENT_COOLDOWN_SECONDS) {
+            let remaining =
+                COMMENT_COOLDOWN_SECONDS.saturating_sub(elapsed.as_secs());
+            return Err(AppError::BadRequest(format!(
+                "评论发送过快，请 {} 秒后再试",
+                remaining
+            )));
         }
     }
 
+    map.insert(user_id.to_string(), now);
     Ok(())
 }

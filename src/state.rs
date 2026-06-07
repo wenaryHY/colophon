@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use minijinja::Environment;
 use sqlx::SqlitePool;
@@ -37,6 +38,9 @@ pub struct AppState {
     pub setup_stage: Arc<RwLock<SetupStage>>,
     /// In-memory login rate limiter for basic brute-force protection.
     pub login_rate_limiter: Arc<Mutex<LoginRateLimiter>>,
+    /// In-memory comment rate limiter: user_id → last comment Instant.
+    /// Replaces per-request DB query for rate checking.
+    pub comment_rate_limiter: Arc<Mutex<HashMap<String, Instant>>>,
     /// Cached template context with TTL-based invalidation.
     pub template_cache: Arc<TemplateContextCache>,
     /// Cached MiniJinja Environment per active_theme slug (synchronous access).
@@ -71,6 +75,7 @@ impl AppState {
             admin_url: Arc::new(RwLock::new(admin_url)),
             setup_stage: Arc::new(RwLock::new(setup_stage)),
             login_rate_limiter: Arc::new(Mutex::new(LoginRateLimiter::new())),
+            comment_rate_limiter: Arc::new(Mutex::new(HashMap::new())),
             template_cache: Arc::new(TemplateContextCache::with_default_ttl()),
             template_env_cache: Arc::new(RwLock::new(HashMap::new())),
             plugin_manager,

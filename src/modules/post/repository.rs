@@ -6,7 +6,7 @@ use uuid::Uuid;
 use super::domain::{
     AdminPost, CommentTargetPost, PublicPostDetail, PublicPostSummary, SitemapItem,
 };
-use super::post_types::{ContentType, PostStatus, Visibility};
+use super::post_types::{ContentType, NewPostParams, PostStatus, UpdatePostParams, Visibility};
 use crate::modules::tag::domain::Tag;
 
 #[allow(dead_code)]
@@ -505,27 +505,13 @@ where
 
 pub async fn insert_post<'e, E>(
     executor: E,
-    author_id: &str,
-    title: &str,
-    slug: &str,
-    excerpt: Option<&str>,
-    content_md: &str,
-    content_html: &str,
-    cover_media_id: Option<&str>,
-    status: PostStatus,
-    visibility: Visibility,
-    category_id: Option<&str>,
-    allow_comment: bool,
-    pinned: bool,
-    content_type: ContentType,
-    custom_html_path: Option<&str>,
-    page_render_mode: &str,
+    params: NewPostParams<'_>,
 ) -> Result<String, sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
     let id = Uuid::new_v4().to_string();
-    let published_at = if status == PostStatus::Published {
+    let published_at = if params.status == PostStatus::Published {
         Some(chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string())
     } else {
         None
@@ -539,21 +525,21 @@ where
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
-    .bind(author_id)
-    .bind(title)
-    .bind(slug)
-    .bind(excerpt)
-    .bind(content_md)
-    .bind(content_html)
-    .bind(cover_media_id)
-    .bind(status)
-    .bind(visibility)
-    .bind(category_id)
-    .bind(allow_comment)
-    .bind(pinned)
-    .bind(content_type)
-    .bind(custom_html_path)
-    .bind(page_render_mode)
+    .bind(params.author_id)
+    .bind(params.title)
+    .bind(params.slug)
+    .bind(params.excerpt)
+    .bind(params.content_md)
+    .bind(params.content_html)
+    .bind(params.cover_media_id)
+    .bind(params.status)
+    .bind(params.visibility)
+    .bind(params.category_id)
+    .bind(params.allow_comment)
+    .bind(params.pinned)
+    .bind(params.content_type)
+    .bind(params.custom_html_path)
+    .bind(params.page_render_mode)
     .bind(published_at)
     .execute(executor)
     .await?;
@@ -563,21 +549,7 @@ where
 
 pub async fn update_post<'e, E>(
     executor: E,
-    id: &str,
-    title: &str,
-    slug: &str,
-    excerpt: Option<&str>,
-    content_md: &str,
-    content_html: &str,
-    cover_media_id: Option<&str>,
-    status: PostStatus,
-    visibility: Visibility,
-    category_id: Option<&str>,
-    allow_comment: bool,
-    pinned: bool,
-    content_type: ContentType,
-    custom_html_path: Option<&str>,
-    page_render_mode: &str,
+    params: UpdatePostParams<'_>,
     current_published_at: Option<&str>,
 ) -> Result<(), sqlx::Error>
 where
@@ -585,7 +557,7 @@ where
 {
     // 只在从非 published 状态首次发布时才设置 published_at；
     // 若已发布则保留原时间；若切换回 draft/trashed 则清空。
-    let published_at: Option<String> = if status == PostStatus::Published {
+    let published_at: Option<String> = if params.status == PostStatus::Published {
         Some(
             current_published_at
                 .map(|t| t.to_string())
@@ -603,22 +575,22 @@ where
              updated_at = datetime('now')
          WHERE id = ?",
     )
-    .bind(title)
-    .bind(slug)
-    .bind(excerpt)
-    .bind(content_md)
-    .bind(content_html)
-    .bind(cover_media_id)
-    .bind(status)
-    .bind(visibility)
-    .bind(category_id)
-    .bind(allow_comment)
-    .bind(pinned)
-    .bind(content_type)
-    .bind(custom_html_path)
-    .bind(page_render_mode)
+    .bind(params.title)
+    .bind(params.slug)
+    .bind(params.excerpt)
+    .bind(params.content_md)
+    .bind(params.content_html)
+    .bind(params.cover_media_id)
+    .bind(params.status)
+    .bind(params.visibility)
+    .bind(params.category_id)
+    .bind(params.allow_comment)
+    .bind(params.pinned)
+    .bind(params.content_type)
+    .bind(params.custom_html_path)
+    .bind(params.page_render_mode)
     .bind(published_at)
-    .bind(id)
+    .bind(params.post_id)
     .execute(executor)
     .await?;
 
