@@ -45,7 +45,23 @@
       return payload.data;
     }
 
-    const error = new Error(payload?.message || `Request failed with status ${response.status}`);
+    // 非 JSON 响应时，用文本 body 作为错误消息兜底
+    let message = payload?.message;
+    if (!message) {
+      try {
+        const textBody = await response.text().catch(() => '');
+        if (textBody && textBody.trim()) {
+          message = textBody;
+        }
+      } catch {
+        // 忽略
+      }
+    }
+    if (!message) {
+      message = `Request failed with status ${response.status}`;
+    }
+
+    const error = new Error(message);
     error.status = response.status;
     error.payload = payload;
     error.clientRequestId = clientRequestId;
