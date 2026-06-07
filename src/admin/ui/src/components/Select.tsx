@@ -225,12 +225,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     useEffect(() => {
       if (!isOpen) return;
 
-      const handleScroll = (e: Event) => { if (dropdownRef.current?.contains(e.target as Node)) return; closeDropdown(); };
+      // scroll listener removed: body is overflow:hidden, page can't scroll
       const handleResize = () => closeDropdown();
-      window.addEventListener('scroll', handleScroll, true);
+      // window scroll listener removed
       window.addEventListener('resize', handleResize);
       return () => {
-        window.removeEventListener('scroll', handleScroll, true);
+        // window scroll listener removed
         window.removeEventListener('resize', handleResize);
       };
     }, [isOpen, closeDropdown]);
