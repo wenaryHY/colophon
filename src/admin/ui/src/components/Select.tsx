@@ -225,7 +225,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     useEffect(() => {
       if (!isOpen) return;
 
-      const handleScroll = () => closeDropdown();
+      const handleScroll = (e: Event) => { if (dropdownRef.current?.contains(e.target as Node)) return; closeDropdown(); };
       const handleResize = () => closeDropdown();
       window.addEventListener('scroll', handleScroll, true);
       window.addEventListener('resize', handleResize);
