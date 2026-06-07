@@ -163,7 +163,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=${DATA_DIR} ${BACKUP_DIR}
+ReadWritePaths=${DATA_DIR} ${BACKUP_DIR} ${INSTALL_DIR}/plugins
 ReadOnlyPaths=${INSTALL_DIR} ${CONF_DIR}
 
 [Install]
