@@ -85,9 +85,9 @@ impl BackupScheduleFrequency {
 
     pub fn cron_expression(&self, hour: u32, minute: u32) -> String {
         match self {
-            BackupScheduleFrequency::Daily => format!("{} {} * * *", minute, hour),
-            BackupScheduleFrequency::Weekly => format!("{} {} * * 0", minute, hour),
-            BackupScheduleFrequency::Monthly => format!("{} {} 1 * *", minute, hour),
+            BackupScheduleFrequency::Daily => format!("0 {} {} * * * *", minute, hour),
+            BackupScheduleFrequency::Weekly => format!("0 {} {} * * 0 *", minute, hour),
+            BackupScheduleFrequency::Monthly => format!("0 {} {} 1 * * *", minute, hour),
         }
     }
 }

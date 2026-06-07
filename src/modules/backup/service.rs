@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Context;
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use sha2::{Digest, Sha256};
 use sqlx::Row;
 use tokio::fs;
@@ -750,14 +750,6 @@ pub async fn update_schedule(
 
     repository::get_or_create_schedule(&state.pool).await?;
 
-    let now = Utc::now();
-    let next_run_at = now
-        + Duration::days(match frequency {
-            BackupScheduleFrequency::Daily => 1,
-            BackupScheduleFrequency::Weekly => 7,
-            BackupScheduleFrequency::Monthly => 30,
-        });
-
     repository::update_schedule(
         &state.pool,
         request.enabled,
@@ -767,8 +759,23 @@ pub async fn update_schedule(
         provider.as_str(),
     )
     .await?;
-    repository::update_schedule_run_time(&state.pool, &now.to_rfc3339(), &next_run_at.to_rfc3339())
-        .await?;
+
+    // Set next_run_at based on new schedule config (do NOT set last_run_at here;
+    // last_run_at is only updated when a backup actually executes).
+    if request.enabled {
+        let next_run_at = Utc::now()
+            + chrono::Duration::days(match frequency {
+                BackupScheduleFrequency::Daily => 1,
+                BackupScheduleFrequency::Weekly => 7,
+                BackupScheduleFrequency::Monthly => 30,
+            });
+        repository::set_next_run_at(&state.pool, &next_run_at.to_rfc3339()).await?;
+    }
+
+    // Restart the cron scheduler so the new config takes effect immediately
+    if let Err(err) = super::scheduler::restart_backup_scheduler(state.clone()).await {
+        tracing::error!(error = ?err, "failed to restart backup scheduler after config update");
+    }
 
     get_schedule(state).await
 }

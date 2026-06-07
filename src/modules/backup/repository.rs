@@ -180,3 +180,19 @@ where
 
     Ok(())
 }
+
+pub async fn set_next_run_at<'e, E>(executor: E, next_run_at: &str) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    sqlx::query(
+        "UPDATE backup_schedules
+         SET next_run_at = ?
+         WHERE id = (SELECT id FROM backup_schedules LIMIT 1)",
+    )
+    .bind(next_run_at)
+    .execute(executor)
+    .await?;
+
+    Ok(())
+}

@@ -47,6 +47,15 @@ pub async fn start_trash_scheduler(state: Arc<AppState>) -> Result<(), AppError>
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("start trash scheduler failed: {e}")))?;
 
     tracing::info!(cron = %cron, "trash cleanup scheduler started");
-    std::mem::forget(scheduler);
+
+    // Keep the scheduler alive for the lifetime of the process.
+    // Unlike backup scheduler, trash doesn't need dynamic restart,
+    // so we hold it via a background task instead of storing in AppState.
+    tokio::spawn(async move {
+        let _keep_alive = scheduler;
+        // Block forever — the scheduler runs internally via its own tokio tasks.
+        // This task only exists to prevent the scheduler from being dropped.
+        std::future::pending::<()>().await;
+    });
     Ok(())
 }
