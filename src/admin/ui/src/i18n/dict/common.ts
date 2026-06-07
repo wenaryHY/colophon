@@ -102,6 +102,9 @@ export const commonDict = {
     webhookDuration: '耗时',
     webhooksSubtitle: '管理 Webhook 通知配置',
 
+    // 时间选择器
+    timeHourAbbreviation: '时',
+
     // 权限
     permissionDenied: '当前账号无权访问管理后台。',
     permissionDeniedToAdmin: '权限不足，无法访问管理后台',
@@ -207,6 +210,9 @@ export const commonDict = {
     webhookStatusFailed: 'Failed',
     webhookDuration: 'Duration',
     webhooksSubtitle: 'Manage webhook notification configs',
+
+    // TimePicker
+    timeHourAbbreviation: 'h',
 
     // Permissions
     permissionDenied: 'Permission denied. You do not have access to the admin panel.',

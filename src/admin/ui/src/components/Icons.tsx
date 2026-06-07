@@ -12,7 +12,7 @@ import {
   LayoutDashboard, BarChart3, Users, Shield,
   Image, File, Archive, MoreHorizontal,
   Copy, RefreshCw, Zap, Star, Clock, Edit, Edit2, Palette, Package, Webhook,
-  ArrowLeft, Key, Menu, Minus,
+  ArrowLeft, Key, Menu, Minus, Database,
   type LucideProps
 } from 'lucide-react';
 
@@ -80,6 +80,7 @@ export const IconWebhook = icon(Webhook);
 export const IconKey = icon(Key);
 export const IconMenu = icon(Menu, { size: 20 });
 export const IconMinus = icon(Minus, { size: 20 });
+export const IconDatabase = icon(Database);
 
 // === Spinner 动画图标 ===
 export function Spinner({ className = '', size = 20 }: { className?: string; size?: number }) {

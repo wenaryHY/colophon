@@ -10,6 +10,7 @@ import { editorDict } from './editor';
 import { mediaDict } from './media';
 import { pluginsDict } from './plugins';
 import { fabDict } from './fab';
+import { backupDict } from './backup';
 
 // 合并所有字典
 export const dictionary = {
@@ -25,6 +26,7 @@ export const dictionary = {
     ...mediaDict.zh,
     ...pluginsDict.zh,
     ...fabDict.zh,
+    ...backupDict.zh,
   },
   en: {
     ...commonDict.en,
@@ -38,6 +40,7 @@ export const dictionary = {
     ...mediaDict.en,
     ...pluginsDict.en,
     ...fabDict.en,
+    ...backupDict.en,
   },
 };
 

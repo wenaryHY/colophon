@@ -5,7 +5,7 @@ import { useSlots } from '../lib/slots';
 import {
   IconFileText, IconFolderOpen, IconTag, IconMessageSquare,
   IconUpload, IconSettings, IconUser, IconLogOut, IconPalette,
-  IconTrash2, IconPackage, IconZap, IconWebhook, IconKey, IconX,
+  IconTrash2, IconPackage, IconZap, IconWebhook, IconKey, IconX, IconDatabase,
 } from './Icons';
 
 // 导航配置类型
@@ -35,6 +35,7 @@ const prefetchPages: Record<string, () => void> = {
   plugins: () => import('../pages/PluginManager'),
   webhooks: () => import('../pages/Webhooks'),
   'api-keys': () => import('../pages/ApiKeys'),
+  backups: () => import('../pages/Backups'),
 };
 
 // 导航配置（key 用于匹配路由，labelKey 用于翻译）
@@ -58,6 +59,7 @@ const navConfig: NavGroupConfig[] = [
       { key: 'webhooks', icon: IconWebhook, labelKey: 'webhooks' },
       { key: 'api-keys', icon: IconKey, labelKey: 'apiKeys' },
       { key: 'trash', icon: IconTrash2, labelKey: 'trash' },
+      { key: 'backups', icon: IconDatabase, labelKey: 'backups' },
       { key: 'settings', icon: IconSettings, labelKey: 'settings' },
       { key: 'fab-settings', icon: IconZap, labelKey: 'fabSettings' },
     ],

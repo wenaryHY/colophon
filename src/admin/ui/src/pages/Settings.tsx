@@ -2,12 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   apiData,
-  API,
   API_PREFIX,
-  createBackup,
-  deleteBackup as deleteBackupApi,
-  listBackups,
-  mergeRestoreBackup,
 } from '../lib/api';
 import { getQueryClient } from '../lib/api';
 import { SlotRenderer } from '../lib/slots';
@@ -126,21 +121,12 @@ function PreferenceCard({ label, children, hint }: { label: string; children: Re
   );
 }
 
-function formatBytes(size: number): string {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-}
-
 export default function Settings() {
   const toast = useToast();
-  const { t, lang, setLang, format } = useI18n();
+  const { t, lang, setLang } = useI18n();
   const { user, refreshUser } = useAuth();
   const { isMobile } = useResponsive();
-  const restoreInputRef = useRef<HTMLInputElement>(null);
   const [kv, setKv] = useState<Record<string, string>>({});
-  const [downloadingBackupId, setDownloadingBackupId] = useState<string | null>(null);
-  const [mergeRestoringId, setMergeRestoringId] = useState<string | null>(null);
 
   // 加载设置和主题
   const { data: themes = [] } = useQuery({
@@ -166,64 +152,7 @@ export default function Settings() {
     }
   }, [settings]);
 
-  // 加载备份
-  const { data: backups = [], refetch: refetchBackups } = useQuery({
-    queryKey: ['backups'],
-    queryFn: () => listBackups(),
-    staleTime: 10_000,
-  });
-
   function update(key: string, value: string) { setKv((prev) => ({ ...prev, [key]: value })); }
-
-  async function downloadBackupById(backupId: string) {
-    try {
-      setDownloadingBackupId(backupId);
-      const res = await fetch(`${API}${API_PREFIX}/admin/backup/${backupId}`, {
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        throw new Error(t('downloadBackupFailed'));
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `inkforge_backup_${backupId}_${new Date().toISOString().slice(0, 10)}.zip`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast(t('backupDownloadStarted'), 'success');
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t('downloadBackupFailed'), 'error');
-    } finally {
-      setDownloadingBackupId(null);
-    }
-  }
-
-  const createBackupMutation = useMutation({
-    mutationFn: () => createBackup('local'),
-    onSuccess: () => { toast(t('backupCreated'), 'success'); refetchBackups(); },
-    onError: (error) => toast(error instanceof Error ? error.message : t('createBackupFailed'), 'error'),
-  });
-
-  const mergeRestoreMutation = useMutation({
-    mutationFn: (backupId: string) => mergeRestoreBackup(backupId),
-    onSuccess: () => {
-      toast(t('mergeRestoreSuccess'), 'success');
-      setMergeRestoringId(null);
-      setTimeout(() => location.reload(), 1200);
-    },
-    onError: (error) => {
-      toast(error instanceof Error ? error.message : t('mergeRestoreFailed'), 'error');
-      setMergeRestoringId(null);
-    },
-  });
-
-  const deleteBackupMutation = useMutation({
-    mutationFn: (backupId: string) => deleteBackupApi(backupId),
-    onSuccess: () => { toast(t('backupDeleted'), 'success'); refetchBackups(); },
-    onError: (error) => toast(error instanceof Error ? error.message : t('deleteBackupFailed'), 'error'),
-  });
 
   const saveSettingsMutation = useMutation({
     mutationFn: async () => {
@@ -269,19 +198,6 @@ export default function Settings() {
     },
     onError: (error) => toast(error instanceof Error ? error.message : t('languageSaveFailed'), 'error'),
   });
-
-  function handleMergeRestore(backupId: string) {
-    if (!window.confirm(t('mergeRestoreConfirm'))) {
-      return;
-    }
-    setMergeRestoringId(backupId);
-    mergeRestoreMutation.mutate(backupId);
-  }
-
-  function handleDeleteBackup(backupId: string) {
-    if (!window.confirm(t('deleteBackupConfirm'))) return;
-    deleteBackupMutation.mutate(backupId);
-  }
 
   const activeThemeOptions = useMemo(() => themes.map((t) => ({ value: t.manifest.slug, label: t.manifest.name })), [themes]);
 
@@ -439,145 +355,6 @@ export default function Settings() {
             <option value="en">{t('languageEn')}</option>
           </Select>
         </FormRow>
-      </SettingSection>
-
-      <SettingSection
-        title={t('dataBackup')}
-        description={t('dataBackupDesc')}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button onClick={() => createBackupMutation.mutate()} disabled={createBackupMutation.isPending} loading={createBackupMutation.isPending}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-              {createBackupMutation.isPending ? t('creating') : t('createBackup')}
-            </Button>
-            <Button variant="ghost" onClick={() => restoreInputRef.current?.click()}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              {t('importBackup')}
-            </Button>
-            <input
-              ref={restoreInputRef}
-              type="file"
-              accept=".zip"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                if (!window.confirm(format('backupConfirm', { filename: file.name }))) {
-                  return;
-                }
-                const formData = new FormData();
-                formData.append('file', file);
-                fetch(`${API}${API_PREFIX}/admin/backup/restore`, {
-                  method: 'POST',
-                  body: formData,
-                  credentials: 'include',
-                })
-                  .then((r) => r.json())
-                  .then((json) => {
-                    if (json.code === 0) {
-                      toast(t('backupImportSuccess'), 'success');
-                      setTimeout(() => location.reload(), 1500);
-                    } else {
-                      toast(json.message || t('importFailed'), 'error');
-                    }
-                  })
-                  .catch((err) => toast(err instanceof Error ? err.message : t('importFailed'), 'error'))
-                  .finally(() => {
-                    if (restoreInputRef.current) restoreInputRef.current.value = '';
-                  });
-              }}
-            />
-          </div>
-
-          <div style={{ paddingTop: '16px' }}>
-            <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--md-outline)', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '12px' }}>
-              {format('backupHistoryCount', { count: backups.length })}
-            </div>
-            {backups.length === 0 ? (
-              <div style={{ fontSize: '13px', color: 'var(--md-outline)', padding: '20px 0', textAlign: 'center' }}>
-                {t('noBackup')}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {backups.map((b) => (
-                  <div
-                    key={b.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '12px 16px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--md-surface-container)',
-                      transition: 'background 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--md-surface-container-high)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--md-surface-container)'; }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-                      <div style={{
-                        width: '34px', height: '34px', borderRadius: '8px',
-                        background: b.status === 'completed' ? 'rgba(34,197,94,0.1)' : b.status === 'failed' ? 'rgba(239,68,68,0.1)' : 'rgba(250,204,21,0.1)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', flexShrink: 0,
-                      }}>
-                        {b.status === 'completed' ? '✅' : b.status === 'failed' ? '❌' : '⏳'}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--md-on-surface)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <span style={{ fontFamily: 'monospace', fontSize: '12px', opacity: 0.7 }}>{b.id.slice(0, 8)}</span>
-                          <span style={{
-                            fontSize: '10.5px', fontWeight: 600, padding: '1px 6px', borderRadius: '4px',
-                            background: b.provider === 's3' ? 'rgba(99,102,241,0.1)' : 'rgba(107,114,128,0.1)',
-                            color: b.provider === 's3' ? '#6366f1' : '#6b7280',
-                          }}>{b.provider}</span>
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginTop: '2px' }}>
-                          {new Date(b.created_at).toLocaleString('zh-CN')} · {formatBytes(b.size)}
-                          {b.error_message && <span style={{ color: '#ef4444', marginLeft: '8px' }}>({b.error_message})</span>}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => downloadBackupById(b.id)}
-                        disabled={downloadingBackupId === b.id}
-                        loading={downloadingBackupId === b.id}
-                        title="下载此备份"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleMergeRestore(b.id)}
-                        disabled={mergeRestoringId === b.id || b.status !== 'completed'}
-                        loading={mergeRestoringId === b.id}
-                        title="合并恢复：保留当前新数据，合并此备份的历史数据"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteBackup(b.id)}
-                        disabled={deleteBackupMutation.isPending}
-                        loading={deleteBackupMutation.isPending}
-                        title="删除此备份"
-                        style={{ color: '#ef4444' }}
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
       </SettingSection>
 
       <SlotRenderer target="settings.sub_section" />

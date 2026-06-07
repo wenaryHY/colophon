@@ -31,6 +31,7 @@ const PluginManager = lazy(() => import('./pages/PluginManager'));
 const FabSettings = lazy(() => import('./pages/FabSettings'));
 const Webhooks = lazy(() => import('./pages/Webhooks'));
 const ApiKeys = lazy(() => import('./pages/ApiKeys'));
+const Backups = lazy(() => import('./pages/Backups'));
 
 const pageToRoute: Record<string, string> = {
   posts: '/posts',
@@ -45,6 +46,7 @@ const pageToRoute: Record<string, string> = {
   plugins: '/plugins',
   webhooks: '/webhooks',
   'api-keys': '/api-keys',
+  backups: '/backups',
   trash: '/trash',
 };
 
@@ -62,6 +64,7 @@ function getActivePage(pathname: string): string {
   if (pathname.startsWith('/upload')) return 'upload';
   if (pathname.startsWith('/media-categories')) return 'media-categories';
   if (pathname.startsWith('/trash')) return 'trash';
+  if (pathname.startsWith('/backups')) return 'backups';
   return 'posts';
 }
 
@@ -211,6 +214,7 @@ export default function App() {
           <Route path="themes" element={<Themes />} />
           <Route path="themes/:slug" element={<ThemeDetail />} />
           <Route path="trash" element={<RecycleBin />} />
+          <Route path="backups" element={<Backups />} />
           <Route path="plugins/:name/settings" element={<PluginSettings />} />
           <Route path="plugins" element={<PluginManager />} />
           <Route path="webhooks" element={<Webhooks />} />
