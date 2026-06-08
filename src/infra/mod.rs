@@ -1,4 +1,5 @@
 pub mod backup;
+pub mod file_watcher;
 pub mod hash;
 pub mod jwt;
 

@@ -31,13 +31,13 @@ function TimeUnitDropdown({
 }) {
   return (
     <Select
-      value={String(value)}
+      value={String(value).padStart(2, "0")}
       disabled={disabled}
       onChange={(e) => onChange(Number(e.target.value))}
       style={{ width: 64 }}
     >
       {options.map((opt) => (
-        <SelectItem key={opt} value={String(opt)}>
+        <SelectItem key={opt} value={String(opt).padStart(2, "0")}>
           {String(opt).padStart(2, '0')}
         </SelectItem>
       ))}

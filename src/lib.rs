@@ -96,6 +96,13 @@ pub async fn serve() -> anyhow::Result<()> {
     }
     modules::backup::scheduler::start_backup_scheduler(state.clone()).await?;
     modules::trash::scheduler::start_trash_scheduler(state.clone()).await?;
+
+    // 启动主题文件监听器（仅开发模式）。
+    // 失败不阻止服务启动 —— 退化为"修改后手动重启"模式即可。
+    if let Err(e) = infra::file_watcher::spawn_theme_watcher(state.clone(), &state.theme_dir) {
+        tracing::warn!(error = ?e, "failed to start theme file watcher; continuing without hot-reload");
+    }
+
     let app = build_router(state).await;
 
     let addr = SocketAddr::new(config.server.host.parse()?, config.server.port);
