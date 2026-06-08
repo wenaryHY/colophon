@@ -9,9 +9,17 @@ license = "AGPL-3.0"
 edition = "2021"
 rust-version = "1.75"
 
+[package.metadata.sqlx]
+offline = true
+
 [[bin]]
 name = "inkforge"
 path = "src/main.rs"
+
+[build-dependencies]
+sha2 = "=0.10.9"
+serde_json = "=1.0.149"
+walkdir = "=2.5.0"
 
 [dependencies]
 # Web 框架

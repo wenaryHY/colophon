@@ -174,7 +174,8 @@ pub async fn toggle_plugin(
 
     // ── 重建 PluginManager ──
     // 1. 重新注册所有插件到全局 registry（含启用和禁用的）
-    crate::register_all().await;
+    // TODO: 等待 plugin_registry.rs 生成
+    // crate::register_all().await;
 
     // 2. 重新发现启用插件（反映新的启用/禁用状态）
     let loader = super::loader::PluginLoader::new(

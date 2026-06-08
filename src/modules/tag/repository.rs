@@ -6,19 +6,47 @@ pub async fn list_tags<'e, E>(executor: E) -> Result<Vec<Tag>, sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, Tag>("SELECT * FROM tags WHERE deleted_at IS NULL ORDER BY name ASC")
-        .fetch_all(executor)
-        .await
+    sqlx::query_as!(
+        Tag,
+        r#"
+        SELECT
+            id,
+            name,
+            slug,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM tags
+        WHERE deleted_at IS NULL
+        ORDER BY name ASC
+        "#
+    )
+    .fetch_all(executor)
+    .await
 }
 
 pub async fn get_tag<'e, E>(executor: E, id: &str) -> Result<Option<Tag>, sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, Tag>("SELECT * FROM tags WHERE id = ? AND deleted_at IS NULL LIMIT 1")
-        .bind(id)
-        .fetch_optional(executor)
-        .await
+    sqlx::query_as!(
+        Tag,
+        r#"
+        SELECT
+            id,
+            name,
+            slug,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM tags
+        WHERE id = ? AND deleted_at IS NULL
+        LIMIT 1
+        "#,
+        id
+    )
+    .fetch_optional(executor)
+    .await
 }
 
 pub async fn tag_slug_or_name_exists<'e, E>(
@@ -114,14 +142,23 @@ pub async fn list_post_tags<'e, E>(executor: E, post_id: &str) -> Result<Vec<Tag
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, Tag>(
-        "SELECT t.*
-         FROM tags t
-         JOIN post_tags pt ON pt.tag_id = t.id
-         WHERE pt.post_id = ? AND t.deleted_at IS NULL
-         ORDER BY t.name ASC",
+    sqlx::query_as!(
+        Tag,
+        r#"
+        SELECT
+            t.id,
+            t.name,
+            t.slug,
+            t.created_at,
+            t.updated_at,
+            t.deleted_at
+        FROM tags t
+        JOIN post_tags pt ON pt.tag_id = t.id
+        WHERE pt.post_id = ? AND t.deleted_at IS NULL
+        ORDER BY t.name ASC
+        "#,
+        post_id
     )
-    .bind(post_id)
     .fetch_all(executor)
     .await
 }

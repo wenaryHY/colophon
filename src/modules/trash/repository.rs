@@ -5,12 +5,26 @@ pub async fn list_trashed_posts<'e, E>(executor: E) -> AppResult<Vec<(String, St
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    let rows = sqlx::query_as::<_, (String, String, Option<String>, String)>(
-        "SELECT id, title, slug, deleted_at FROM posts WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC",
+    #[derive(sqlx::FromRow)]
+    struct TrashedPost {
+        id: String,
+        title: String,
+        slug: Option<String>,
+        deleted_at: String,
+    }
+    
+    let rows = sqlx::query_as!(
+        TrashedPost,
+        r#"
+        SELECT id, title, slug, deleted_at as "deleted_at!"
+        FROM posts
+        WHERE deleted_at IS NOT NULL
+        ORDER BY deleted_at DESC
+        "#
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows)
+    Ok(rows.into_iter().map(|r| (r.id, r.title, r.slug, r.deleted_at)).collect())
 }
 
 /// 查询所有已软删除的分类
@@ -18,12 +32,26 @@ pub async fn list_trashed_categories<'e, E>(executor: E) -> AppResult<Vec<(Strin
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    let rows = sqlx::query_as::<_, (String, String, Option<String>, String)>(
-        "SELECT id, name, slug, deleted_at FROM categories WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC",
+    #[derive(sqlx::FromRow)]
+    struct TrashedCategory {
+        id: String,
+        name: String,
+        slug: Option<String>,
+        deleted_at: String,
+    }
+    
+    let rows = sqlx::query_as!(
+        TrashedCategory,
+        r#"
+        SELECT id, name, slug, deleted_at as "deleted_at!"
+        FROM categories
+        WHERE deleted_at IS NOT NULL
+        ORDER BY deleted_at DESC
+        "#
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows)
+    Ok(rows.into_iter().map(|r| (r.id, r.name, r.slug, r.deleted_at)).collect())
 }
 
 /// 查询所有已软删除的标签
@@ -31,12 +59,26 @@ pub async fn list_trashed_tags<'e, E>(executor: E) -> AppResult<Vec<(String, Str
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    let rows = sqlx::query_as::<_, (String, String, Option<String>, String)>(
-        "SELECT id, name, slug, deleted_at FROM tags WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC",
+    #[derive(sqlx::FromRow)]
+    struct TrashedTag {
+        id: String,
+        name: String,
+        slug: Option<String>,
+        deleted_at: String,
+    }
+    
+    let rows = sqlx::query_as!(
+        TrashedTag,
+        r#"
+        SELECT id, name, slug, deleted_at as "deleted_at!"
+        FROM tags
+        WHERE deleted_at IS NOT NULL
+        ORDER BY deleted_at DESC
+        "#
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows)
+    Ok(rows.into_iter().map(|r| (r.id, r.name, r.slug, r.deleted_at)).collect())
 }
 
 /// 查询所有已软删除的媒体
@@ -44,12 +86,26 @@ pub async fn list_trashed_media<'e, E>(executor: E) -> AppResult<Vec<(String, St
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    let rows = sqlx::query_as::<_, (String, String, Option<String>, String)>(
-        "SELECT id, original_name, mime_type, deleted_at FROM media WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC",
+    #[derive(sqlx::FromRow)]
+    struct TrashedMedia {
+        id: String,
+        original_name: String,
+        mime_type: Option<String>,
+        deleted_at: String,
+    }
+    
+    let rows = sqlx::query_as!(
+        TrashedMedia,
+        r#"
+        SELECT id, original_name, mime_type, deleted_at as "deleted_at!"
+        FROM media
+        WHERE deleted_at IS NOT NULL
+        ORDER BY deleted_at DESC
+        "#
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows)
+    Ok(rows.into_iter().map(|r| (r.id, r.original_name, r.mime_type, r.deleted_at)).collect())
 }
 
 /// 查询所有已软删除的媒体分类
@@ -57,12 +113,26 @@ pub async fn list_trashed_media_categories<'e, E>(executor: E) -> AppResult<Vec<
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    let rows = sqlx::query_as::<_, (String, String, Option<String>, String)>(
-        "SELECT id, name, slug, deleted_at FROM media_categories WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC",
+    #[derive(sqlx::FromRow)]
+    struct TrashedMediaCategory {
+        id: String,
+        name: String,
+        slug: Option<String>,
+        deleted_at: String,
+    }
+    
+    let rows = sqlx::query_as!(
+        TrashedMediaCategory,
+        r#"
+        SELECT id, name, slug, deleted_at as "deleted_at!"
+        FROM media_categories
+        WHERE deleted_at IS NOT NULL
+        ORDER BY deleted_at DESC
+        "#
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows)
+    Ok(rows.into_iter().map(|r| (r.id, r.name, r.slug, r.deleted_at)).collect())
 }
 
 /// 查询所有已软删除的评论
@@ -70,12 +140,28 @@ pub async fn list_trashed_comments<'e, E>(executor: E) -> AppResult<Vec<(String,
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    let rows = sqlx::query_as::<_, (String, String, Option<String>, String)>(
-        "SELECT id, substr(content, 1, 60), NULL, deleted_at FROM comments WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC",
+    #[derive(sqlx::FromRow)]
+    struct TrashedComment {
+        id: String,
+        content_preview: String,
+        deleted_at: String,
+    }
+    
+    let rows = sqlx::query_as!(
+        TrashedComment,
+        r#"
+        SELECT
+            id,
+            CAST(substr(content, 1, 60) AS TEXT) as "content_preview!: String",
+            deleted_at as "deleted_at!"
+        FROM comments
+        WHERE deleted_at IS NOT NULL
+        ORDER BY deleted_at DESC
+        "#
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows)
+    Ok(rows.into_iter().map(|r| (r.id, r.content_preview, None, r.deleted_at)).collect())
 }
 
 /// 恢复（清除 deleted_at）

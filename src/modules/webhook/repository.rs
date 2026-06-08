@@ -7,9 +7,28 @@ pub async fn list_all_webhooks<'e, E>(executor: E) -> Result<Vec<Webhook>, sqlx:
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, Webhook>("SELECT * FROM webhooks ORDER BY created_at DESC")
-        .fetch_all(executor)
-        .await
+    sqlx::query_as!(
+        Webhook,
+        r#"
+        SELECT
+            id as "id!",
+            name as "name!",
+            url as "url!",
+            events as "events!",
+            secret,
+            enabled,
+            retry_count,
+            max_retries,
+            last_triggered_at,
+            last_error,
+            created_at as "created_at!",
+            updated_at as "updated_at!"
+        FROM webhooks
+        ORDER BY created_at DESC
+        "#
+    )
+    .fetch_all(executor)
+    .await
 }
 
 /// 根据 ID 获取单个 webhook
@@ -17,10 +36,30 @@ pub async fn get_webhook_by_id<'e, E>(executor: E, id: &str) -> Result<Option<We
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, Webhook>("SELECT * FROM webhooks WHERE id = ? LIMIT 1")
-        .bind(id)
-        .fetch_optional(executor)
-        .await
+    sqlx::query_as!(
+        Webhook,
+        r#"
+        SELECT
+            id as "id!",
+            name as "name!",
+            url as "url!",
+            events as "events!",
+            secret,
+            enabled,
+            retry_count,
+            max_retries,
+            last_triggered_at,
+            last_error,
+            created_at as "created_at!",
+            updated_at as "updated_at!"
+        FROM webhooks
+        WHERE id = ?
+        LIMIT 1
+        "#,
+        id
+    )
+    .fetch_optional(executor)
+    .await
 }
 
 /// 查询所有启用且事件列表匹配指定事件的 webhook
@@ -32,10 +71,28 @@ where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
     let pattern = format!("%{}%", event);
-    sqlx::query_as::<_, Webhook>(
-        "SELECT * FROM webhooks WHERE enabled = 1 AND events LIKE ? ORDER BY created_at ASC",
+    sqlx::query_as!(
+        Webhook,
+        r#"
+        SELECT
+            id as "id!",
+            name as "name!",
+            url as "url!",
+            events as "events!",
+            secret,
+            enabled,
+            retry_count,
+            max_retries,
+            last_triggered_at,
+            last_error,
+            created_at as "created_at!",
+            updated_at as "updated_at!"
+        FROM webhooks
+        WHERE enabled = 1 AND events LIKE ?
+        ORDER BY created_at ASC
+        "#,
+        pattern
     )
-    .bind(&pattern)
     .fetch_all(executor)
     .await
 }
@@ -245,12 +302,29 @@ pub async fn list_deliveries_for_webhook<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, WebhookDelivery>(
-        "SELECT * FROM webhook_deliveries WHERE webhook_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+    sqlx::query_as!(
+        WebhookDelivery,
+        r#"
+        SELECT
+            id as "id!",
+            webhook_id as "webhook_id!",
+            event as "event!",
+            request_url as "request_url!",
+            request_body,
+            response_status,
+            response_body,
+            duration_ms,
+            success,
+            created_at as "created_at!"
+        FROM webhook_deliveries
+        WHERE webhook_id = ?
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+        "#,
+        webhook_id,
+        limit,
+        offset
     )
-    .bind(webhook_id)
-    .bind(limit)
-    .bind(offset)
     .fetch_all(executor)
     .await
 }

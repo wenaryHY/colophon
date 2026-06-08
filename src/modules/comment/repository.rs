@@ -2,6 +2,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use super::domain::{AdminCommentItem, CommentItem};
+use crate::modules::post::post_types::ContentType;
 
 /// 用于 WebSocket 事件广播的最小评论数据
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
@@ -21,8 +22,10 @@ pub async fn list_approved_for_post<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, CommentItem>(
-        "SELECT
+    sqlx::query_as!(
+        CommentItem,
+        r#"
+        SELECT
             c.id,
             c.post_id,
             c.user_id,
@@ -33,12 +36,13 @@ where
             c.parent_id,
             c.created_at,
             c.updated_at
-         FROM comments c
-         JOIN users u ON u.id = c.user_id
-         WHERE c.post_id = ? AND c.status = 'approved'
-         ORDER BY c.created_at ASC",
+        FROM comments c
+        JOIN users u ON u.id = c.user_id
+        WHERE c.post_id = ? AND c.status = 'approved'
+        ORDER BY c.created_at ASC
+        "#,
+        post_id
     )
-    .bind(post_id)
     .fetch_all(executor)
     .await
 }
@@ -52,8 +56,10 @@ pub async fn list_by_user<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, AdminCommentItem>(
-        "SELECT
+    sqlx::query_as!(
+        AdminCommentItem,
+        r#"
+        SELECT
             c.id,
             c.post_id,
             c.user_id,
@@ -66,17 +72,18 @@ where
             c.updated_at,
             p.title AS post_title,
             p.slug AS post_slug,
-            p.content_type AS post_content_type
-         FROM comments c
-         JOIN users u ON u.id = c.user_id
-         JOIN posts p ON p.id = c.post_id
-         WHERE c.user_id = ?
-         ORDER BY c.created_at DESC
-         LIMIT ? OFFSET ?",
+            p.content_type AS "post_content_type: ContentType"
+        FROM comments c
+        JOIN users u ON u.id = c.user_id
+        JOIN posts p ON p.id = c.post_id
+        WHERE c.user_id = ?
+        ORDER BY c.created_at DESC
+        LIMIT ? OFFSET ?
+        "#,
+        user_id,
+        limit,
+        offset
     )
-    .bind(user_id)
-    .bind(limit)
-    .bind(offset)
     .fetch_all(executor)
     .await
 }
@@ -145,8 +152,10 @@ where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
     if let Some(status) = status {
-        sqlx::query_as::<_, AdminCommentItem>(
-            "SELECT
+        sqlx::query_as!(
+            AdminCommentItem,
+            r#"
+            SELECT
                 c.id,
                 c.post_id,
                 c.user_id,
@@ -159,22 +168,25 @@ where
                 c.updated_at,
                 p.title AS post_title,
                 p.slug AS post_slug,
-                p.content_type AS post_content_type
-             FROM comments c
-             JOIN users u ON u.id = c.user_id
-             JOIN posts p ON p.id = c.post_id
-             WHERE c.status = ?
-             ORDER BY c.created_at DESC
-             LIMIT ? OFFSET ?",
+                p.content_type AS "post_content_type: ContentType"
+            FROM comments c
+            JOIN users u ON u.id = c.user_id
+            JOIN posts p ON p.id = c.post_id
+            WHERE c.status = ?
+            ORDER BY c.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+            status,
+            limit,
+            offset
         )
-        .bind(status)
-        .bind(limit)
-        .bind(offset)
         .fetch_all(executor)
         .await
     } else {
-        sqlx::query_as::<_, AdminCommentItem>(
-            "SELECT
+        sqlx::query_as!(
+            AdminCommentItem,
+            r#"
+            SELECT
                 c.id,
                 c.post_id,
                 c.user_id,
@@ -187,16 +199,17 @@ where
                 c.updated_at,
                 p.title AS post_title,
                 p.slug AS post_slug,
-                p.content_type AS post_content_type
-             FROM comments c
-             JOIN users u ON u.id = c.user_id
-             JOIN posts p ON p.id = c.post_id
-             WHERE c.status != 'deleted'
-             ORDER BY c.created_at DESC
-             LIMIT ? OFFSET ?",
+                p.content_type AS "post_content_type: ContentType"
+            FROM comments c
+            JOIN users u ON u.id = c.user_id
+            JOIN posts p ON p.id = c.post_id
+            WHERE c.status != 'deleted'
+            ORDER BY c.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+            limit,
+            offset
         )
-        .bind(limit)
-        .bind(offset)
         .fetch_all(executor)
         .await
     }
@@ -299,19 +312,22 @@ pub async fn find_by_id_for_event<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, CommentEventData>(
-        "SELECT
+    sqlx::query_as!(
+        CommentEventData,
+        r#"
+        SELECT
             c.id,
             c.post_id,
             COALESCE(u.display_name, u.username) AS author_name,
             c.content,
             c.status,
             c.created_at
-         FROM comments c
-         JOIN users u ON u.id = c.user_id
-         WHERE c.id = ?",
+        FROM comments c
+        JOIN users u ON u.id = c.user_id
+        WHERE c.id = ?
+        "#,
+        id
     )
-    .bind(id)
     .fetch_optional(executor)
     .await
 }

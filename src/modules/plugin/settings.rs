@@ -5,13 +5,24 @@ pub async fn get_all<'e, E>(executor: E, plugin_name: &str) -> AppResult<HashMap
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    let rows = sqlx::query_as::<_, (String, String)>(
-        "SELECT key, value FROM plugin_settings WHERE plugin_name = ?"
+    #[derive(sqlx::FromRow)]
+    struct PluginSettingRow {
+        key: String,
+        value: String,
+    }
+    
+    let rows = sqlx::query_as!(
+        PluginSettingRow,
+        r#"
+        SELECT key, value
+        FROM plugin_settings
+        WHERE plugin_name = ?
+        "#,
+        plugin_name
     )
-    .bind(plugin_name)
     .fetch_all(executor)
     .await?;
-    Ok(rows.into_iter().collect())
+    Ok(rows.into_iter().map(|r| (r.key, r.value)).collect())
 }
 
 pub async fn set<'e, E>(executor: E, plugin_name: &str, key: &str, value: &str) -> AppResult<()>

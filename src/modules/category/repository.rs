@@ -6,21 +6,53 @@ pub async fn list_categories<'e, E>(executor: E) -> Result<Vec<Category>, sqlx::
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, Category>(
-        "SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY sort_order ASC, name ASC",
+    sqlx::query_as!(
+        Category,
+        r#"
+        SELECT
+            id,
+            name,
+            slug,
+            description,
+            parent_id,
+            sort_order,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM categories
+        WHERE deleted_at IS NULL
+        ORDER BY sort_order ASC, name ASC
+        "#
     )
-        .fetch_all(executor)
-        .await
+    .fetch_all(executor)
+    .await
 }
 
 pub async fn get_category<'e, E>(executor: E, id: &str) -> Result<Option<Category>, sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, Category>("SELECT * FROM categories WHERE id = ? AND deleted_at IS NULL LIMIT 1")
-        .bind(id)
-        .fetch_optional(executor)
-        .await
+    sqlx::query_as!(
+        Category,
+        r#"
+        SELECT
+            id,
+            name,
+            slug,
+            description,
+            parent_id,
+            sort_order,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM categories
+        WHERE id = ? AND deleted_at IS NULL
+        LIMIT 1
+        "#,
+        id
+    )
+    .fetch_optional(executor)
+    .await
 }
 
 pub async fn category_slug_or_name_exists<'e, E>(

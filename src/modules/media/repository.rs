@@ -116,10 +116,35 @@ pub async fn get_media<'e, E>(executor: E, id: &str) -> Result<Option<MediaItem>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, MediaItem>("SELECT * FROM media WHERE id = ? AND deleted_at IS NULL LIMIT 1")
-        .bind(id)
-        .fetch_optional(executor)
-        .await
+    sqlx::query_as!(
+        MediaItem,
+        r#"
+        SELECT
+            id,
+            uploader_id,
+            kind,
+            mime_type,
+            original_name,
+            stored_name,
+            storage_path,
+            public_url,
+            size_bytes,
+            width,
+            height,
+            duration_seconds,
+            alt_text,
+            category,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM media
+        WHERE id = ? AND deleted_at IS NULL
+        LIMIT 1
+        "#,
+        id
+    )
+    .fetch_optional(executor)
+    .await
 }
 
 pub async fn delete_media<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Error>

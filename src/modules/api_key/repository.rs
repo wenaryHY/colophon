@@ -36,10 +36,28 @@ pub async fn get_api_key_by_id<'e, E>(executor: E, id: &str) -> Result<Option<Ap
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, ApiKey>("SELECT * FROM api_keys WHERE id = ? LIMIT 1")
-        .bind(id)
-        .fetch_optional(executor)
-        .await
+    sqlx::query_as!(
+        ApiKey,
+        r#"
+        SELECT
+            id as "id!",
+            user_id as "user_id!",
+            name as "name!",
+            key_prefix as "key_prefix!",
+            key_hash as "key_hash!",
+            permissions as "permissions!",
+            last_used_at,
+            expires_at,
+            created_at as "created_at!",
+            updated_at as "updated_at!"
+        FROM api_keys
+        WHERE id = ?
+        LIMIT 1
+        "#,
+        id
+    )
+    .fetch_optional(executor)
+    .await
 }
 
 pub async fn list_api_keys_by_user_id<'e, E>(
@@ -49,10 +67,26 @@ pub async fn list_api_keys_by_user_id<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, ApiKey>(
-        "SELECT * FROM api_keys WHERE user_id = ? ORDER BY created_at DESC",
+    sqlx::query_as!(
+        ApiKey,
+        r#"
+        SELECT
+            id as "id!",
+            user_id as "user_id!",
+            name as "name!",
+            key_prefix as "key_prefix!",
+            key_hash as "key_hash!",
+            permissions as "permissions!",
+            last_used_at,
+            expires_at,
+            created_at as "created_at!",
+            updated_at as "updated_at!"
+        FROM api_keys
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        "#,
+        user_id
     )
-    .bind(user_id)
     .fetch_all(executor)
     .await
 }
@@ -65,13 +99,23 @@ pub async fn find_api_key_with_user_by_hash<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, ApiKeyWithUser>(
-        "SELECT ak.id AS api_key_id, ak.user_id, u.username, u.role, ak.permissions, ak.expires_at AS api_key_expires_at
-         FROM api_keys ak
-         JOIN users u ON u.id = ak.user_id
-         WHERE ak.key_hash = ? LIMIT 1",
+    sqlx::query_as!(
+        ApiKeyWithUser,
+        r#"
+        SELECT
+            ak.id AS "api_key_id!",
+            ak.user_id as "user_id!",
+            u.username as "username!",
+            u.role as "role!",
+            ak.permissions as "permissions!",
+            ak.expires_at AS api_key_expires_at
+        FROM api_keys ak
+        JOIN users u ON u.id = ak.user_id
+        WHERE ak.key_hash = ?
+        LIMIT 1
+        "#,
+        key_hash
     )
-    .bind(key_hash)
     .fetch_optional(executor)
     .await
 }

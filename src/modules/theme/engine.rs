@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 use super::context::TemplateContext;
 use crate::modules::plugin::manager::PluginManager;
 use crate::shared::error::AppResult;
+use crate::state::AssetManifest;
 
 /// Build a MiniJinja Environment for the current request.
 ///
@@ -25,6 +26,7 @@ pub async fn build_template_engine(
     theme_dir: &Path,
     plugin_manager: &PluginManager,
     env_cache: &Arc<RwLock<HashMap<String, Environment<'static>>>>,
+    asset_manifest: &Arc<AssetManifest>,
 ) -> AppResult<Environment<'static>> {
     // 尝试从缓存获取基础 Environment
     let base_env = {
@@ -73,11 +75,15 @@ pub async fn build_template_engine(
         });
 
         // theme_assets_url helper (per-theme, cached)
+        // 通过 AssetManifest 注入构建期生成的 hash 版本号，
+        // 让浏览器在主题资源变更时自动失效缓存。
         let slug = ctx.active_theme.clone();
+        let manifest = asset_manifest.clone();
         new_env.add_function(
             "theme_assets_url",
             move |path: String| -> Result<Value, minijinja::Error> {
-                Ok(Value::from(format!("/static/themes/{}/{}", slug, path)))
+                let resolved = manifest.resolve(&slug, &path);
+                Ok(Value::from(format!("/static/themes/{}/{}", slug, resolved)))
             },
         );
 

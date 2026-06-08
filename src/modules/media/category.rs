@@ -217,8 +217,24 @@ async fn list_categories_repo<'e, E>(executor: E) -> Result<Vec<MediaCategory>, 
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, MediaCategory>(
-        "SELECT * FROM media_categories WHERE deleted_at IS NULL ORDER BY sort_order ASC, name ASC",
+    sqlx::query_as!(
+        MediaCategory,
+        r#"
+        SELECT
+            id,
+            name,
+            slug,
+            description,
+            icon,
+            color,
+            sort_order,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM media_categories
+        WHERE deleted_at IS NULL
+        ORDER BY sort_order ASC, name ASC
+        "#
     )
     .fetch_all(executor)
     .await
@@ -228,11 +244,27 @@ async fn get_category<'e, E>(executor: E, id: &str) -> Result<Option<MediaCatego
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, MediaCategory>(
-        "SELECT * FROM media_categories WHERE (id = ? OR slug = ?) AND deleted_at IS NULL LIMIT 1",
+    sqlx::query_as!(
+        MediaCategory,
+        r#"
+        SELECT
+            id,
+            name,
+            slug,
+            description,
+            icon,
+            color,
+            sort_order,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM media_categories
+        WHERE (id = ? OR slug = ?) AND deleted_at IS NULL
+        LIMIT 1
+        "#,
+        id,
+        id
     )
-    .bind(id)
-    .bind(id)
     .fetch_optional(executor)
     .await
 }

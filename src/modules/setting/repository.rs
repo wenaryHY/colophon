@@ -4,14 +4,27 @@ pub async fn list<'e, E>(executor: E) -> Result<Vec<SettingItem>, sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, (String, String)>("SELECT key, value FROM settings ORDER BY key ASC")
-        .fetch_all(executor)
-        .await
-        .map(|rows| {
-            rows.into_iter()
-                .map(|(key, value)| SettingItem { key, value })
-                .collect()
-        })
+    #[derive(sqlx::FromRow)]
+    struct SettingRow {
+        key: String,
+        value: String,
+    }
+    
+    sqlx::query_as!(
+        SettingRow,
+        r#"
+        SELECT key, value
+        FROM settings
+        ORDER BY key ASC
+        "#
+    )
+    .fetch_all(executor)
+    .await
+    .map(|rows| {
+        rows.into_iter()
+            .map(|row| SettingItem { key: row.key, value: row.value })
+            .collect()
+    })
 }
 
 pub async fn get_optional_string<'e, E>(

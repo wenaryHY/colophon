@@ -228,7 +228,7 @@ pub async fn render_home(
     );
 
     let plugin_guard = state.plugin_manager.read().await;
-    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache).await?;
+    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest).await?;
     let tmpl = env
         .get_template("index.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -360,7 +360,7 @@ pub async fn render_post(
         .unwrap_or_default();
 
     let plugin_guard = state.plugin_manager.read().await;
-    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache).await?;
+    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest).await?;
     let tmpl = env
         .get_template("post.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -627,7 +627,7 @@ pub async fn preview_theme(
     // 构建模板引擎
     let plugin_guard = state.plugin_manager.read().await;
     let env = engine::build_template_engine(
-        &ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache
+        &ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest
     ).await?;
 
     // 选择模板

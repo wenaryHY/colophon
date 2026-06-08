@@ -22,6 +22,9 @@ backups/
 .env
 *.log
 
+# sqlx offline cache (add after migration complete)
+# .sqlx/
+
 # Frontend
 node_modules/
 src/admin/dist/

@@ -34,10 +34,20 @@ pub async fn list_backups<'e, E>(executor: E) -> Result<Vec<Backup>, sqlx::Error
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, Backup>(
-        "SELECT id, created_at, size, provider, status, manifest_hash, error_message
-         FROM backups
-         ORDER BY created_at DESC",
+    sqlx::query_as!(
+        Backup,
+        r#"
+        SELECT
+            id as "id!",
+            created_at as "created_at!",
+            size as "size!",
+            provider as "provider!",
+            status as "status!",
+            manifest_hash as "manifest_hash!",
+            error_message
+        FROM backups
+        ORDER BY created_at DESC
+        "#
     )
     .fetch_all(executor)
     .await
@@ -47,12 +57,22 @@ pub async fn get_backup<'e, E>(executor: E, id: &str) -> Result<Option<Backup>, 
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, Backup>(
-        "SELECT id, created_at, size, provider, status, manifest_hash, error_message
-         FROM backups
-         WHERE id = ?",
+    sqlx::query_as!(
+        Backup,
+        r#"
+        SELECT
+            id as "id!",
+            created_at as "created_at!",
+            size as "size!",
+            provider as "provider!",
+            status as "status!",
+            manifest_hash as "manifest_hash!",
+            error_message
+        FROM backups
+        WHERE id = ?
+        "#,
+        id
     )
-    .bind(id)
     .fetch_optional(executor)
     .await
 }
@@ -91,10 +111,23 @@ pub async fn get_or_create_schedule<'e, E>(executor: E) -> Result<BackupSchedule
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite> + Copy,
 {
-    let existing = sqlx::query_as::<_, BackupSchedule>(
-        "SELECT id, enabled, frequency, hour, minute, provider, last_run_at, next_run_at, created_at, updated_at
-         FROM backup_schedules
-         LIMIT 1",
+    let existing = sqlx::query_as!(
+        BackupSchedule,
+        r#"
+        SELECT
+            id as "id!",
+            enabled as "enabled!: bool",
+            frequency as "frequency!",
+            hour as "hour!: i32",
+            minute as "minute!: i32",
+            provider as "provider!",
+            last_run_at,
+            next_run_at,
+            created_at as "created_at!",
+            updated_at as "updated_at!"
+        FROM backup_schedules
+        LIMIT 1
+        "#
     )
     .fetch_optional(executor)
     .await?;

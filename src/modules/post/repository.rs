@@ -16,27 +16,30 @@ pub async fn list_recent_public_posts<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, PublicPostSummary>(
-        "SELECT
+    sqlx::query_as!(
+        PublicPostSummary,
+        r#"
+        SELECT
             p.id,
             p.title,
             p.slug,
             p.excerpt,
-            p.content_type,
+            p.content_type as "content_type: ContentType",
             p.published_at,
             p.created_at,
             p.updated_at,
             u.display_name AS author_display_name,
             c.name AS category_name,
             c.id AS category_id
-         FROM posts p
-         JOIN users u ON u.id = p.author_id
-         LEFT JOIN categories c ON c.id = p.category_id
-         WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
-         ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
-         LIMIT ?",
+        FROM posts p
+        JOIN users u ON u.id = p.author_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
+        ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
+        LIMIT ?
+        "#,
+        limit
     )
-    .bind(limit)
     .fetch_all(executor)
     .await
 }
@@ -45,11 +48,18 @@ pub async fn list_for_sitemap<'e, E>(executor: E) -> Result<Vec<SitemapItem>, sq
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, SitemapItem>(
-        "SELECT slug, content_type, published_at, updated_at
-         FROM posts
-         WHERE status = 'published' AND visibility = 'public' AND deleted_at IS NULL
-         ORDER BY published_at DESC",
+    sqlx::query_as!(
+        SitemapItem,
+        r#"
+        SELECT
+            slug,
+            content_type as "content_type: ContentType",
+            published_at,
+            updated_at
+        FROM posts
+        WHERE status = 'published' AND visibility = 'public' AND deleted_at IS NULL
+        ORDER BY published_at DESC
+        "#
     )
     .fetch_all(executor)
     .await
@@ -70,29 +80,42 @@ where
 {
     // First: try FTS5 trigram
     let fts_keyword = keyword.to_string();
-    let fts_results = sqlx::query_as::<_, PublicPostSummary>(
-        "SELECT p.id, p.title, p.slug, p.excerpt, p.content_type, p.published_at, p.created_at, p.updated_at,
-                u.display_name AS author_display_name, c.name AS category_name, c.id AS category_id
-         FROM posts p
-         JOIN users u ON u.id = p.author_id
-         LEFT JOIN categories c ON c.id = p.category_id
-         JOIN posts_fts fts ON fts.rowid = p.rowid
-         WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
-           AND fts.posts_fts MATCH ?
-           AND (? IS NULL OR p.category_id = ?)
-           AND (? IS NULL OR EXISTS (
-                    SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag_id = ?
-               ))
-         ORDER BY bm25(posts_fts), p.pinned DESC, p.published_at DESC, p.created_at DESC
-         LIMIT ? OFFSET ?",
+    let fts_results = sqlx::query_as!(
+        PublicPostSummary,
+        r#"
+        SELECT
+            p.id,
+            p.title,
+            p.slug,
+            p.excerpt,
+            p.content_type as "content_type: ContentType",
+            p.published_at,
+            p.created_at,
+            p.updated_at,
+            u.display_name AS author_display_name,
+            c.name AS category_name,
+            c.id AS category_id
+        FROM posts p
+        JOIN users u ON u.id = p.author_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        JOIN posts_fts fts ON fts.rowid = p.rowid
+        WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
+          AND fts.posts_fts MATCH ?
+          AND (? IS NULL OR p.category_id = ?)
+          AND (? IS NULL OR EXISTS (
+                   SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag_id = ?
+              ))
+        ORDER BY bm25(posts_fts), p.pinned DESC, p.published_at DESC, p.created_at DESC
+        LIMIT ? OFFSET ?
+        "#,
+        fts_keyword,
+        category_id,
+        category_id,
+        tag_id,
+        tag_id,
+        limit,
+        offset
     )
-    .bind(&fts_keyword)
-    .bind(category_id)
-    .bind(category_id)
-    .bind(tag_id)
-    .bind(tag_id)
-    .bind(limit)
-    .bind(offset)
     .fetch_all(executor)
     .await?;
 
@@ -102,29 +125,42 @@ where
 
     // FTS5 no results → fallback to LIKE
     let like_keyword = format!("%{}%", keyword);
-    sqlx::query_as::<_, PublicPostSummary>(
-        "SELECT p.id, p.title, p.slug, p.excerpt, p.content_type, p.published_at, p.created_at, p.updated_at,
-                u.display_name AS author_display_name, c.name AS category_name, c.id AS category_id
-         FROM posts p
-         JOIN users u ON u.id = p.author_id
-         LEFT JOIN categories c ON c.id = p.category_id
-         WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
-           AND (p.title LIKE ? OR p.content_md LIKE ?)
-           AND (? IS NULL OR p.category_id = ?)
-           AND (? IS NULL OR EXISTS (
-                    SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag_id = ?
-               ))
-         ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
-         LIMIT ? OFFSET ?",
+    sqlx::query_as!(
+        PublicPostSummary,
+        r#"
+        SELECT
+            p.id,
+            p.title,
+            p.slug,
+            p.excerpt,
+            p.content_type as "content_type: ContentType",
+            p.published_at,
+            p.created_at,
+            p.updated_at,
+            u.display_name AS author_display_name,
+            c.name AS category_name,
+            c.id AS category_id
+        FROM posts p
+        JOIN users u ON u.id = p.author_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
+          AND (p.title LIKE ? OR p.content_md LIKE ?)
+          AND (? IS NULL OR p.category_id = ?)
+          AND (? IS NULL OR EXISTS (
+                   SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag_id = ?
+              ))
+        ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
+        LIMIT ? OFFSET ?
+        "#,
+        like_keyword,
+        like_keyword,
+        category_id,
+        category_id,
+        tag_id,
+        tag_id,
+        limit,
+        offset
     )
-    .bind(&like_keyword)
-    .bind(&like_keyword)
-    .bind(category_id)
-    .bind(category_id)
-    .bind(tag_id)
-    .bind(tag_id)
-    .bind(limit)
-    .bind(offset)
     .fetch_all(executor)
     .await
 }
@@ -196,59 +232,65 @@ where
 {
     if let Some(keyword) = keyword {
         let like = format!("%{}%", keyword);
-        sqlx::query_as::<_, PublicPostSummary>(
-            "SELECT
+        sqlx::query_as!(
+            PublicPostSummary,
+            r#"
+            SELECT
                 p.id,
                 p.title,
                 p.slug,
                 p.excerpt,
-                p.content_type,
+                p.content_type as "content_type: ContentType",
                 p.published_at,
                 p.created_at,
                 p.updated_at,
                 u.display_name AS author_display_name,
                 c.name AS category_name,
                 c.id AS category_id
-             FROM posts p
-             JOIN users u ON u.id = p.author_id
-             LEFT JOIN categories c ON c.id = p.category_id
-             WHERE p.status = 'published' AND p.visibility = 'public'
-               AND p.deleted_at IS NULL
-               AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content_md LIKE ?)
-             ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
-             LIMIT ? OFFSET ?",
+            FROM posts p
+            JOIN users u ON u.id = p.author_id
+            LEFT JOIN categories c ON c.id = p.category_id
+            WHERE p.status = 'published' AND p.visibility = 'public'
+              AND p.deleted_at IS NULL
+              AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content_md LIKE ?)
+            ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+            like,
+            like,
+            like,
+            limit,
+            offset
         )
-        .bind(&like)
-        .bind(&like)
-        .bind(&like)
-        .bind(limit)
-        .bind(offset)
         .fetch_all(executor)
         .await
     } else {
-        sqlx::query_as::<_, PublicPostSummary>(
-            "SELECT
+        sqlx::query_as!(
+            PublicPostSummary,
+            r#"
+            SELECT
                 p.id,
                 p.title,
                 p.slug,
                 p.excerpt,
-                p.content_type,
+                p.content_type as "content_type: ContentType",
                 p.published_at,
                 p.created_at,
                 p.updated_at,
                 u.display_name AS author_display_name,
                 c.name AS category_name,
                 c.id AS category_id
-             FROM posts p
-             JOIN users u ON u.id = p.author_id
-             LEFT JOIN categories c ON c.id = p.category_id
-             WHERE p.status = 'published' AND p.visibility = 'public'
-               AND p.deleted_at IS NULL
-             ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
-             LIMIT ? OFFSET ?",
+            FROM posts p
+            JOIN users u ON u.id = p.author_id
+            LEFT JOIN categories c ON c.id = p.category_id
+            WHERE p.status = 'published' AND p.visibility = 'public'
+              AND p.deleted_at IS NULL
+            ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
+            LIMIT ? OFFSET ?
+            "#,
+            limit,
+            offset
         )
-        .bind(limit)
-        .bind(offset)
         .fetch_all(executor)
         .await
     }
@@ -291,28 +333,31 @@ pub async fn get_public_post_by_slug<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, PublicPostDetail>(
-        "SELECT
+    sqlx::query_as!(
+        PublicPostDetail,
+        r#"
+        SELECT
             p.id,
             p.title,
             p.slug,
             p.excerpt,
             p.content_html,
-            p.content_type,
-            p.allow_comment,
+            p.content_type as "content_type: ContentType",
+            p.allow_comment as "allow_comment: bool",
             p.published_at,
             p.created_at,
             p.updated_at,
             u.display_name AS author_display_name,
             c.name AS category_name,
             p.cover_media_id
-         FROM posts p
-         JOIN users u ON u.id = p.author_id
-         LEFT JOIN categories c ON c.id = p.category_id
-         WHERE p.slug = ? AND p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
-         LIMIT 1",
+        FROM posts p
+        JOIN users u ON u.id = p.author_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.slug = ? AND p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL
+        LIMIT 1
+        "#,
+        slug
     )
-    .bind(slug)
     .fetch_optional(executor)
     .await
 }
@@ -324,10 +369,21 @@ pub async fn find_comment_target<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, CommentTargetPost>(
-        "SELECT id, title, status, visibility, allow_comment FROM posts WHERE slug = ? AND deleted_at IS NULL LIMIT 1",
+    sqlx::query_as!(
+        CommentTargetPost,
+        r#"
+        SELECT
+            id,
+            title,
+            status as "status: PostStatus",
+            visibility as "visibility: Visibility",
+            allow_comment as "allow_comment: bool"
+        FROM posts
+        WHERE slug = ? AND deleted_at IS NULL
+        LIMIT 1
+        "#,
+        slug
     )
-    .bind(slug)
     .fetch_optional(executor)
     .await
 }
@@ -337,14 +393,23 @@ pub async fn list_post_tags<'e, E>(executor: E, post_id: &str) -> Result<Vec<Tag
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, Tag>(
-        "SELECT t.*
-         FROM tags t
-         JOIN post_tags pt ON pt.tag_id = t.id
-         WHERE pt.post_id = ? AND t.deleted_at IS NULL
-         ORDER BY t.name ASC",
+    sqlx::query_as!(
+        Tag,
+        r#"
+        SELECT
+            t.id,
+            t.name,
+            t.slug,
+            t.created_at,
+            t.updated_at,
+            t.deleted_at
+        FROM tags t
+        JOIN post_tags pt ON pt.tag_id = t.id
+        WHERE pt.post_id = ? AND t.deleted_at IS NULL
+        ORDER BY t.name ASC
+        "#,
+        post_id
     )
-    .bind(post_id)
     .fetch_all(executor)
     .await
 }
@@ -474,10 +539,38 @@ pub async fn get_admin_post<'e, E>(executor: E, id: &str) -> Result<Option<Admin
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, AdminPost>("SELECT * FROM posts WHERE id = ? LIMIT 1")
-        .bind(id)
-        .fetch_optional(executor)
-        .await
+    sqlx::query_as!(
+        AdminPost,
+        r#"
+        SELECT
+            id,
+            author_id,
+            title,
+            slug,
+            excerpt,
+            content_md,
+            content_html,
+            cover_media_id,
+            status as "status: PostStatus",
+            visibility as "visibility: Visibility",
+            category_id,
+            allow_comment as "allow_comment: bool",
+            pinned as "pinned: bool",
+            content_type as "content_type: ContentType",
+            custom_html_path,
+            page_render_mode,
+            published_at,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM posts
+        WHERE id = ?
+        LIMIT 1
+        "#,
+        id
+    )
+    .fetch_optional(executor)
+    .await
 }
 
 pub async fn slug_exists<'e, E>(
@@ -650,12 +743,25 @@ pub async fn get_page_by_slug<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, PageCustomHtml>(
-        "SELECT id, title, content_type, custom_html_path, page_render_mode,
-                content_md, content_html, status, visibility
-         FROM posts WHERE slug = ? AND deleted_at IS NULL LIMIT 1",
+    sqlx::query_as!(
+        PageCustomHtml,
+        r#"
+        SELECT
+            id,
+            title,
+            content_type as "content_type: ContentType",
+            custom_html_path,
+            page_render_mode,
+            content_md,
+            content_html,
+            status as "status: PostStatus",
+            visibility as "visibility: Visibility"
+        FROM posts
+        WHERE slug = ? AND deleted_at IS NULL
+        LIMIT 1
+        "#,
+        slug
     )
-    .bind(slug)
     .fetch_optional(executor)
     .await
 }

@@ -7,14 +7,30 @@ pub async fn find_current<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, CurrentUser>(
-        "SELECT id, username, email, display_name, avatar_media_id, bio, role, status, theme_preference, language, created_at, updated_at, deleted_at
-         FROM users
-         WHERE id = ? AND deleted_at IS NULL",
+    sqlx::query_as!(
+        CurrentUser,
+        r#"
+        SELECT
+            id,
+            username,
+            email,
+            display_name,
+            avatar_media_id,
+            bio,
+            role,
+            status,
+            theme_preference,
+            language,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM users
+        WHERE id = ? AND deleted_at IS NULL
+        "#,
+        user_id
     )
-        .bind(user_id)
-        .fetch_optional(executor)
-        .await
+    .fetch_optional(executor)
+    .await
 }
 
 pub async fn find_password_hash<'e, E>(

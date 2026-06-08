@@ -18,6 +18,36 @@ use crate::{
     ws::ServerEvent,
 };
 
+/// 静态资源版本控制 manifest，从构建时生成的 JSON 加载
+#[derive(Clone)]
+pub struct AssetManifest {
+    map: HashMap<String, String>,
+}
+
+impl AssetManifest {
+    /// 从编译期嵌入的 JSON 加载 manifest
+    pub fn load() -> Self {
+        const MANIFEST_JSON: &str = include_str!("../target/generated/asset-manifest.json");
+        let map: HashMap<String, String> =
+            serde_json::from_str(MANIFEST_JSON).unwrap_or_default();
+        Self { map }
+    }
+
+    /// 将主题路径和文件路径转换为带版本号的 URL 路径
+    /// 
+    /// # 参数
+    /// - `theme`: 主题名称（如 "default"）
+    /// - `path`: 相对于 static 目录的路径（如 "css/theme.css"）
+    /// 
+    /// # 返回
+    /// 带版本号的路径，如 "css/theme.css?v=abc12345"
+    /// 若未找到对应文件，降级返回原始路径（不带版本号）
+    pub fn resolve(&self, theme: &str, path: &str) -> String {
+        let key = format!("{}/{}", theme, path);
+        self.map.get(&key).cloned().unwrap_or_else(|| path.to_string())
+    }
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub pool: SqlitePool,
@@ -50,6 +80,8 @@ pub struct AppState {
     pub plugin_manager: Arc<tokio::sync::RwLock<PluginManager>>,
     /// Handle to the backup cron scheduler, stored for dynamic stop/restart.
     pub backup_scheduler: Arc<tokio::sync::Mutex<Option<JobScheduler>>>,
+    /// 静态资源版本控制 manifest，构建时生成
+    pub asset_manifest: Arc<AssetManifest>,
 }
 
 impl AppState {
@@ -80,6 +112,7 @@ impl AppState {
             template_env_cache: Arc::new(RwLock::new(HashMap::new())),
             plugin_manager,
             backup_scheduler: Arc::new(tokio::sync::Mutex::new(None)),
+            asset_manifest: Arc::new(AssetManifest::load()),
         })
     }
 

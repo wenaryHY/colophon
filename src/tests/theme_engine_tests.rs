@@ -10,6 +10,7 @@ mod theme_engine_tests {
     use crate::modules::plugin::manager::PluginManager;
     use crate::modules::theme::context::TemplateContext;
     use crate::modules::theme::engine::build_template_engine;
+    use crate::state::AssetManifest;
 
     fn make_context() -> TemplateContext {
         TemplateContext {
@@ -38,11 +39,17 @@ mod theme_engine_tests {
         Arc::new(RwLock::new(HashMap::new()))
     }
 
+    fn test_asset_manifest() -> Arc<AssetManifest> {
+        // 测试环境中使用实际生成的 manifest
+        Arc::new(AssetManifest::load())
+    }
+
     #[tokio::test]
     async fn build_engine_succeeds_with_valid_theme_dir() {
         let ctx = make_context();
         let cache = empty_env_cache();
-        let result = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache).await;
+        let manifest = test_asset_manifest();
+        let result = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest).await;
         assert!(
             result.is_ok(),
             "engine should build successfully: {:?}",
@@ -54,7 +61,8 @@ mod theme_engine_tests {
     async fn build_engine_sets_globals() {
         let ctx = make_context();
         let cache = empty_env_cache();
-        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache).await.unwrap();
+        let manifest = test_asset_manifest();
+        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest).await.unwrap();
 
         let title = env
             .render_str("{{ site_title }}", minijinja::context!())
@@ -81,7 +89,8 @@ mod theme_engine_tests {
     async fn build_engine_renders_index_template() {
         let ctx = make_context();
         let cache = empty_env_cache();
-        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache).await.unwrap();
+        let manifest = test_asset_manifest();
+        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest).await.unwrap();
         let template = env.get_template("index.html");
         assert!(
             template.is_ok(),
@@ -94,7 +103,8 @@ mod theme_engine_tests {
     async fn build_engine_get_recent_posts_returns_empty_vec() {
         let ctx = make_context();
         let cache = empty_env_cache();
-        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache).await.unwrap();
+        let manifest = test_asset_manifest();
+        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest).await.unwrap();
         let result = env.render_str("{{ get_recent_posts() }}", minijinja::context!());
         assert!(
             result.is_ok(),
@@ -107,21 +117,24 @@ mod theme_engine_tests {
     async fn build_engine_theme_assets_url_generates_correct_path() {
         let ctx = make_context();
         let cache = empty_env_cache();
-        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache).await.unwrap();
+        let manifest = test_asset_manifest();
+        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest).await.unwrap();
         let result = env
             .render_str(
                 "{{ theme_assets_url('css/style.css') }}",
                 minijinja::context!(),
             )
             .unwrap();
-        assert_eq!(result, "/static/themes/default/css/style.css");
+        // 现在应该包含 ?v=hash 后缀
+        assert!(result.starts_with("/static/themes/default/css/style.css"));
     }
 
     #[tokio::test]
     async fn build_engine_rejects_path_traversal_in_loader() {
         let ctx = make_context();
         let cache = empty_env_cache();
-        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache).await.unwrap();
+        let manifest = test_asset_manifest();
+        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest).await.unwrap();
         let result = env.get_template("../../Cargo.toml");
         assert!(result.is_err(), "path traversal should be rejected");
     }

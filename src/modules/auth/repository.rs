@@ -61,13 +61,32 @@ pub async fn find_by_login<'e, E>(executor: E, login: &str) -> Result<Option<Use
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query_as::<_, UserRow>(
-        "SELECT * FROM users WHERE (username = ? OR email = ?) AND deleted_at IS NULL LIMIT 1",
+    sqlx::query_as!(
+        UserRow,
+        r#"
+        SELECT
+            id,
+            username,
+            email,
+            password_hash,
+            display_name,
+            avatar_media_id,
+            bio,
+            role,
+            status,
+            theme_preference,
+            created_at,
+            updated_at,
+            last_login_at
+        FROM users
+        WHERE (username = ? OR email = ?) AND deleted_at IS NULL
+        LIMIT 1
+        "#,
+        login,
+        login
     )
-        .bind(login)
-        .bind(login)
-        .fetch_optional(executor)
-        .await
+    .fetch_optional(executor)
+    .await
 }
 
 pub async fn touch_last_login<'e, E>(executor: E, user_id: &str) -> Result<(), sqlx::Error>
