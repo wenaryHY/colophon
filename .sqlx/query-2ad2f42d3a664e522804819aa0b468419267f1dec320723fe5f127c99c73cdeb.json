@@ -1,0 +1,92 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            p.id,\n            p.title,\n            p.slug,\n            p.excerpt,\n            p.content_html,\n            p.content_type as \"content_type: ContentType\",\n            p.allow_comment as \"allow_comment: bool\",\n            p.published_at,\n            p.created_at,\n            p.updated_at,\n            u.display_name AS author_display_name,\n            c.name AS category_name,\n            p.cover_media_id\n        FROM posts p\n        JOIN users u ON u.id = p.author_id\n        LEFT JOIN categories c ON c.id = p.category_id\n        WHERE p.slug = ? AND p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "slug",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "excerpt",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_html",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "allow_comment: bool",
+        "ordinal": 6,
+        "type_info": "Int64"
+      },
+      {
+        "name": "published_at",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "author_display_name",
+        "ordinal": 10,
+        "type_info": "Text"
+      },
+      {
+        "name": "category_name",
+        "ordinal": 11,
+        "type_info": "Text"
+      },
+      {
+        "name": "cover_media_id",
+        "ordinal": 12,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "2ad2f42d3a664e522804819aa0b468419267f1dec320723fe5f127c99c73cdeb"
+}

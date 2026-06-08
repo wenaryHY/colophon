@@ -1,0 +1,134 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            id,\n            author_id,\n            title,\n            slug,\n            excerpt,\n            content_md,\n            content_html,\n            cover_media_id,\n            status as \"status: PostStatus\",\n            visibility as \"visibility: Visibility\",\n            category_id,\n            allow_comment as \"allow_comment: bool\",\n            pinned as \"pinned: bool\",\n            content_type as \"content_type: ContentType\",\n            custom_html_path,\n            page_render_mode,\n            published_at,\n            created_at,\n            updated_at,\n            deleted_at\n        FROM posts\n        WHERE id = ?\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "author_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "slug",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "excerpt",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_md",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_html",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "cover_media_id",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "status: PostStatus",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "visibility: Visibility",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "category_id",
+        "ordinal": 10,
+        "type_info": "Text"
+      },
+      {
+        "name": "allow_comment: bool",
+        "ordinal": 11,
+        "type_info": "Int64"
+      },
+      {
+        "name": "pinned: bool",
+        "ordinal": 12,
+        "type_info": "Int64"
+      },
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 13,
+        "type_info": "Text"
+      },
+      {
+        "name": "custom_html_path",
+        "ordinal": 14,
+        "type_info": "Text"
+      },
+      {
+        "name": "page_render_mode",
+        "ordinal": 15,
+        "type_info": "Text"
+      },
+      {
+        "name": "published_at",
+        "ordinal": 16,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 17,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 18,
+        "type_info": "Text"
+      },
+      {
+        "name": "deleted_at",
+        "ordinal": 19,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "25242c8ebde85e5b00b6a1a61021f360774d0fbbb9c412b96daec9b1b2f38da4"
+}

@@ -1,0 +1,68 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            id,\n            title,\n            content_type as \"content_type: ContentType\",\n            custom_html_path,\n            page_render_mode,\n            content_md,\n            content_html,\n            status as \"status: PostStatus\",\n            visibility as \"visibility: Visibility\"\n        FROM posts\n        WHERE slug = ? AND deleted_at IS NULL\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "custom_html_path",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "page_render_mode",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_md",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_html",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "status: PostStatus",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "visibility: Visibility",
+        "ordinal": 8,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3cefe844beb49ea83941ea87defff8cc94e797de51406ee474411e34a6addf39"
+}

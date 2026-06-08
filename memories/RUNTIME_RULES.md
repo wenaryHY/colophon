@@ -7,7 +7,7 @@
 
 ## 一、每次会话的强制读取顺序
 
-1. `../CODEBUDDY.md`
+1. `../CONTRIBUTING.md`（特别是"Coding Principles"部分）
 2. `memories/PROJECT_STATUS.md`
 3. `memories/RUNTIME_RULES.md`
 
@@ -148,7 +148,7 @@
 ## 六、优先级顺序
 
 1. 用户当前明确确认的范围
-2. `CODEBUDDY.md`
+2. `CONTRIBUTING.md`（特别是"Coding Principles"部分）
 3. `memories/RUNTIME_RULES.md`
 4. `memories/PROJECT_STATUS.md`
 

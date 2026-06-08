@@ -1,0 +1,80 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            p.id,\n            p.title,\n            p.slug,\n            p.excerpt,\n            p.content_type as \"content_type: ContentType\",\n            p.published_at,\n            p.created_at,\n            p.updated_at,\n            u.display_name AS author_display_name,\n            c.name AS category_name,\n            c.id AS category_id\n        FROM posts p\n        JOIN users u ON u.id = p.author_id\n        LEFT JOIN categories c ON c.id = p.category_id\n        JOIN posts_fts fts ON fts.rowid = p.rowid\n        WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL\n          AND fts.posts_fts MATCH ?\n          AND (? IS NULL OR p.category_id = ?)\n          AND (? IS NULL OR EXISTS (\n                   SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag_id = ?\n              ))\n        ORDER BY bm25(posts_fts), p.pinned DESC, p.published_at DESC, p.created_at DESC\n        LIMIT ? OFFSET ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "slug",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "excerpt",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "published_at",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "author_display_name",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "category_name",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "category_id",
+        "ordinal": 10,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "608d2ac6ffc6b948bc0033c001f6ba2866972d56556600c18d0d61f47389ca72"
+}

@@ -11,7 +11,7 @@ InkForge is a Rust CMS that compiles to a single static binary, with a React adm
 
 - **Major features require an issue first.** Before writing code for a new feature, refactor, or architecture change, open a GitHub Issue describing your intent. This lets maintainers give early feedback and prevents wasted effort.
 - **Small fixes can skip the issue.** Typos, minor bug fixes, translation corrections — just open a PR directly.
-- **Read CODEBUDDY.md.** It contains project-specific rules that every contributor must follow, including the Zero-Assumption principle and the interface-first workflow.
+- **Read the Coding Principles section below.** It contains project-specific rules that every contributor must follow, including naming conventions, function length limits, and the interface-first workflow.
 
 ---
 
@@ -296,7 +296,7 @@ Code will never be rejected solely because AI was used.
 
 Before marking a PR as ready for review, confirm:
 
-- [ ] I have read CODEBUDDY.md
+- [ ] I have read the Coding Principles section
 - [ ] All new functions are ≤ 40 lines
 - [ ] No magic numbers — all constants are named
 - [ ] Backend validates all input — I do not trust the frontend

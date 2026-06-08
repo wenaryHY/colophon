@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT id, original_name, mime_type, deleted_at as \"deleted_at!\"\n        FROM media\n        WHERE deleted_at IS NOT NULL\n        ORDER BY deleted_at DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "original_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "mime_type",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "deleted_at!",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "a4eeb8363d93b470c465321c46c30f2e0ea5c05a3df7167fd32e4e48a769e3e4"
+}

@@ -8,7 +8,7 @@
 
 每次新会话或进入新任务时，按以下顺序读取：
 
-1. `../CODEBUDDY.md`
+1. `../CONTRIBUTING.md`（特别是"Coding Principles"部分）
 2. `PROJECT_STATUS.md`
 3. `RUNTIME_RULES.md`
 

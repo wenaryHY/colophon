@@ -1,0 +1,92 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                c.id,\n                c.post_id,\n                c.user_id,\n                u.username,\n                u.display_name,\n                c.content,\n                c.status,\n                c.parent_id,\n                c.created_at,\n                c.updated_at,\n                p.title AS post_title,\n                p.slug AS post_slug,\n                p.content_type AS \"post_content_type: ContentType\"\n            FROM comments c\n            JOIN users u ON u.id = c.user_id\n            JOIN posts p ON p.id = c.post_id\n            WHERE c.status != 'deleted'\n            ORDER BY c.created_at DESC\n            LIMIT ? OFFSET ?\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "post_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "user_id",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "username",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "display_name",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "content",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "status",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "parent_id",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "post_title",
+        "ordinal": 10,
+        "type_info": "Text"
+      },
+      {
+        "name": "post_slug",
+        "ordinal": 11,
+        "type_info": "Text"
+      },
+      {
+        "name": "post_content_type: ContentType",
+        "ordinal": 12,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "de75789728aa4cb02b93f07136fe722c367917af9bfe1659cf33f36972d55375"
+}
