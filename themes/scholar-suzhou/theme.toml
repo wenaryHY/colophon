@@ -1,0 +1,26 @@
+# InkForge 主题元数据
+# 顶层字段与 default 主题保持兼容（name / slug / version / author / description / min_inkforge_version）
+# 扩展段落（[modes] / [metadata]）用于 admin 选择主题时展示更多信息
+
+name = "Scholar Suzhou"
+slug = "scholar-suzhou"
+version = "1.0.0"
+author = "InkForge"
+description = "苏州园林文人书斋风 — 朱红、苔藓、米纸的对话。EB Garamond + Source Sans 3 字体组合，营造文人书斋的契感。"
+license = "AGPLv3"
+min_inkforge_version = "0.2.0"
+
+# 主题预览图（可选，待后续添加）
+# screenshot = "screenshot.png"
+
+# 主题支持的颜色模式
+[modes]
+default = "light"
+supports = ["light"]
+
+# 主题元信息（用于 admin 选择主题时展示）
+[metadata]
+style = "minimal-scholarly"
+inspiration = "Suzhou Gardens, Chinese calligraphy"
+fonts = ["EB Garamond", "Source Sans 3"]
+primary_color = "#a22d21"

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 - {{ site_title | default("InkForge") }}</title>
+<link rel="preload" href="{{ theme_assets_url('fonts/source-sans-3-400.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ theme_assets_url('fonts/eb-garamond-600.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{ theme_assets_url('css/fonts.css') }}">
+<link rel="stylesheet" href="{{ theme_assets_url('css/theme.css') }}">
+<style>
+.account-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-stack-lg) var(--space-margin-mobile);
+}
+</style>
+</head>
+<body class="account-page">
+
+<section class="form-card" aria-labelledby="loginTitle">
+  <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-stack-md);">
+    <a href="/" class="site-nav__logo" style="font-size: 24px;">InkForge</a>
+    <div class="lang-switch" role="group" aria-label="语言切换">
+      <button class="lang-switch__btn" type="button" data-lang="zh">中</button>
+      <button class="lang-switch__btn" type="button" data-lang="en">En</button>
+    </div>
+  </div>
+
+  <h1 id="loginTitle" class="form-card__title" data-i18n="loginTitle">欢迎回来</h1>
+  <p class="form-card__subtitle" data-i18n="loginSubtitle">登录后即可评论、管理个人中心与同步会话。</p>
+
+  <div id="errorAlert" class="alert" role="alert"></div>
+
+  <form id="loginForm" class="form-stack">
+    <div class="form-field">
+      <label for="login" class="form-field__label">
+        <span data-i18n="loginLabel">登录名</span>
+      </label>
+      <input
+        id="login"
+        name="login"
+        type="text"
+        class="form-field__input"
+        data-i18n-placeholder="loginPlaceholder"
+        placeholder="用户名或邮箱"
+        autocomplete="username"
+        required
+      >
+    </div>
+    <div class="form-field">
+      <label for="password" class="form-field__label">
+        <span data-i18n="passwordLabel">密码</span>
+      </label>
+      <input
+        id="password"
+        name="password"
+        type="password"
+        class="form-field__input"
+        data-i18n-placeholder="passwordPlaceholder"
+        placeholder="请输入密码"
+        autocomplete="current-password"
+        required
+      >
+    </div>
+    <button id="submitBtn" type="submit" class="btn btn-primary" style="margin-top: 8px; padding: 14px 24px;" data-i18n="loginButton">登录</button>
+  </form>
+
+  <div class="form-card__footer">
+    <a href="/register" data-i18n="createAccount">创建账号</a>
+    <a class="muted" href="/" data-i18n="backToHome">返回首页</a>
+  </div>
+</section>
+
+<script src="{{ theme_assets_url('js/i18n.js') }}"></script>
+<script src="{{ theme_assets_url('js/site-api.js') }}"></script>
+<script>
+const redirectTo = {{ redirect_to | tojson_script | safe }};
+const alertEl = document.getElementById('errorAlert');
+
+I18n.init();
+
+document.querySelectorAll('.lang-switch__btn').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    const newLang = this.dataset.lang;
+    
+    // 保存到 localStorage（统一格式: zh -> zh-CN）
+    const normalizedLang = newLang === 'zh' ? 'zh-CN' : newLang;
+    localStorage.setItem('preferred_language', normalizedLang);
+    
+    // 初始化 i18n
+    I18n.init(newLang);
+    
+    // 更新按钮激活状态
+    document.querySelectorAll('.lang-switch__btn').forEach(b => {
+      b.classList.toggle('active', b === this);
+      if (b === this) {
+        b.setAttribute('aria-current', 'true');
+      } else {
+        b.removeAttribute('aria-current');
+      }
+    });
+  });
+});
+
+document.getElementById('loginForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = document.getElementById('submitBtn');
+  button.disabled = true;
+  alertEl.style.display = 'none';
+
+  try {
+    await window.InkForgeApi.login({
+      login: document.getElementById('login').value.trim(),
+      password: document.getElementById('password').value,
+    });
+    const user = await window.InkForgeApi.checkLoginStatus();
+    if (!user) {
+      throw new Error(I18n.t('sessionError', '登录会话建立失败，请重试。'));
+    }
+    window.location.href = redirectTo;
+  } catch (error) {
+    alertEl.textContent = error.message || I18n.t('loginError', '登录失败，请稍后重试。');
+    alertEl.className = 'alert is-error';
+    alertEl.style.display = 'block';
+  } finally {
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

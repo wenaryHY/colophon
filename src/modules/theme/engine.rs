@@ -21,12 +21,15 @@ use crate::state::AssetManifest;
 /// is cached per active_theme slug in `env_cache`. On each request, the cached
 /// base is cloned and per-request data (globals, data functions, plugin hooks)
 /// is added. This avoids rebuilding the template loader on every request.
+///
+/// `current_lang`: Current language preference for i18n (e.g., "zh" or "en").
 pub async fn build_template_engine(
     ctx: &TemplateContext,
     theme_dir: &Path,
     plugin_manager: &PluginManager,
     env_cache: &Arc<RwLock<HashMap<String, Environment<'static>>>>,
     asset_manifest: &Arc<AssetManifest>,
+    current_lang: Option<&str>,
 ) -> AppResult<Environment<'static>> {
     // 尝试从缓存获取基础 Environment
     let base_env = {
@@ -135,6 +138,7 @@ pub async fn build_template_engine(
     env.add_global("site_description", Value::from(&ctx.site_description));
     env.add_global("site_url", Value::from(&ctx.site_url));
     env.add_global("admin_url", Value::from(&ctx.admin_url));
+    env.add_global("current_lang", Value::from(current_lang.unwrap_or("zh")));
 
     if let Some(ref cfg) = ctx.theme_config {
         env.add_global("theme_config", Value::from_serialize(cfg));

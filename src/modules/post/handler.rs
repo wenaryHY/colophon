@@ -300,6 +300,7 @@ pub async fn upload_custom_page(
 /// - "editor" → render via theme template (like a post, but using page template)
 pub async fn render_custom_page(
     State(state): State<Arc<AppState>>,
+    headers: axum::http::HeaderMap,
     Path(slug): Path<String>,
 ) -> AppResult<axum::response::Response> {
     let page = super::repository::get_page_by_slug(&state.pool, &slug)
@@ -329,8 +330,9 @@ pub async fn render_custom_page(
         _ => {
             // "editor" mode — render via theme template using content_html
             let ctx = TemplateContext::load(&state).await?;
+            let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
             let plugin_guard = state.plugin_manager.read().await;
-            let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest).await?;
+            let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest, Some(&current_lang)).await?;
             let tmpl = env
                 .get_template("post.html")
                 .map_err(|e| AppError::Anyhow(anyhow::anyhow!("template error: {}", e)))?;

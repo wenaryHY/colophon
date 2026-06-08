@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人中心 - {{ site_title }}</title>
+<link rel="preload" href="{{ theme_assets_url('fonts/source-sans-3-400.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ theme_assets_url('fonts/eb-garamond-600.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{ theme_assets_url('css/fonts.css') }}">
+<link rel="stylesheet" href="{{ theme_assets_url('css/theme.css') }}">
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<header class="site-nav" id="siteNav">
+  <nav class="site-nav__inner" aria-label="主导航">
+    <a href="/" class="site-nav__logo">InkForge</a>
+    <div class="site-nav__links">
+      <a href="/" class="site-nav__link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+        </svg>
+        <span data-i18n="backHome">返回首页</span>
+      </a>
+      <div class="lang-switch" role="group" aria-label="语言切换">
+        <button class="lang-switch__btn" type="button" data-lang="zh">中</button>
+        <button class="lang-switch__btn" type="button" data-lang="en">En</button>
+      </div>
+      <a href="{{ admin_url or '/admin' }}" class="btn btn-ghost" data-i18n="admin">管理后台</a>
+      <button id="logoutBtn" class="btn btn-ghost" type="button" style="color: var(--error);" data-i18n="signOut">退出登录</button>
+    </div>
+    <button class="site-nav__menu-toggle" type="button" aria-label="打开菜单" aria-expanded="false">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+  </nav>
+</header>
+
+<main class="site-main">
+  <div class="profile-shell">
+
+    <!-- 用户信息 Hero -->
+    <section class="profile-hero animate-fade-up stagger-1">
+      <div class="profile-hero__avatar" aria-hidden="true">{{ current_user.display_name[:1] | upper }}</div>
+      <div>
+        <h1 class="profile-hero__name">{{ current_user.display_name }}</h1>
+        <p class="profile-hero__meta">
+          @{{ current_user.username }} · <span data-i18n="role">{{ current_user.role }}</span> · <span data-i18n="joined">加入于</span> {{ current_user.created_at[:10] }}
+        </p>
+      </div>
+    </section>
+
+    <!-- 统计 -->
+    <section class="profile-stats animate-fade-up stagger-2" aria-label="数据统计">
+      <div class="stat-card">
+        <span class="stat-card__value" id="postsCount">0</span>
+        <span class="stat-card__label" data-i18n="posts">Posts</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card__value" id="commentsCount">0</span>
+        <span class="stat-card__label" data-i18n="comments">Comments</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card__value" id="likesCount">0</span>
+        <span class="stat-card__label" data-i18n="likes">Likes</span>
+      </div>
+    </section>
+
+    <!-- 资料设置 -->
+    <section class="profile-panel animate-fade-up stagger-3">
+      <div class="profile-panel__head">
+        <h2 class="profile-panel__title" data-i18n="profileSettings">资料设置</h2>
+      </div>
+      <div id="profileAlert" class="alert" role="alert"></div>
+      <form id="profileForm">
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="displayName" class="form-field__label" data-i18n="displayName">显示名称</label>
+            <input id="displayName" name="display_name" type="text" class="form-field__input" value="{{ current_user.display_name }}" required>
+          </div>
+          <div class="form-field">
+            <label for="language" class="form-field__label">语言</label>
+            <select id="language" name="language" class="form-select">
+              <option value="zh" {% if current_user.language == "zh" %}selected{% endif %}>简体中文</option>
+              <option value="en" {% if current_user.language == "en" %}selected{% endif %}>English</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="themePreference" class="form-field__label" data-i18n="themePreference">主题偏好</label>
+            <select id="themePreference" name="theme_preference" class="form-select">
+              <option value="system" {% if current_user.theme_preference == "system" %}selected{% endif %} data-i18n="system">跟随系统</option>
+              <option value="light" {% if current_user.theme_preference == "light" %}selected{% endif %} data-i18n="light">浅色</option>
+              <option value="dark" {% if current_user.theme_preference == "dark" %}selected{% endif %} data-i18n="dark">深色</option>
+            </select>
+          </div>
+          <div class="form-field full">
+            <label for="bio" class="form-field__label" data-i18n="bio">个人简介</label>
+            <textarea id="bio" name="bio" class="form-textarea" placeholder="写一段个人简介…" data-i18n-placeholder="bioPlaceholder">{{ current_user.bio or "" }}</textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="saveProfileBtn" type="submit" data-i18n="saveProfile">保存资料</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 修改密码 -->
+    <section class="profile-panel animate-fade-up stagger-4">
+      <div class="profile-panel__head">
+        <h2 class="profile-panel__title" data-i18n="changePassword">修改密码</h2>
+      </div>
+      <div id="passwordAlert" class="alert" role="alert"></div>
+      <form id="passwordForm">
+        <div class="form-grid">
+          <div class="form-field full">
+            <label for="currentPassword" class="form-field__label" data-i18n="currentPassword">当前密码</label>
+            <input id="currentPassword" name="current_password" type="password" class="form-field__input" autocomplete="current-password" required>
+          </div>
+          <div class="form-field">
+            <label for="newPassword" class="form-field__label" data-i18n="newPassword">新密码</label>
+            <input id="newPassword" name="new_password" type="password" class="form-field__input" autocomplete="new-password" required>
+          </div>
+          <div class="form-field">
+            <label for="confirmPassword" class="form-field__label" data-i18n="confirmPassword">确认新密码</label>
+            <input id="confirmPassword" type="password" class="form-field__input" autocomplete="new-password" required>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="changePasswordBtn" type="submit" data-i18n="updatePassword">更新密码</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 我的评论 -->
+    <section class="profile-panel animate-fade-up stagger-5">
+      <div class="profile-panel__head">
+        <h2 class="profile-panel__title" data-i18n="myComments">我的评论</h2>
+      </div>
+      <div id="commentsEmpty" class="comment-empty" style="display:none" data-i18n="noComments">暂无评论。</div>
+      <div id="commentsList" class="comments__list"></div>
+    </section>
+
+  </div>
+</main>
+
+<!-- 页脚 -->
+<footer class="site-footer">
+  <div class="site-footer__inner">
+    <div class="site-footer__brand">
+      <span class="site-footer__name">InkForge</span>
+      <span class="site-footer__copy">© {{ site_title }}</span>
+    </div>
+    <nav class="site-footer__links" aria-label="次级链接">
+      <a href="#" class="site-footer__link">Privacy Policy</a>
+      <a href="#" class="site-footer__link">Terms of Service</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="{{ theme_assets_url('js/site-api.js') }}"></script>
+<script src="{{ theme_assets_url('js/i18n.js') }}"></script>
+<script>
+const profileData = {{ current_user | tojson_script | safe }};
+const currentLang = profileData.language || 'zh';
+const commentsList = document.getElementById('commentsList');
+const commentsEmpty = document.getElementById('commentsEmpty');
+
+function showAlert(id, message, type) {
+  const el = document.getElementById(id);
+  el.textContent = message;
+  el.className = `alert is-${type}`;
+  el.style.display = 'block';
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+async function loadStats() {
+  try {
+    document.getElementById('postsCount').textContent = profileData.posts_count || 0;
+    document.getElementById('commentsCount').textContent = profileData.comments_count || 0;
+    document.getElementById('likesCount').textContent = profileData.likes_count || 0;
+  } catch (error) {
+    console.error('Failed to load stats:', error);
+  }
+}
+
+async function loadComments() {
+  try {
+    const data = await window.InkForgeApi.apiRequest('/api/me/comments?page=1&page_size=20');
+    const items = data.items || [];
+
+    if (items.length === 0) {
+      commentsEmpty.style.display = 'block';
+      commentsList.innerHTML = '';
+      return;
+    }
+
+    commentsEmpty.style.display = 'none';
+    commentsList.innerHTML = items.map((comment) => `
+      <article class="comment-item">
+        <div class="comment-item__head" style="justify-content: space-between; width: 100%;">
+          <a href="/${comment.post_content_type === 'page' ? 'pages' : 'posts'}/${escapeHtml(comment.post_slug)}" style="color: var(--primary); font-weight: 600;">${escapeHtml(comment.post_title)}</a>
+          <span class="tag tag--neutral">${escapeHtml(comment.status)}</span>
+        </div>
+        <div style="font-size: var(--font-size-caption); color: var(--on-surface-variant); margin-bottom: 8px;">
+          ${escapeHtml((comment.created_at || '').replace('T', ' ').slice(0, 16))}
+        </div>
+        <p class="comment-item__body">${escapeHtml(comment.content)}</p>
+      </article>
+    `).join('');
+  } catch (error) {
+    commentsEmpty.style.display = 'block';
+    commentsEmpty.textContent = window.I18n ? window.I18n.t('loadCommentsError') : '无法加载评论。';
+    commentsList.innerHTML = '';
+  }
+}
+
+document.getElementById('profileForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = document.getElementById('saveProfileBtn');
+  button.disabled = true;
+  try {
+    await window.InkForgeApi.apiRequest('/api/v1/me/profile', {
+      method: 'PATCH',
+      body: {
+        display_name: document.getElementById('displayName').value.trim(),
+        bio: document.getElementById('bio').value.trim() || null,
+        theme_preference: document.getElementById('themePreference').value,
+      },
+    });
+    showAlert('profileAlert', window.I18n ? window.I18n.t('profileUpdated') : '资料已更新。', 'success');
+  } catch (error) {
+    showAlert('profileAlert', error.message || '资料更新失败。', 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('passwordForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = document.getElementById('changePasswordBtn');
+  const newPassword = document.getElementById('newPassword').value;
+  const confirmPassword = document.getElementById('confirmPassword').value;
+
+  if (newPassword !== confirmPassword) {
+    showAlert('passwordAlert', window.I18n ? window.I18n.t('passwordMismatch') : '两次输入的密码不一致。', 'error');
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    await window.InkForgeApi.apiRequest('/api/v1/me/password', {
+      method: 'PATCH',
+      body: {
+        current_password: document.getElementById('currentPassword').value,
+        new_password: newPassword,
+      },
+    });
+    event.target.reset();
+    showAlert('passwordAlert', window.I18n ? window.I18n.t('passwordUpdated') : '密码已更新。', 'success');
+  } catch (error) {
+    showAlert('passwordAlert', error.message || '密码更新失败。', 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  try {
+    await window.InkForgeApi.logout();
+  } finally {
+    window.location.href = '/login';
+  }
+});
+
+// 滚动时给导航栏加阴影
+const nav = document.getElementById('siteNav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('is-scrolled', window.scrollY > 20);
+}, { passive: true });
+
+// 移动端汉堡菜单切换
+document.addEventListener('DOMContentLoaded', function() {
+  const menuToggle = document.querySelector('.site-nav__menu-toggle');
+  const navLinks = document.querySelector('.site-nav__links');
+  
+  if (menuToggle && navLinks) {
+    // 确保初始状态
+    menuToggle.setAttribute('aria-expanded', 'false');
+    navLinks.classList.remove('is-open');
+    
+    menuToggle.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const isExpanded = this.getAttribute('aria-expanded') === 'true';
+      
+      if (isExpanded) {
+        // 关闭菜单
+        navLinks.classList.remove('is-open');
+        this.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('menu-open');
+      } else {
+        // 打开菜单 - 强制重排确保动画触发
+        navLinks.offsetHeight;
+        navLinks.classList.add('is-open');
+        this.setAttribute('aria-expanded', 'true');
+        document.body.classList.add('menu-open');
+      }
+    });
+    
+    // 点击菜单外部关闭菜单（仅移动端）
+    document.addEventListener('click', function(e) {
+      if (window.innerWidth > 767) return;
+      if (!menuToggle.contains(e.target) && !navLinks.contains(e.target)) {
+        menuToggle.setAttribute('aria-expanded', 'false');
+        navLinks.classList.remove('is-open');
+        document.body.classList.remove('menu-open');
+      }
+    });
+  }
+});
+
+// 初始化
+loadStats();
+loadComments();
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.I18n) {
+    window.I18n.init(currentLang);
+    window.I18n.updatePage();
+  }
+
+  // 标记当前语言并处理切换
+  document.querySelectorAll('.lang-switch__btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === currentLang);
+    btn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      const newLang = this.dataset.lang;
+      if (newLang === currentLang) return;
+      
+      try {
+        // 调用 API 更新用户语言偏好
+        await window.InkForgeApi.apiRequest('/api/v1/me/profile', {
+          method: 'PATCH',
+          body: { language: newLang },
+        });
+        
+        // 保存到 localStorage（统一格式: zh -> zh-CN）
+        const normalizedLang = newLang === 'zh' ? 'zh-CN' : newLang;
+        localStorage.setItem('preferred_language', normalizedLang);
+        
+        // 重新加载页面应用新语言
+        window.location.reload();
+      } catch (error) {
+        console.error('Failed to update language:', error);
+        
+        // 失败时仍更新前端显示
+        if (window.I18n) {
+          window.I18n.init(newLang);
+          window.I18n.updatePage();
+        }
+        
+        // 更新按钮状态
+        document.querySelectorAll('.lang-switch__btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.lang === newLang);
+        });
+      }
+    });
+  });
+});
+</script>
+</body>
+</html>

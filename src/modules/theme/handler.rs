@@ -228,7 +228,8 @@ pub async fn render_home(
     );
 
     let plugin_guard = state.plugin_manager.read().await;
-    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest).await?;
+    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
+    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest, Some(&current_lang)).await?;
     let tmpl = env
         .get_template("index.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -360,7 +361,8 @@ pub async fn render_post(
         .unwrap_or_default();
 
     let plugin_guard = state.plugin_manager.read().await;
-    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest).await?;
+    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
+    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest, Some(&current_lang)).await?;
     let tmpl = env
         .get_template("post.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -626,8 +628,9 @@ pub async fn preview_theme(
 
     // 构建模板引擎
     let plugin_guard = state.plugin_manager.read().await;
+    let current_lang = crate::infra::i18n_middleware::DEFAULT_LANG; // 预览页面使用默认语言
     let env = engine::build_template_engine(
-        &ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest
+        &ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest, Some(current_lang)
     ).await?;
 
     // 选择模板

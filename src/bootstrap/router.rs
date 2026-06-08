@@ -483,5 +483,9 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .layer(axum::middleware::from_fn(
             crate::shared::request_id::request_id_context,
         ))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::infra::i18n_middleware::inject_language,
+        ))
         .with_state(state)
 }

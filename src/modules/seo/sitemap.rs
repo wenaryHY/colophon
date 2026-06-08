@@ -48,6 +48,20 @@ pub async fn generate_sitemap_xml_with_fallback(
     build_sitemap_xml_inner(site_url.trim_end_matches('/'), state).await
 }
 
+/// 生成 hreflang 多语言标记（符合 Google SEO 最佳实践）
+/// 
+/// 注意：当前未实施 URL 前缀路由（/en/posts/xxx 不存在），
+/// 所以三个 hreflang 都指向同一 URL。这符合 Google 文档的
+/// "通过 cookie/header 切换语言"模式。
+/// 未来如果实施 URL 前缀，再修改为 /zh/xxx 和 /en/xxx。
+fn generate_hreflang_links(url: &str) -> String {
+    format!(
+        r#"    <xhtml:link rel="alternate" hreflang="zh" href="{url}"/>
+    <xhtml:link rel="alternate" hreflang="en" href="{url}"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="{url}"/>"#
+    )
+}
+
 async fn build_sitemap_xml_inner(site_url: &str, state: &AppState) -> Result<String, String> {
     let posts = post_repository::list_for_sitemap(&state.pool)
         .await
@@ -60,17 +74,22 @@ async fn build_sitemap_xml_inner(site_url: &str, state: &AppState) -> Result<Str
 "#,
     );
 
+    // 首页
     let now = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let home_url = format!("{site_url}/");
     xml.push_str(&format!(
         r#"  <url>
-    <loc>{site_url}/</loc>
+    <loc>{home_url}</loc>
     <lastmod>{now}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+{hreflang}
   </url>
 "#,
+        hreflang = generate_hreflang_links(&home_url)
     ));
 
+    // 文章和页面
     for post in posts {
         let path_prefix = if post.content_type == ContentType::Page { "pages" } else { "posts" };
         let post_url = format!("{site_url}/{path_prefix}/{}", post.slug);
@@ -81,8 +100,10 @@ async fn build_sitemap_xml_inner(site_url: &str, state: &AppState) -> Result<Str
     <lastmod>{lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
+{hreflang}
   </url>
 "#,
+            hreflang = generate_hreflang_links(&post_url)
         ));
     }
 
@@ -131,6 +152,33 @@ mod tests {
             infer_site_url_from_host_header(&headers),
             "http://localhost"
         );
+    }
+
+    #[test]
+    fn hreflang_includes_zh_en_and_x_default() {
+        let url = "https://example.com/posts/hello-world";
+        let xml = generate_hreflang_links(url);
+        assert!(xml.contains(r#"hreflang="zh""#));
+        assert!(xml.contains(r#"hreflang="en""#));
+        assert!(xml.contains(r#"hreflang="x-default""#));
+    }
+
+    #[test]
+    fn hreflang_all_variants_point_to_same_url_when_no_url_prefix_routing() {
+        let url = "https://example.com/posts/hello-world";
+        let xml = generate_hreflang_links(url);
+        // 当前无 URL 前缀路由，三个变体都指向同一 URL
+        let occurrences = xml.matches(url).count();
+        assert_eq!(occurrences, 3, "expected url to appear 3 times in hreflang block");
+    }
+
+    #[test]
+    fn hreflang_uses_xhtml_namespace_prefix() {
+        let url = "https://example.com/";
+        let xml = generate_hreflang_links(url);
+        // 必须使用 xhtml: 前缀以匹配 <urlset> 中声明的命名空间
+        assert!(xml.contains("<xhtml:link"));
+        assert!(xml.contains(r#"rel="alternate""#));
     }
 }
 
