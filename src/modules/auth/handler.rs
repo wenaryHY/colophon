@@ -68,7 +68,8 @@ pub async fn register(
     let access_token = login_data.access_token.clone();
     let refresh_cookie =
         build_refresh_cookie(&refresh_token, REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS, cookie_secure);
-    let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
+    let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
+        .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
     let json = Json(ApiResponse::success(login_data));
 
     let mut resp_headers = axum::http::HeaderMap::new();
@@ -76,7 +77,8 @@ pub async fn register(
     let session_cookie = build_session_cookie(&access_token, expires_in_seconds, cookie_secure);
     resp_headers.append(
         axum::http::header::SET_COOKIE,
-        axum::http::HeaderValue::from_str(&session_cookie).unwrap(),
+        axum::http::HeaderValue::from_str(&session_cookie)
+            .expect("JWT cookie must be ASCII-only; if this fails, check token encoding"),
     );
     Ok((resp_headers, json).into_response())
 }
@@ -134,7 +136,8 @@ pub async fn login(
     let access_token = login_data.access_token.clone();
 
     let refresh_cookie = build_refresh_cookie(&refresh_token, refresh_max_age, cookie_secure);
-    let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
+    let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
+        .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
     let json = Json(ApiResponse::success(login_data));
 
     let mut resp_headers = axum::http::HeaderMap::new();
@@ -142,7 +145,8 @@ pub async fn login(
     let session_cookie = build_session_cookie(&access_token, session_max_age, cookie_secure);
     resp_headers.append(
         axum::http::header::SET_COOKIE,
-        axum::http::HeaderValue::from_str(&session_cookie).unwrap(),
+        axum::http::HeaderValue::from_str(&session_cookie)
+            .expect("JWT cookie must be ASCII-only; if this fails, check token encoding"),
     );
     Ok((resp_headers, json).into_response())
 }
@@ -186,11 +190,13 @@ pub async fn logout(
     let mut resp_headers = axum::http::HeaderMap::new();
     resp_headers.insert(
         axum::http::header::SET_COOKIE,
-        axum::http::HeaderValue::from_str(&clear_refresh).unwrap(),
+        axum::http::HeaderValue::from_str(&clear_refresh)
+            .expect("JWT cookie must be ASCII-only; if this fails, check token encoding"),
     );
     resp_headers.append(
         axum::http::header::SET_COOKIE,
-        axum::http::HeaderValue::from_str(&clear_session).unwrap(),
+        axum::http::HeaderValue::from_str(&clear_session)
+            .expect("JWT cookie must be ASCII-only; if this fails, check token encoding"),
     );
     Ok((resp_headers, json).into_response())
 }
@@ -297,7 +303,8 @@ pub async fn refresh_token(
     // 设置新 refresh_token cookie + 返回 access_token JSON
     let cookie_secure = state.config.cookie_secure();
     let refresh_cookie = build_refresh_cookie(&new_token, REMEMBER_ME_MAX_AGE, cookie_secure);
-    let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
+    let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
+        .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
     let json = Json(ApiResponse::success(serde_json::json!({
         "access_token": access_token,
     })));
@@ -313,7 +320,8 @@ pub async fn refresh_token(
     );
     resp_headers.append(
         axum::http::header::SET_COOKIE,
-        axum::http::HeaderValue::from_str(&session_cookie).unwrap(),
+        axum::http::HeaderValue::from_str(&session_cookie)
+            .expect("JWT cookie must be ASCII-only; if this fails, check token encoding"),
     );
     Ok((resp_headers, json).into_response())
 }

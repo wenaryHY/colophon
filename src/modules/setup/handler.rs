@@ -29,10 +29,12 @@ pub async fn initialize(
 
     let cookie_secure = state.config.cookie_secure();
     let refresh_cookie = build_refresh_cookie(&refresh_token, cookie_secure);
-    let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie).unwrap();
+    let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
+        .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
     let session_cookie =
         build_session_cookie(&payload.token, state.config.auth.expires_in_seconds, cookie_secure);
-    let session_header = axum::http::HeaderValue::from_str(&session_cookie).unwrap();
+    let session_header = axum::http::HeaderValue::from_str(&session_cookie)
+        .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
 
     let json = Json(ApiResponse::success(payload));
 

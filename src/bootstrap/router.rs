@@ -160,7 +160,7 @@ a:hover{{text-decoration:underline}}
                 .status(StatusCode::UNAUTHORIZED)
                 .header("Content-Type", "text/html; charset=utf-8")
                 .body(Body::from(html))
-                .unwrap()
+                .expect("response builder with valid status and headers cannot fail")
         }
     }
 }
@@ -192,12 +192,16 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
 
     let base_origins: Vec<HeaderValue> = {
         let mut v = vec![
-            format!("http://localhost:{port}").parse::<HeaderValue>().unwrap(),
-            format!("http://127.0.0.1:{port}").parse::<HeaderValue>().unwrap(),
+            format!("http://localhost:{port}").parse::<HeaderValue>()
+                .expect("hardcoded CORS origin must be valid HeaderValue"),
+            format!("http://127.0.0.1:{port}").parse::<HeaderValue>()
+                .expect("hardcoded CORS origin must be valid HeaderValue"),
         ];
         if !is_production && port != 5173 {
-            v.push("http://localhost:5173".parse::<HeaderValue>().unwrap());
-            v.push("http://127.0.0.1:5173".parse::<HeaderValue>().unwrap());
+            v.push("http://localhost:5173".parse::<HeaderValue>()
+                .expect("hardcoded CORS origin must be valid HeaderValue"));
+            v.push("http://127.0.0.1:5173".parse::<HeaderValue>()
+                .expect("hardcoded CORS origin must be valid HeaderValue"));
         }
         v
     };
@@ -232,12 +236,16 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             header::CONTENT_TYPE,
             header::ACCEPT,
             header::ORIGIN,
-            "x-client-request-id".parse().unwrap(),
-            "x-api-key".parse().unwrap(),
+            "x-client-request-id".parse()
+                .expect("hardcoded header name must be valid"),
+            "x-api-key".parse()
+                .expect("hardcoded header name must be valid"),
         ])
         .expose_headers([
-            "x-client-request-id".parse().unwrap(),
-            "x-request-id".parse().unwrap(),
+            "x-client-request-id".parse()
+                .expect("hardcoded header name must be valid"),
+            "x-request-id".parse()
+                .expect("hardcoded header name must be valid"),
         ]);
 
     let register_governor_config = GovernorConfigBuilder::default()
@@ -247,7 +255,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             Quota::requests_per_second(nz!(1u32)).burst(nz!(3u32)),
         )
         .finish()
-        .unwrap();
+        .expect("governor config with valid quota must succeed");
 
     let auth_v1 = Router::new()
         .route(
