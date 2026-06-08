@@ -19,6 +19,23 @@ use tower_http::{
 
 use crate::{admin, modules, state::AppState, ws};
 
+/// GET /api/v1/health — 健康检查端点
+///
+/// 用于监控系统检查服务存活状态。无需认证。
+/// 始终返回 200，DB 故障通过 body 表达，避免触发 5xx 告警。
+///
+/// # Response
+/// ```json
+/// {
+///   "status": "ok",      // "ok" | "degraded"
+///   "db": "ok"           // "ok" | "error"
+/// }
+/// ```
+///
+/// # Example
+/// ```bash
+/// curl http://localhost:2000/api/v1/health
+/// ```
 async fn health_check(
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
@@ -34,6 +51,22 @@ async fn health_check(
     }))
 }
 
+/// GET /api/v1/version — 版本信息
+///
+/// 返回当前运行的 InkForge 版本号，用于客户端兼容性检查。无需认证。
+///
+/// # Response
+/// ```json
+/// {
+///   "name": "inkforge",
+///   "version": "1.0.0"
+/// }
+/// ```
+///
+/// # Example
+/// ```bash
+/// curl http://localhost:2000/api/v1/version
+/// ```
 async fn version_info() -> impl IntoResponse {
     axum::Json(serde_json::json!({
         "name": env!("CARGO_PKG_NAME"),

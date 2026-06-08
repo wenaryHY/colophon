@@ -22,6 +22,36 @@ use super::{
     service,
 };
 
+/// GET /api/v1/posts — 列出公开文章
+///
+/// 返回 `status=published` 且 `visibility=public` 的文章列表。
+/// 按 `pinned DESC, published_at DESC` 排序（置顶文章在前）。
+/// 无需认证。
+///
+/// # Query Parameters
+/// - `keyword` (optional): 标题/内容关键词模糊匹配（SQL LIKE，非全文搜索）
+///   - 注意：全文搜索请用 `/api/v1/search` 端点
+/// - `page` (optional, default: 1): 页码，从 1 开始
+/// - `page_size` (optional, default: 10, max: 100): 每页数量
+///
+/// # Response
+/// 返回 `ApiResponse<PaginatedResponse<PublicPostSummary>>`，每个 item 包含：
+/// - `id`: 文章 ID
+/// - `title`: 标题
+/// - `slug`: URL slug
+/// - `excerpt`: 摘要
+/// - `author_display_name`: 作者显示名
+/// - `category_name`: 分类名
+/// - `published_at`: 发布时间（ISO 8601）
+///
+/// # Example
+/// ```bash
+/// # 列出所有文章
+/// curl "http://localhost:2000/api/v1/posts"
+///
+/// # 关键词过滤 + 分页
+/// curl "http://localhost:2000/api/v1/posts?keyword=rust&page=2&page_size=20"
+/// ```
 pub async fn list_public_posts(
     State(state): State<Arc<AppState>>,
     Query(query): Query<PostQuery>,
@@ -31,6 +61,27 @@ pub async fn list_public_posts(
     )))
 }
 
+/// GET /api/v1/posts/:slug — 获取单篇公开文章详情
+///
+/// 根据 slug 获取文章完整内容（包含 HTML 渲染后的正文）。
+/// 仅返回 `status=published` 且 `visibility=public` 的文章。
+/// 无需认证。
+///
+/// # Path Parameters
+/// - `slug`: 文章 URL slug（唯一标识符）
+///
+/// # Response
+/// 返回 `ApiResponse<PublicPostResponse>`，包含：
+/// - `post`: 文章完整信息（包括 `content_html` 渲染后的正文）
+/// - `tags`: 文章关联的标签列表
+///
+/// # Errors
+/// - 404: 文章不存在、未发布或非公开
+///
+/// # Example
+/// ```bash
+/// curl "http://localhost:2000/api/v1/posts/my-first-post"
+/// ```
 pub async fn get_public_post(
     State(state): State<Arc<AppState>>,
     Path(slug): Path<String>,
@@ -40,7 +91,51 @@ pub async fn get_public_post(
     )))
 }
 
-/// GET /api/search — FTS5 full-text search for public posts
+/// GET /api/v1/search — 全文搜索公开文章
+///
+/// 基于 SQLite FTS5 的全文检索，支持中英文。
+/// 仅搜索 `status=published` 且 `visibility=public` 的文章。
+/// 无需认证。
+///
+/// # Query Parameters
+/// - `keyword` (required): 搜索关键词，必填
+/// - `category_id` (optional): 按分类 ID 过滤
+/// - `tag_id` (optional): 按标签 ID 过滤
+/// - `page` (optional, default: 1): 页码，从 1 开始
+/// - `page_size` (optional, default: 10, max: 100): 每页数量
+///
+/// # Response
+/// ```json
+/// {
+///   "code": 0,
+///   "message": "ok",
+///   "data": {
+///     "items": [
+///       {
+///         "id": "...",
+///         "title": "...",
+///         "slug": "...",
+///         "excerpt": "...",
+///         "author_display_name": "...",
+///         "category_name": "...",
+///         "published_at": "2024-01-01T12:00:00Z"
+///       }
+///     ],
+///     "pagination": {
+///       "page": 1,
+///       "page_size": 10,
+///       "total": 42
+///     }
+///   },
+///   "request_id": "..."
+/// }
+/// ```
+///
+/// # Example
+/// ```bash
+/// curl "http://localhost:2000/api/v1/search?keyword=rust&page=1&page_size=20"
+/// curl "http://localhost:2000/api/v1/search?keyword=性能优化&category_id=tech"
+/// ```
 pub async fn search_posts(
     State(state): State<Arc<AppState>>,
     Query(query): Query<SearchQuery>,
@@ -50,6 +145,34 @@ pub async fn search_posts(
     )))
 }
 
+/// GET /api/v1/admin/posts — 列出后台文章（管理员）
+///
+/// 返回所有状态的文章（包括草稿、已发布、私有），用于后台管理。
+/// 需要 Admin 权限（通过 `AdminUser` 提取器验证）。
+///
+/// # Query Parameters
+/// - `keyword` (optional): 标题/内容关键词模糊匹配
+/// - `status` (optional): 按状态过滤（`draft` | `published`）
+/// - `content_type` (optional): 按类型过滤（`post` | `page`）
+/// - `page` (optional, default: 1): 页码
+/// - `page_size` (optional, default: 10, max: 100): 每页数量
+///
+/// # Response
+/// 返回 `ApiResponse<PaginatedResponse<AdminPostResponse>>`，每个 item 包含：
+/// - `post`: 文章完整信息（包括状态、可见性等后台字段）
+/// - `tags`: 关联标签列表
+///
+/// # Authentication
+/// 需要携带有效的 session cookie（Admin 角色）。
+///
+/// # Example
+/// ```bash
+/// # 列出所有草稿
+/// curl -b cookies.txt "http://localhost:2000/api/v1/admin/posts?status=draft"
+///
+/// # 列出所有页面类型
+/// curl -b cookies.txt "http://localhost:2000/api/v1/admin/posts?content_type=page"
+/// ```
 pub async fn list_admin_posts(
     State(state): State<Arc<AppState>>,
     _admin: AdminUser,
@@ -70,6 +193,35 @@ pub async fn get_admin_post(
     )))
 }
 
+/// POST /api/v1/admin/posts — 创建新文章（管理员）
+///
+/// 创建新文章或页面。需要 Admin 权限。
+///
+/// # Request Body
+/// `CreatePostRequest` JSON 对象：
+/// - `title` (required): 文章标题
+/// - `slug` (optional): URL slug，留空自动生成
+/// - `excerpt` (optional): 摘要
+/// - `content_md` (optional): Markdown 原文
+/// - `cover_media_id` (optional): 封面图 media ID
+/// - `status` (optional, default: draft): 状态（`draft` | `published`）
+/// - `visibility` (optional, default: public): 可见性（`public` | `private`）
+/// - `category_id` (optional): 分类 ID
+/// - `tag_ids` (optional): 标签 ID 数组
+/// - `allow_comment` (optional, default: true): 是否允许评论
+/// - `pinned` (optional, default: false): 是否置顶
+/// - `content_type` (optional, default: post): 内容类型（`post` | `page`）
+///
+/// # Response
+/// 返回 `ApiResponse<AdminPostResponse>`，包含新创建的文章完整信息。
+///
+/// # Example
+/// ```bash
+/// curl -X POST -b cookies.txt \
+///   -H "Content-Type: application/json" \
+///   -d '{"title":"我的第一篇文章","content_md":"# Hello\n\n这是正文"}' \
+///   http://localhost:2000/api/v1/admin/posts
+/// ```
 pub async fn create_post(
     State(state): State<Arc<AppState>>,
     admin: AdminUser,
