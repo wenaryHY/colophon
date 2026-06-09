@@ -50,15 +50,34 @@ mod config_tests {
 
     #[test]
     fn config_validate_allows_default_secret_in_development() {
+        // 开发模式应该允许默认 secret（但会警告）
         let config = AppConfig::load().unwrap();
-        assert!(config.validate().is_ok());
+        assert!(config.validate().is_ok(), "开发模式应允许默认 secret");
     }
 
     #[test]
     fn config_validate_blocks_default_secret_in_production() {
+        // 生产模式应该拒绝默认 secret（无绕过选项）
         let mut config = AppConfig::load().unwrap();
         config.runtime.mode = "production".to_string();
-        assert!(config.validate().is_err());
+        let result = config.validate();
+        assert!(result.is_err(), "生产模式应拒绝默认 secret");
+        assert!(
+            result.unwrap_err().to_string().contains("生产环境必须设置"),
+            "错误信息应包含强制设置的提示"
+        );
+    }
+
+    #[test]
+    fn config_validate_accepts_custom_secret_in_production() {
+        // 生产模式接受自定义 secret
+        let mut config = AppConfig::load().unwrap();
+        config.runtime.mode = "production".to_string();
+        config.auth.secret = "my-secret-key-123".to_string();
+        assert!(
+            config.validate().is_ok(),
+            "生产模式应接受自定义 secret"
+        );
     }
 
     #[test]

@@ -30,7 +30,6 @@ pub struct AuthConfig {
     pub secret: String,
     /// 访问令牌默认存活时长（秒），必须为正整数
     pub expires_in_seconds: u64,
-    pub allow_insecure_default_secret: bool,
     /// Cloudflare Turnstile secret key（可选，为空则跳过验证）
     #[serde(default)]
     pub turnstile_secret: String,
@@ -98,7 +97,6 @@ impl AppConfig {
             .set_default("database.url", "sqlite://inkforge.db?mode=rwc")?
             .set_default("auth.secret", "change-me-in-production-please")?
             .set_default("auth.expires_in_seconds", 900)?
-            .set_default("auth.allow_insecure_default_secret", false)?
             .set_default("auth.turnstile_secret", "")?
             .set_default("auth.turnstile_site_key", "")?
             .set_default("auth.cookie_secure", false)?
@@ -124,16 +122,16 @@ impl AppConfig {
             return Ok(());
         }
 
-        if self.is_production()
-            && !self.auth.allow_insecure_default_secret
-        {
+        // 生产模式必须设置非默认 secret（无绕过选项）
+        if self.is_production() {
             bail!(
-                "unsafe default JWT secret is blocked in production; set INKFORGE__AUTH__SECRET or explicitly set INKFORGE__AUTH__ALLOW_INSECURE_DEFAULT_SECRET=true"
+                "生产环境必须设置 INKFORGE__AUTH__SECRET（不能使用默认值）"
             );
         }
 
+        // 开发模式警告
         tracing::warn!(
-            "⚠️  JWT secret is using default value. Set INKFORGE__AUTH__SECRET before any non-development deployment."
+            "⚠️  开发模式使用默认 JWT secret。生产环境前请设置 INKFORGE__AUTH__SECRET"
         );
         Ok(())
     }
