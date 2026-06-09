@@ -66,9 +66,35 @@ a{color:inherit;text-decoration:none}
 .footer-powered{font-size:13px;color:var(--muted)}
 .footer-powered a{color:var(--accent);font-weight:500}
 
+/* ===== 语言切换器 ===== */
+.lang-switch{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:14px;margin-left:8px;
+}
+.lang-switch__btn{
+  background:none;border:none;
+  font-family:inherit;font-size:inherit;
+  color:var(--muted);padding:4px 8px;
+  border-radius:4px;cursor:pointer;
+  transition:color 0.2s ease,background-color 0.2s ease;
+  font-weight:400;
+}
+.lang-switch__btn:hover{
+  color:var(--text);background:var(--border);
+}
+.lang-switch__btn.active{
+  color:var(--accent);font-weight:600;
+  pointer-events:none;
+}
+.lang-switch__divider{
+  color:var(--border);font-weight:300;
+  user-select:none;
+}
+
 /* ===== 响应式 ===== */
 @media(max-width:640px){
   .wrap{padding:0 20px}
   .page-header .wrap{flex-wrap:wrap;gap:12px}
   .site-footer{flex-direction:column;gap:12px;align-items:flex-start}
+  .lang-switch{margin-left:0}
 }

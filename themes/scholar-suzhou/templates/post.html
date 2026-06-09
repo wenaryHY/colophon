@@ -54,12 +54,12 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
         </svg>
-        返回首页
+        <span data-i18n="backToHome">返回首页</span>
       </a>
       {% if current_user %}
-        <a href="/profile" class="site-nav__action">个人中心</a>
+        <a href="/profile" class="site-nav__action"><span data-i18n="buttonProfile">个人中心</span></a>
       {% else %}
-        <a href="/login?redirect=/posts/{{ post.slug }}" class="site-nav__action">登录</a>
+        <a href="/login?redirect=/posts/{{ post.slug }}" class="site-nav__action"><span data-i18n="buttonLogin">登录</span></a>
       {% endif %}
       
       <!-- 语言切换器 -->
@@ -101,7 +101,7 @@
   <!-- 文章头部 -->
   <header class="container-article">
     <nav class="article__breadcrumb" aria-label="面包屑">
-      <span>Articles</span>
+      <span data-i18n="navArticles">Articles</span>
       {% if post.category_name %}
       <span class="article__breadcrumb-sep">/</span>
       <span>{{ post.category_name }}</span>
@@ -167,7 +167,7 @@
   <!-- 评论区 -->
   <section class="container-article comments">
     <h2 class="comments__title">
-      评论
+      <span data-i18n="commentTitle">评论</span>
       <span class="comments__count" id="commentCount">{{ comments | length }}</span>
     </h2>
 
@@ -189,7 +189,7 @@
 
     <!-- 评论表单 -->
     <div class="comment-form">
-      <h3 class="comment-form__label">发表评论</h3>
+      <h3 class="comment-form__label"><span data-i18n="commentSubmit">发表评论</span></h3>
       {% if current_user %}
         <p style="margin-bottom: var(--space-stack-md); color: var(--on-surface-variant); font-size: var(--font-size-body-md);">
           当前登录用户：<strong>{{ current_user.username }}</strong>
@@ -226,8 +226,8 @@
       <span class="site-footer__copy">© {{ site_title }} · Powered by <a href="{{ admin_url or '/admin' }}" style="color: var(--primary); font-weight:500;">InkForge</a></span>
     </div>
     <nav class="site-footer__links" aria-label="次级链接">
-      <a href="#" class="site-footer__link">Privacy Policy</a>
-      <a href="#" class="site-footer__link">Terms of Service</a>
+      <a href="#" class="site-footer__link"><span data-i18n="footerPrivacy">Privacy Policy</span></a>
+      <a href="#" class="site-footer__link"><span data-i18n="footerTerms">Terms of Service</span></a>
     </nav>
   </div>
 </footer>
@@ -324,10 +324,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
       
-      // 调用 i18n.js 切换文案（如果存在）
-      if (window.I18n && window.I18n.setLocale) {
-        window.I18n.setLocale(targetLang);
-        window.I18n.updatePage();
+      // 调用 i18n.js 切换文案
+      if (window.I18n) {
+        const i18nLang = targetLang === 'zh-CN' ? 'zh' : 'en';
+        window.I18n.init(i18nLang);
       }
     });
   });
@@ -338,6 +338,18 @@ window.__POST_DATA__ = {
   id: "{{ post.id }}",
   slug: "{{ post.slug }}"
 };
+</script>
+<script src="{{ theme_assets_url('js/i18n.js') }}"></script>
+<script>
+// 初始化 i18n
+document.addEventListener('DOMContentLoaded', function() {
+  const savedLang = localStorage.getItem('preferred_language') || 'zh-CN';
+  // 将 zh-CN 转为 zh，en 保持不变
+  const i18nLang = savedLang === 'zh-CN' ? 'zh' : 'en';
+  if (window.I18n) {
+    window.I18n.init(i18nLang);
+  }
+});
 </script>
 <script src="{{ theme_assets_url('js/site-api.js') }}"></script>
 <script src="{{ theme_assets_url('js/comments.js') }}"></script>

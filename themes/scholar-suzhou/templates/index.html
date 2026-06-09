@@ -44,13 +44,13 @@
   <nav class="site-nav__inner" aria-label="主导航">
     <a href="/" class="site-nav__logo" aria-label="InkForge 首页">InkForge</a>
     <div class="site-nav__links">
-      <a href="/" class="site-nav__link is-active">Home</a>
-      <a href="/#articles" class="site-nav__link">Articles</a>
-      <a href="/#about" class="site-nav__link">About</a>
+      <a href="/" class="site-nav__link is-active"><span data-i18n="navHome">Home</span></a>
+      <a href="/#articles" class="site-nav__link"><span data-i18n="navArticles">Articles</span></a>
+      <a href="/#about" class="site-nav__link"><span data-i18n="navAbout">About</span></a>
       {% if current_user %}
-        <a href="/profile" class="site-nav__action">个人中心</a>
+        <a href="/profile" class="site-nav__action"><span data-i18n="buttonProfile">个人中心</span></a>
       {% else %}
-        <a href="/login?redirect=/" class="site-nav__action">登录</a>
+        <a href="/login?redirect=/" class="site-nav__action"><span data-i18n="buttonLogin">登录</span></a>
       {% endif %}
       
       <!-- 语言切换器 -->
@@ -141,8 +141,8 @@
       <span class="site-footer__copy">© {{ site_title }} · Powered by <a href="{{ admin_url or '/admin' }}" style="color: var(--primary); font-weight:500;">InkForge</a></span>
     </div>
     <nav class="site-footer__links" aria-label="次级链接">
-      <a href="#" class="site-footer__link">Privacy Policy</a>
-      <a href="#" class="site-footer__link">Terms of Service</a>
+      <a href="#" class="site-footer__link"><span data-i18n="footerPrivacy">Privacy Policy</span></a>
+      <a href="#" class="site-footer__link"><span data-i18n="footerTerms">Terms of Service</span></a>
     </nav>
   </div>
 </footer>
@@ -357,10 +357,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
       
-      // 调用 i18n.js 切换文案（如果存在）
-      if (window.I18n && window.I18n.setLocale) {
-        window.I18n.setLocale(targetLang);
-        window.I18n.updatePage();
+      // 调用 i18n.js 切换文案
+      if (window.I18n) {
+        const i18nLang = targetLang === 'zh-CN' ? 'zh' : 'en';
+        window.I18n.init(i18nLang);
       }
       
       // 如果在 profile 页面，调用 API 更新用户语言偏好
@@ -377,6 +377,18 @@ const nav = document.getElementById('siteNav');
 window.addEventListener('scroll', () => {
   nav.classList.toggle('is-scrolled', window.scrollY > 20);
 }, { passive: true });
+</script>
+<script src="{{ theme_assets_url('js/i18n.js') }}"></script>
+<script>
+// 初始化 i18n
+document.addEventListener('DOMContentLoaded', function() {
+  const savedLang = localStorage.getItem('preferred_language') || 'zh-CN';
+  // 将 zh-CN 转为 zh，en 保持不变
+  const i18nLang = savedLang === 'zh-CN' ? 'zh' : 'en';
+  if (window.I18n) {
+    window.I18n.init(i18nLang);
+  }
+});
 </script>
 {{ plugin_body|safe }}
 </body>

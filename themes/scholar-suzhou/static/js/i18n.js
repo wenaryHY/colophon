@@ -5,6 +5,26 @@
   // 翻译字典
   const dictionary = {
     zh: {
+      // 导航
+      navHome: '首页',
+      navArticles: '文章',
+      navAbout: '关于',
+      
+      // 按钮
+      buttonLogin: '登录',
+      buttonProfile: '个人中心',
+      
+      // 页脚
+      footerPrivacy: '隐私政策',
+      footerTerms: '服务条款',
+      
+      // 评论
+      commentTitle: '评论',
+      commentSubmit: '发表评论',
+      
+      // 其他
+      backToHome: '返回首页',
+      
       // 登录页面
       loginTitle: '欢迎回来',
       loginSubtitle: '登录后即可评论、管理个人中心与同步会话。',
@@ -61,6 +81,26 @@
       passwordMismatch: '两次输入的密码不一致',
     },
     en: {
+      // Navigation
+      navHome: 'Home',
+      navArticles: 'Articles',
+      navAbout: 'About',
+      
+      // Buttons
+      buttonLogin: 'Login',
+      buttonProfile: 'Profile',
+      
+      // Footer
+      footerPrivacy: 'Privacy Policy',
+      footerTerms: 'Terms of Service',
+      
+      // Comments
+      commentTitle: 'Comments',
+      commentSubmit: 'Submit Comment',
+      
+      // Other
+      backToHome: 'Back to Home',
+      
       // Login page
       loginTitle: 'Welcome back',
       loginSubtitle: 'Sign in to comment, manage your profile, and sync sessions.',
