@@ -26,9 +26,9 @@ cd /mnt/d/codes/inkforge
 # 4. 部署到服务器
 
 # 同步主题文件（模板 + 静态资源）
-ssh root@162.243.28.76 "rm -rf /opt/inkforge/themes/default/templates /opt/inkforge/themes/default/static 2>/dev/null; mkdir -p /opt/inkforge/themes/default/templates /opt/inkforge/themes/default/static"
-scp -r themes/default/templates/*.html root@162.243.28.76:/opt/inkforge/themes/default/templates/
-scp -r themes/default/static/* root@162.243.28.76:/opt/inkforge/themes/default/static/
+ssh root@162.243.28.76 "rm -rf /opt/inkforge/themes 2>/dev/null; mkdir -p /opt/inkforge/themes"
+scp -r themes/* root@162.243.28.76:/opt/inkforge/themes/
+
 echo "[4/4] Deploying to server..."
 ssh root@162.243.28.76 "systemctl stop inkforge"
 scp target/release/inkforge root@162.243.28.76:/opt/inkforge/inkforge
