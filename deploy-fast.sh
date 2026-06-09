@@ -21,8 +21,8 @@ readonly SERVER_USER="root"
 readonly REMOTE_BINARY_PATH="/opt/inkforge/inkforge"
 readonly REMOTE_DIST_PATH="/opt/inkforge/src/admin/dist"
 readonly REMOTE_ADMIN_HTML_PATH="/opt/inkforge/src/admin/admin.html"
-readonly REMOTE_THEME_TEMPLATES_PATH="/opt/inkforge/themes/default/templates"
-readonly REMOTE_THEME_STATIC_PATH="/opt/inkforge/themes/default/static"
+readonly REMOTE_THEME_TEMPLATES_PATH="/opt/inkforge/themes"
+readonly REMOTE_THEME_STATIC_PATH="/opt/inkforge/themes"
 readonly REMOTE_BACKUP_DIR="/root/inkforge-backups"
 readonly HEALTH_CHECK_URL="http://127.0.0.1:2000/api/v1/health"
 readonly SERVICE_NAME="inkforge"
@@ -151,7 +151,7 @@ rm -f "${TAR_PATH}"
 
 # 4c. 上传主题模板 — 打包为 tar.gz
 log_info "上传主题模板..."
-THEME_SOURCE_DIR="${PROJECT_DIR}/themes/default"
+THEME_SOURCE_DIR="${PROJECT_DIR}/themes"
 
 if [ -d "${THEME_SOURCE_DIR}" ] && [ -d "${THEME_SOURCE_DIR}/templates" ]; then
     THEME_TAR="/tmp/inkforge-theme-$$.tar.gz"
@@ -226,7 +226,7 @@ sleep 3
 # 5g. 健康检查
 echo "[server] 健康检查..."
 if curl -fsS http://127.0.0.1:2000/api/v1/health >/dev/null 2>&1; then
-    echo -e "${COLOR_GREEN}[server] DEPLOY SUCCESS 🎉${COLOR_RESET}"
+    echo -e "${COLOR_GREEN}[server] DEPLOY SUCCESS ${COLOR_RESET}"
 else
     echo -e "${COLOR_RED}[server] DEPLOY FAILED - 回滚请执行:"
     echo "  cp /opt/inkforge/inkforge.old /opt/inkforge/inkforge"
@@ -243,7 +243,7 @@ rm -f "${FRONTEND_DIST_DIR}/admin.html"
 # ── 结果 ──────────────────────────────────────────────────────
 if [ ${DEPLOY_EXIT_CODE} -eq 0 ]; then
     echo ""
-    log_success "🎉 部署完成! https://wenary.me"
+    log_success " 部署完成! https://wenary.me"
 else
     echo ""
     log_error "部署失败，请检查服务器日志"
