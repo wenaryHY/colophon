@@ -61,3 +61,4 @@ scripts/inkforge-publish.sh
 .cursor/
 .choccy/
 .orbit/
+.playwright-mcp/
