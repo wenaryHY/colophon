@@ -205,6 +205,14 @@ pub async fn render_home(
     );
     let ctx = TemplateContext::load(&state).await?;
 
+    // 查询最近 20 篇公开文章，用于首页 SEO + 服务端渲染
+    let recent_posts = crate::modules::post::repository::list_public_posts(
+        &state.pool,
+        None,
+        20,
+        0,
+    ).await.unwrap_or_default();
+
     // 兜底：如果数据库 site_url 为空，从 Host header 推断
     let fallback_site_url =
         crate::modules::seo::infer_site_url_from_host_header(&headers);
@@ -238,7 +246,8 @@ pub async fn render_home(
         .render(minijinja::context!(
             seo_meta => seo_meta,
             json_ld => json_ld,
-            current_user => auth
+            current_user => auth,
+            posts => recent_posts
         ))
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
 

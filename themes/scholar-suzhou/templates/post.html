@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="content-language" content="{{ current_lang }}">
-<link rel="icon" type="image/svg+xml" href="/static/themes/default/logo-icon.svg">
-<link rel="apple-touch-icon" href="/static/themes/default/logo-icon.svg">
+<link rel="icon" type="image/svg+xml" href="{{ theme_assets_url('logo-icon.svg') }}">
+<link rel="apple-touch-icon" href="{{ theme_assets_url('logo-icon.svg') }}">
 <title>{{ seo_meta.title }}</title>
 <meta name="description" content="{{ seo_meta.description }}">
 {% if seo_meta.keywords %}<meta name="keywords" content="{{ seo_meta.keywords }}">{% endif %}

@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="content-language" content="{{ current_lang }}">
-<link rel="icon" type="image/svg+xml" href="/static/themes/default/logo-icon.svg">
-<link rel="apple-touch-icon" href="/static/themes/default/logo-icon.svg">
+<link rel="icon" type="image/svg+xml" href="{{ theme_assets_url('logo-icon.svg') }}">
+<link rel="apple-touch-icon" href="{{ theme_assets_url('logo-icon.svg') }}">
 <title>{{ seo_meta.title }}</title>
 <meta name="description" content="{{ seo_meta.description }}">
 {% if seo_meta.keywords %}<meta name="keywords" content="{{ seo_meta.keywords }}">{% endif %}
@@ -115,18 +115,48 @@
       <div id="searchInfo" style="display:none; margin-bottom: var(--space-stack-md); font-size: var(--font-size-caption); color: var(--on-surface-variant);"></div>
     </section>
 
-    <!-- 文章列表 -->
+    <!-- 文章列表（服务端渲染，SEO 友好） -->
     <section id="articles" aria-label="文章列表">
       <main class="post-grid" id="postsGrid">
-        <div class="empty-state" id="postsLoading">
-          <div class="empty-state__icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
+        {% if posts | length > 0 %}
+          {% for post in posts %}
+          <article class="post-card animate-fade-up">
+            <a href="/{{ 'pages' if post.content_type == 'page' else 'posts' }}/{{ post.slug }}" style="display:flex; flex-direction:column; height:100%;">
+              <div class="post-card__body">
+                {% if post.category_name %}
+                <div class="post-card__tags"><span class="tag">{{ post.category_name }}</span></div>
+                {% endif %}
+                <h2 class="post-card__title">{{ post.title }}</h2>
+                <div class="post-card__meta">
+                  <span>{{ post.author_display_name }}</span>
+                  <span class="post-card__meta-dot"></span>
+                  <span>{{ (post.published_at or post.created_at)[:10] }}</span>
+                </div>
+                {% if post.excerpt %}
+                <p class="post-card__excerpt">{{ post.excerpt }}</p>
+                {% endif %}
+                <span class="post-card__link">
+                  Read full story
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                  </svg>
+                </span>
+              </div>
+            </a>
+          </article>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-state__icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </div>
+            <h3 class="empty-state__title">暂无文章</h3>
+            <p class="empty-state__desc">前往管理后台发布你的第一篇文章吧</p>
           </div>
-          <h3 class="empty-state__title">加载中…</h3>
-        </div>
+        {% endif %}
       </main>
     </section>
 
@@ -278,7 +308,7 @@ document.getElementById('searchInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') doSearch();
 });
 
-renderPosts(_posts);
+// 首页已通过服务端渲染卡片，JS 仅负责搜索/筛选时更新 DOM
 
 // 移动端汉堡菜单切换
 document.addEventListener('DOMContentLoaded', function() {

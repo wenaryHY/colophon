@@ -1,0 +1,12 @@
+[
+  {
+    "id": "hjce2ahgp5",
+    "title": "查看我的项目，根据git提交记录和内部文档,以及实际代码,对我的项目进行了解,并评价项目完整性...",
+    "created_at": "2026-06-10T19:35:35.069897",
+    "updated_at": "2026-06-10T22:24:32.180460",
+    "message_count": 53,
+    "total_tokens": 92371,
+    "provider_id": "choccy-builtin",
+    "model_id": "claude-opus-4-8"
+  }
+]
