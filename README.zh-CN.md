@@ -70,7 +70,7 @@ InkForge 是一款博客平台，基于一个信念构建：你的内容技术�
 
 性能不是事后的补丁——它是地基。从 TLS 终止到 SQLite 查询，整个请求路径都运行在 Rust 异步运行时内，零 GC 停顿。这意味着在入门级 VPS 硬件上，即使使用默认的 SQLite WAL 模式配置，也能达到 p95 低于 10ms 的响应时间。不需要 Redis，不需要 opcache，不需要调优。
 
-插件系统在设计层面就是编译期安全的。插件是实现某个 trait 的 Rust crate——编译器会在你的站点启动之前验证类型安全和 API 契约。要禁用某个插件，在管理后台翻转一个布尔值，该插件便从请求路径中消失。没有运行时动态分发开销，没有 `eval`，没有猴子补丁。
+InkForge 包含一个在演进中的插件系统。插件使用 Rust 编写，在运行时从 `plugins/` 目录加载。当前状态和范围见[插件系统（预览）](#插件系统预览)章节。
 
 ## 功能特性
 
@@ -97,6 +97,9 @@ InkForge 是一款博客平台，基于一个信念构建：你的内容技术�
 
 ## 性能
 
+> 基于作者默认主题、小规模数据集（约 100 篇文章）测得。
+> 完整基准测试脚本和方法论正在准备中。
+
 | | InkForge | Ghost | WordPress |
 |---|---|---|---|
 | **语言** | Rust | Node.js | PHP |
@@ -117,78 +120,16 @@ InkForge 是一款博客平台，基于一个信念构建：你的内容技术�
 - **搜索：** SQLite FTS5 虚拟表，内容变更时增量重建
 - **桌面壳：** Tauri 2 进程内模式，与 Web 服务共享同一 `lib.rs` 入口
 
-## 插件示例
+## 插件系统（预览）
 
-一个在文章发布时记录日志的最小插件。在 `plugins/hello-world/` 目录下创建两个文件：
+插件系统功能可用但仍处于演进阶段：
+- 插件在运行时从 `plugins/` 目录发现
+- 每个插件都有一个 `plugin.toml` 清单文件
+- 插件可以注册钩子、API 路由和模板函数
+- 可在管理后台启用/禁用插件，无需重启
 
-**`plugin.toml`**
-
-```toml
-[plugin]
-id = "hello-world"
-title = "Hello World"
-version = "0.1.0"
-description = "Logs a message when a post is published"
-author = "You"
-
-[engine]
-inkforge = ">=1.0.0"
-
-[hooks]
-template = false
-routes = false
-assets = []
-```
-
-**`src/lib.rs`**
-
-```rust
-use async_trait::async_trait;
-use std::sync::Arc;
-
-use crate::modules::plugin::hook::{Hook, HookContext, HookData, HookHandler};
-use crate::modules::plugin::Plugin;
-use crate::shared::error::AppResult;
-
-pub struct HelloPlugin;
-
-impl HelloPlugin {
-    pub fn new() -> Self { Self }
-}
-
-#[async_trait]
-impl Plugin for HelloPlugin {
-    fn name(&self) -> &str { "hello-world" }
-    fn version(&self) -> &str { "0.1.0" }
-
-    fn hooks(&self) -> Vec<Hook> {
-        struct PublishLogger;
-
-        #[async_trait]
-        impl HookHandler for PublishLogger {
-            async fn run(&self, ctx: &mut HookContext) -> AppResult<()> {
-                if let HookData::PostAfterPublish(ref data) = ctx.data {
-                    tracing::info!(
-                        "Post published: {} (slug: {})",
-                        data.title,
-                        data.slug,
-                    );
-                }
-                Ok(())
-            }
-        }
-
-        vec![Hook::new_action(
-            "post.after_publish",
-            10,
-            self.name(),
-            Arc::new(PublishLogger),
-        )]
-    }
-}
-```
-
-重新构建项目——`build.rs` 会自动发现插件目录并将其链接到二进制中。可在管理后台运行时启用或禁用它。
+> 插件 API 目前处于预览阶段。对希望扩展 InkForge 的 Rust 开发者有用，
+> 但尚不是通用的市场式插件生态。钩子覆盖面和开发者文档正在扩展中。
 
 ## 部署
 

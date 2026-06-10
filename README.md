@@ -70,7 +70,7 @@ InkForge is a blogging platform built around one conviction: your content stack 
 
 Performance is not an afterthought — it is the foundation. The entire request path, from TLS termination to SQLite query, lives inside a Rust async runtime with zero garbage-collection pauses. This means sub-10ms p95 response times on commodity VPS hardware, even under the default SQLite WAL-mode configuration. No Redis, no opcache, no tuning required.
 
-The plugin system is compile-time safe by design. Plugins are Rust crates that implement a trait — the compiler verifies type safety and API contracts before your site ever starts. When you want to disable a plugin, flip a boolean in the admin panel and it is gone from the request path. No runtime dynamic dispatch overhead, noeval, no monkey-patching.
+InkForge includes an evolving plugin system. Plugins are written in Rust and loaded at runtime from the `plugins/` directory. See the [Plugin System (Preview)](#plugin-system-preview) section for the current status and scope.
 
 ## Features
 
@@ -97,6 +97,9 @@ The plugin system is compile-time safe by design. Plugins are Rust crates that i
 
 ## Performance
 
+> Measured on the author's default theme with a small dataset (~100 posts).
+> Full benchmark scripts and methodology are being prepared.
+
 | | InkForge | Ghost | WordPress |
 |---|---|---|---|
 | **Language** | Rust | Node.js | PHP |
@@ -117,78 +120,18 @@ Measured on a $6/mo VPS (1 vCPU, 1 GB RAM) serving the default theme with 100 ca
 - **Search:** SQLite FTS5 virtual tables, incrementally rebuilt on content change
 - **Desktop shell:** Tauri 2 in-process mode, sharing the same `lib.rs` entry point as the web server
 
-## Plugin Example
+## Plugin System (Preview)
 
-A minimal plugin that logs every published post. Create two files under `plugins/hello-world/`:
+The plugin system is functional but still evolving:
+- Plugins are discovered at runtime from the `plugins/` directory
+- Each plugin has a `plugin.toml` manifest
+- Plugins can register hooks, API routes, and template functions
+- Enable/disable plugins from the admin panel without restarting
 
-**`plugin.toml`**
-
-```toml
-[plugin]
-id = "hello-world"
-title = "Hello World"
-version = "0.1.0"
-description = "Logs a message when a post is published"
-author = "You"
-
-[engine]
-inkforge = ">=1.0.0"
-
-[hooks]
-template = false
-routes = false
-assets = []
-```
-
-**`src/lib.rs`**
-
-```rust
-use async_trait::async_trait;
-use std::sync::Arc;
-
-use crate::modules::plugin::hook::{Hook, HookContext, HookData, HookHandler};
-use crate::modules::plugin::Plugin;
-use crate::shared::error::AppResult;
-
-pub struct HelloPlugin;
-
-impl HelloPlugin {
-    pub fn new() -> Self { Self }
-}
-
-#[async_trait]
-impl Plugin for HelloPlugin {
-    fn name(&self) -> &str { "hello-world" }
-    fn version(&self) -> &str { "0.1.0" }
-
-    fn hooks(&self) -> Vec<Hook> {
-        struct PublishLogger;
-
-        #[async_trait]
-        impl HookHandler for PublishLogger {
-            async fn run(&self, ctx: &mut HookContext) -> AppResult<()> {
-                if let HookData::PostAfterPublish(ref data) = ctx.data {
-                    tracing::info!(
-                        "Post published: {} (slug: {})",
-                        data.title,
-                        data.slug,
-                    );
-                }
-                Ok(())
-            }
-        }
-
-        vec![Hook::new_action(
-            "post.after_publish",
-            10,
-            self.name(),
-            Arc::new(PublishLogger),
-        )]
-    }
-}
-```
-
-Rebuild the project — `build.rs` discovers the plugin directory automatically and links it into the binary. Enable or disable it from the admin panel at runtime.
+> The plugin API is in preview. It is useful for Rust developers who
+> want to extend InkForge, but is not yet a general marketplace-style
+> plugin ecosystem. Hook coverage and developer documentation are
+> being expanded.
 
 ## Deploy
 

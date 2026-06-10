@@ -46,7 +46,13 @@ fn get_webhook_http_client() -> &'static reqwest::Client {
 /// 检查 URL 是否指向私有 IP 或 localhost
 /// 
 /// 防止 SSRF 攻击：拒绝 webhook 指向内网地址
+/// 设置 `INKFORGE_TEST_MODE=true` 环境变量可跳过检查（仅供集成测试使用）
 fn is_private_or_local_url(url: &str) -> Result<bool, AppError> {
+    // 集成测试模式下跳过 SSRF 检查，允许 webhook 使用 localhost 进行端到端测试
+    if std::env::var("INKFORGE_TEST_MODE").is_ok() {
+        return Ok(false);
+    }
+
     let parsed = url::Url::parse(url)
         .map_err(|_| AppError::BadRequest("无效的 URL 格式".into()))?;
 

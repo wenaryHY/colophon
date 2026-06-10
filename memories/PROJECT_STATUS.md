@@ -1,8 +1,22 @@
 # InkForge 项目现状（唯一真相来源）
 
 **最后更新**: 2026-05-29  
-**版本**: v1.0.0  
-**状态**: 已发布
+**版本**: v1.0 (RC)  
+**状态**: 预览 / 发布候选
+
+---
+
+## 状态
+
+| 组件 | 成熟度 |
+|------|--------|
+| Core CMS (posts, pages, API) | RC / beta |
+| Admin UI (React SPA) | beta |
+| Theme system (MiniJinja) | beta |
+| Webhook | beta |
+| Plugin system | preview |
+| Tauri desktop shell | experimental (not yet packaged) |
+| Managed hosting / SaaS | planned |
 
 ---
 

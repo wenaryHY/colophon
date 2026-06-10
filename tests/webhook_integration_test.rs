@@ -19,6 +19,7 @@ async fn start_server_and_wait_ready(port: u16) -> reqwest::Client {
     std::env::set_var("INKFORGE__SERVER__PORT", port.to_string());
     std::env::set_var("INKFORGE__STORAGE__UPLOAD_DIR", "target_tmp_test_webhook_uploads");
     std::env::set_var("INKFORGE__THEME__THEME_DIR", "target_tmp_test_webhook_themes");
+    std::env::set_var("INKFORGE_TEST_MODE", "true");
 
     tokio::spawn(async {
         if let Err(e) = serve().await {
