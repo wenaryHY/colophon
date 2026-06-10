@@ -1,35 +1,35 @@
 [Unit]
-Description=InkForge CMS
+Description=Colophon CMS
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=inkforge
-Group=inkforge
-WorkingDirectory=/opt/inkforge
-ExecStart=/opt/inkforge/inkforge
+User=colophon
+Group=colophon
+WorkingDirectory=/opt/colophon
+ExecStart=/opt/colophon/colophon
 Restart=always
 RestartSec=5
 
-Environment=RUST_LOG=inkforge=info
-Environment=INKFORGE__RUNTIME__MODE=production
-Environment=INKFORGE__SERVER__HOST=127.0.0.1
-Environment=INKFORGE__SERVER__PORT=2000
-Environment=INKFORGE__DATABASE__URL=sqlite:///var/lib/inkforge/inkforge.db?mode=rwc
-Environment=INKFORGE__STORAGE__UPLOAD_DIR=/var/lib/inkforge/uploads
-Environment=INKFORGE__PATHS__ADMIN_DIST_DIR=/opt/inkforge/src/admin/dist
-Environment=INKFORGE__AUTH__TURNSTILE_SECRET=0x4AAAAAADffbmSURBkp_S0jukZZN4b0-68
+Environment=RUST_LOG=colophon=info
+Environment=COLOPHON__RUNTIME__MODE=production
+Environment=COLOPHON__SERVER__HOST=127.0.0.1
+Environment=COLOPHON__SERVER__PORT=2000
+Environment=COLOPHON__DATABASE__URL=sqlite:///var/lib/colophon/colophon.db?mode=rwc
+Environment=COLOPHON__STORAGE__UPLOAD_DIR=/var/lib/colophon/uploads
+Environment=COLOPHON__PATHS__ADMIN_DIST_DIR=/opt/colophon/src/admin/dist
+Environment=COLOPHON__AUTH__TURNSTILE_SECRET=0x4AAAAAADffbmSURBkp_S0jukZZN4b0-68
 
-# Put INKFORGE__AUTH__SECRET in /etc/inkforge/inkforge.env with 0600 permissions.
-EnvironmentFile=-/etc/inkforge/inkforge.env
+# Put COLOPHON__AUTH__SECRET in /etc/colophon/colophon.env with 0600 permissions.
+EnvironmentFile=-/etc/colophon/colophon.env
 
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/inkforge /var/backups/inkforge
-ReadOnlyPaths=/opt/inkforge /etc/inkforge
+ReadWritePaths=/var/lib/colophon /var/backups/colophon
+ReadOnlyPaths=/opt/colophon /etc/colophon
 
 [Install]
 WantedBy=multi-user.target

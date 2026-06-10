@@ -2,46 +2,46 @@
 # HTTP 监听地址
 # - 0.0.0.0 = 所有网络接口（默认，适合 VPS 部署）
 # - 127.0.0.1 = 仅本机访问（适合 Nginx 反向代理后端）
-# 环境变量：INKFORGE__SERVER__HOST
+# 环境变量：COLOPHON__SERVER__HOST
 host = "0.0.0.0"
 
 # HTTP 监听端口
 # 范围：1-65535（小于 1024 需要 root 权限）
-# 环境变量：INKFORGE__SERVER__PORT
+# 环境变量：COLOPHON__SERVER__PORT
 port = 2000
 
 [database]
 # SQLite 数据库文件路径
 # - 相对路径基于当前工作目录
-# - 绝对路径示例：sqlite:///var/lib/inkforge/data.db
+# - 绝对路径示例：sqlite:///var/lib/colophon/data.db
 # - mode=rwc：读写模式，文件不存在时自动创建
-# 环境变量：INKFORGE__DATABASE__URL
-url = "sqlite://inkforge.db?mode=rwc"
+# 环境变量：COLOPHON__DATABASE__URL
+url = "sqlite://colophon.db?mode=rwc"
 
 [auth]
 # JWT 签名密钥
 # ⚠️ 生产环境必须修改！默认值在生产模式下会被拒绝启动
 # 推荐用 openssl 生成：openssl rand -hex 32
-# 环境变量：INKFORGE__AUTH__SECRET（推荐通过环境变量设置，不要写在配置文件）
-secret = "inkforge-change-me-in-production"
+# 环境变量：COLOPHON__AUTH__SECRET（推荐通过环境变量设置，不要写在配置文件）
+secret = "colophon-change-me-in-production"
 
 # JWT access token 过期时间（秒）
 # 默认 900 = 15 分钟
 # 范围建议：300（5 分钟）到 3600（1 小时）
 # 过期后用 refresh token 自动续签
-# 环境变量：INKFORGE__AUTH__EXPIRES_IN_SECONDS
+# 环境变量：COLOPHON__AUTH__EXPIRES_IN_SECONDS
 expires_in_seconds = 900
 
 # Cloudflare Turnstile 服务端密钥（可选）
 # 留空表示不启用 bot 验证
 # 启用后注册/登录会强制验证 Turnstile token
-# 环境变量：INKFORGE__AUTH__TURNSTILE_SECRET
+# 环境变量：COLOPHON__AUTH__TURNSTILE_SECRET
 turnstile_secret = ""
 
 # Cloudflare Turnstile 站点公钥（可选）
 # 必须和 turnstile_secret 一同启用
 # 暴露给前端，无需保密
-# 环境变量：INKFORGE__AUTH__TURNSTILE_SITE_KEY
+# 环境变量：COLOPHON__AUTH__TURNSTILE_SITE_KEY
 turnstile_site_key = ""
 
 # Cookie Secure 标记
@@ -49,33 +49,33 @@ turnstile_site_key = ""
 # - true：HTTPS 部署，cookie 带 Secure，浏览器仅在 HTTPS 下发送
 # ACME 自动签发证书成功后会自动改为 true
 # 注意：此字段独立于 runtime.mode，HTTP 生产环境也保持 false
-# 环境变量：INKFORGE__AUTH__COOKIE_SECURE
+# 环境变量：COLOPHON__AUTH__COOKIE_SECURE
 cookie_secure = false
 
 [storage]
 # 上传文件存储目录
 # 相对路径基于当前工作目录
 # 程序启动时自动创建（含子目录 media/ 用于按月归档）
-# 环境变量：INKFORGE__STORAGE__UPLOAD_DIR
+# 环境变量：COLOPHON__STORAGE__UPLOAD_DIR
 upload_dir = "uploads"
 
 # 单文件上传大小限制（MB）
 # 默认 10 MB，范围建议：1-100
 # 上传超过此值返回 413 Payload Too Large
 # 💡 上传 11MB 图片失败？把这个值改成 20 并重启服务
-# 环境变量：INKFORGE__STORAGE__MAX_UPLOAD_SIZE_MB
+# 环境变量：COLOPHON__STORAGE__MAX_UPLOAD_SIZE_MB
 max_upload_size_mb = 10
 
 [theme]
 # 主题文件存储目录
 # 每个主题占一个子目录：themes/<slug>/
 # 包含 templates/（HTML 模板）和 static/（CSS/JS/图片）
-# 环境变量：INKFORGE__THEME__THEME_DIR
+# 环境变量：COLOPHON__THEME__THEME_DIR
 theme_dir = "themes"
 
 # 数据库中 active_theme 不存在时的降级主题
 # 必须确保该主题存在于 theme_dir 中，否则启动失败
-# 环境变量：INKFORGE__THEME__ACTIVE_THEME_FALLBACK
+# 环境变量：COLOPHON__THEME__ACTIVE_THEME_FALLBACK
 active_theme_fallback = "default"
 
 # 主题默认显示模式
@@ -83,28 +83,28 @@ active_theme_fallback = "default"
 # - "light"：浅色模式
 # - "dark"：深色模式
 # - "system"：跟随浏览器偏好（默认）
-# 环境变量：INKFORGE__THEME__DEFAULT_MODE
+# 环境变量：COLOPHON__THEME__DEFAULT_MODE
 default_mode = "system"
 
 [webhook]
 # Webhook 并发发送上限
 # 默认 5，范围建议：1-50
 # 超过的事件会排队等待
-# 环境变量：INKFORGE__WEBHOOK__MAX_CONCURRENCY
+# 环境变量：COLOPHON__WEBHOOK__MAX_CONCURRENCY
 max_concurrency = 5
 
 # 单个 webhook HTTP 请求超时（秒）
 # 默认 60，范围建议：5-120
 # 超时后视为失败，按 webhook 的重试策略重试
 # 注意：这是单个请求超时，不是所有 webhook 总超时
-# 环境变量：INKFORGE__WEBHOOK__TIMEOUT_SECONDS
+# 环境变量：COLOPHON__WEBHOOK__TIMEOUT_SECONDS
 timeout_seconds = 60
 
 [paths]
 # Admin 前端构建产物目录
 # 开发环境：src/admin/dist（运行 `npm run build` 生成）
 # 生产环境：构建时已嵌入二进制，此字段实际不读盘
-# 环境变量：INKFORGE__PATHS__ADMIN_DIST_DIR
+# 环境变量：COLOPHON__PATHS__ADMIN_DIST_DIR
 admin_dist_dir = "src/admin/dist"
 
 [runtime]
@@ -112,5 +112,5 @@ admin_dist_dir = "src/admin/dist"
 # 可选值：
 # - "development"（默认）：开发模式，详细日志，宽松验证
 # - "production"：生产模式，精简日志，强制检查 JWT secret
-# 环境变量：INKFORGE__RUNTIME__MODE
+# 环境变量：COLOPHON__RUNTIME__MODE
 mode = "development"

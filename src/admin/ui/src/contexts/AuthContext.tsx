@@ -28,7 +28,7 @@ interface AuthContextValue {
   isLoading: boolean;
 }
 
-const AUTH_STORAGE_KEY = 'inkforge_auth_user';
+const AUTH_STORAGE_KEY = 'colophon_auth_user';
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {

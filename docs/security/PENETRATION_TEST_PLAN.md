@@ -1,4 +1,4 @@
-﻿# InkForge 渗透测试计划
+﻿# Colophon 渗透测试计划
 
 **测试日期**: 待定  
 **测试环境**: 独立测试实例（非生产）  
@@ -12,12 +12,12 @@
 ### 1. 启动测试实例
 
 ```bash
-cd D:\codes\inkforge
+cd D:\codes\colophon
 
 # 使用独立数据库
-$env:INKFORGE__DATABASE__PATH="test_security_audit.db"
-$env:INKFORGE__AUTH__SECRET="test-secret-insecure-for-testing-only"
-$env:INKFORGE__SERVER__PORT="3000"
+$env:COLOPHON__DATABASE__PATH="test_security_audit.db"
+$env:COLOPHON__AUTH__SECRET="test-secret-insecure-for-testing-only"
+$env:COLOPHON__SERVER__PORT="3000"
 $env:RUST_LOG="info"
 
 # 启动服务
@@ -149,7 +149,7 @@ curl http://localhost:3000/uploads/../../../etc/passwd
 curl http://localhost:3000/static/themes/../../../config/config.toml
 
 # 尝试下载备份（路径遍历）
-curl -X GET http://localhost:3000/api/v1/admin/backup/../../../inkforge.db \
+curl -X GET http://localhost:3000/api/v1/admin/backup/../../../colophon.db \
   -H "Cookie: session=YOUR_SESSION_TOKEN"
 ```
 
@@ -204,7 +204,7 @@ wsl hydra -l test_admin -P /usr/share/wordlists/rockyou.txt \
 </form>
 <script>document.forms[0].submit()</script>
 ```
-2. 受害者已登录 InkForge
+2. 受害者已登录 Colophon
 3. 访问 evil.com
 
 **预期结果**: ✅ 请求失败（Cookie 不发送）
@@ -297,10 +297,10 @@ wsl nikto -h http://localhost:3000
 # Ctrl+C
 
 # 删除测试数据库
-Remove-Item D:\codes\inkforge\test_security_audit.db
+Remove-Item D:\codes\colophon\test_security_audit.db
 
 # 删除上传的测试文件
-Remove-Item -Recurse D:\codes\inkforge\uploads\*test*
+Remove-Item -Recurse D:\codes\colophon\uploads\*test*
 ```
 
 ---

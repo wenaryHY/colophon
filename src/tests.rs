@@ -1,4 +1,4 @@
-/// InkForge 基础测试模块
+/// Colophon 基础测试模块
 ///
 /// 覆盖核心共享组件的基本行为。
 
@@ -165,7 +165,7 @@ mod theme_domain_tests {
             version = "1.0.0"
             author = "Tester"
             description = "A test theme"
-            min_inkforge_version = "0.3.0"
+            min_colophon_version = "0.3.0"
         "#;
         let manifest: ThemeManifest = toml::from_str(toml_str).unwrap();
         assert_eq!(manifest.slug, "test");

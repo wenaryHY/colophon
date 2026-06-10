@@ -26,7 +26,7 @@ impl TemplateContext {
     pub async fn from_provider(provider: &dyn TemplateDataProvider) -> AppResult<Self> {
         let active_theme = provider.get_active_theme().await?;
 
-        let site_title = provider.get_setting("site_title", "InkForge").await;
+        let site_title = provider.get_setting("site_title", "Colophon").await;
 
         let site_description = provider.get_setting("site_description", "").await;
 

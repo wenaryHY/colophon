@@ -58,9 +58,9 @@ async fn generate_atom_feed_xml(
         }
     };
 
-    let site_title = setting_repository::get_string(&state.pool, "site_title", "InkForge")
+    let site_title = setting_repository::get_string(&state.pool, "site_title", "Colophon")
         .await
-        .unwrap_or_else(|_| "InkForge".to_string());
+        .unwrap_or_else(|_| "Colophon".to_string());
 
     let mut entries = String::new();
     for post in &posts {

@@ -1,4 +1,4 @@
-// InkForge 桌面应用核心库
+// Colophon 桌面应用核心库
 // 管理 Tauri 应用生命周期：In-Process 启动 Axum、健康检查、窗口路由
 
 mod commands;
@@ -18,7 +18,7 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 // 1. 启动 In-Process Axum 服务
                 tauri::async_runtime::spawn(async {
-                    if let Err(e) = inkforge::serve().await {
+                    if let Err(e) = colophon::serve().await {
                         tracing::error!("Axum server exited with error: {}", e);
                     }
                 });

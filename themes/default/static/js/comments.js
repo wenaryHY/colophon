@@ -25,11 +25,11 @@
   }
 
   function logDebug(event, details) {
-    console.debug('[InkForge][comments][debug]', event, details || {});
+    console.debug('[Colophon][comments][debug]', event, details || {});
   }
 
   function logError(event, details) {
-    console.error('[InkForge][comments][error]', event, details || {});
+    console.error('[Colophon][comments][error]', event, details || {});
   }
 
   function showToast(message, type) {
@@ -106,7 +106,7 @@
     try {
       logDebug('submit_start', { slug });
 
-      const result = await window.InkForgeApi.apiRequest(`/api/v1/posts/${slug}/comments`, {
+      const result = await window.ColophonApi.apiRequest(`/api/v1/posts/${slug}/comments`, {
         method: 'POST',
         body: {
           content: String(data.get('content') || '').trim(),
@@ -122,7 +122,7 @@
       form.reset();
     } catch (error) {
       if (error && error.status === 401) {
-        const target = window.InkForgeApi.sanitizeRedirect(window.location.pathname + window.location.search, '/');
+        const target = window.ColophonApi.sanitizeRedirect(window.location.pathname + window.location.search, '/');
         logDebug('submit_redirect_login', { slug, target });
         window.location.href = `/login?redirect=${encodeURIComponent(target)}`;
         return;
@@ -220,9 +220,9 @@
 
     initCommentWebSocket();
 
-    if (!document.getElementById('inkforge-fadein-style')) {
+    if (!document.getElementById('colophon-fadein-style')) {
       const style = document.createElement('style');
-      style.id = 'inkforge-fadein-style';
+      style.id = 'colophon-fadein-style';
       style.textContent = '@keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }';
       document.head.appendChild(style);
     }

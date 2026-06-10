@@ -1,7 +1,7 @@
 /// SSRF 防护集成测试
 /// 
 /// 验证 webhook 模块正确拒绝指向内网地址的 URL
-use inkforge::serve;
+use colophon::serve;
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -15,10 +15,10 @@ struct SessionCookie {
 }
 
 async fn start_server_and_wait_ready(port: u16) -> reqwest::Client {
-    std::env::set_var("INKFORGE__DATABASE__URL", "sqlite::memory:");
-    std::env::set_var("INKFORGE__SERVER__PORT", port.to_string());
-    std::env::set_var("INKFORGE__STORAGE__UPLOAD_DIR", "target_tmp_test_ssrf_uploads");
-    std::env::set_var("INKFORGE__THEME__THEME_DIR", "target_tmp_test_ssrf_themes");
+    std::env::set_var("COLOPHON__DATABASE__URL", "sqlite::memory:");
+    std::env::set_var("COLOPHON__SERVER__PORT", port.to_string());
+    std::env::set_var("COLOPHON__STORAGE__UPLOAD_DIR", "target_tmp_test_ssrf_uploads");
+    std::env::set_var("COLOPHON__THEME__THEME_DIR", "target_tmp_test_ssrf_themes");
 
     tokio::spawn(async {
         if let Err(e) = serve().await {
@@ -88,12 +88,12 @@ async fn login_as_admin(client: &reqwest::Client, base: &str) -> SessionCookie {
         .collect();
 
     for cookie_str in &all_cookies {
-        if let Some(token) = extract_token_from_cookie(cookie_str, "inkforge_session=") {
+        if let Some(token) = extract_token_from_cookie(cookie_str, "colophon_session=") {
             return SessionCookie { token };
         }
     }
 
-    panic!("No inkforge_session cookie found in: {:?}", all_cookies);
+    panic!("No colophon_session cookie found in: {:?}", all_cookies);
 }
 
 fn extract_token_from_cookie(cookie_str: &str, prefix: &str) -> Option<String> {
@@ -108,7 +108,7 @@ fn add_session_cookie(
     request: reqwest::RequestBuilder,
     cookie: &SessionCookie,
 ) -> reqwest::RequestBuilder {
-    request.header("Cookie", format!("inkforge_session={}", cookie.token))
+    request.header("Cookie", format!("colophon_session={}", cookie.token))
 }
 
 /// 测试：拒绝指向 localhost 的 webhook

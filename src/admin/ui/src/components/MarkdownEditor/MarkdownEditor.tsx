@@ -59,7 +59,7 @@ export function MarkdownEditor({ value, onChange, onHtmlChange, onModeChange, sh
   const handleEditorReady = useCallback((view: any) => {
     if (view && 'state' in view) {
       cmViewRef.current = view;
-      (window as any).inkforgeInsertMarkdown = (text: string) => {
+      (window as any).colophonInsertMarkdown = (text: string) => {
         if (!cmViewRef.current) return;
         const v = cmViewRef.current;
         const selection = v.state.selection.main;

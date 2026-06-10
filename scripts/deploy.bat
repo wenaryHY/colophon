@@ -1,3 +1,3 @@
 @echo off
-wsl --cd /mnt/d/codes/inkforge -- bash scripts/deploy.sh
+wsl --cd /mnt/d/codes/colophon -- bash scripts/deploy.sh
 pause

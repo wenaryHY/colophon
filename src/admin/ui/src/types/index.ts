@@ -171,7 +171,7 @@ export interface ThemeManifest {
   version: string;
   author: string;
   description: string;
-  min_inkforge_version?: string;
+  min_colophon_version?: string;
   preview_image?: string | null;
   config?: Record<string, ThemeConfigField>;
 }

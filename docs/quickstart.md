@@ -1,6 +1,6 @@
 # Quick Start
 
-InkForge compiles to a single static binary — no reverse proxy, no separate Node process, no runtime dependency beyond `libsqlite3`. You will be writing in under two minutes.
+Colophon compiles to a single static binary — no reverse proxy, no separate Node process, no runtime dependency beyond `libsqlite3`. You will be writing in under two minutes.
 
 ## Prerequisites
 
@@ -19,16 +19,16 @@ sqlite3 --version # 3.x
 ## Install & Run
 
 ```bash
-git clone https://github.com/wenaryHY/inkforge.git
-cd inkforge
+git clone https://github.com/wenaryHY/colophon.git
+cd colophon
 cd src/admin/ui && npm ci && cd -
-cargo build --release -p inkforge
+cargo build --release -p colophon
 cargo run --release
 ```
 
 Open **http://localhost:2000/admin** — the setup wizard guides you through creating your admin account and picking a theme. No config file editing required.
 
-On first launch, InkForge creates a SQLite database at `inkforge.db` in the project root, runs migrations automatically, and starts serving on port 2000. Both the admin panel and the public site share the same port.
+On first launch, Colophon creates a SQLite database at `colophon.db` in the project root, runs migrations automatically, and starts serving on port 2000. Both the admin panel and the public site share the same port.
 
 ## First Post
 
@@ -52,20 +52,20 @@ It builds the frontend and Rust binary inside your local environment, uploads ev
 If you prefer Docker:
 
 ```bash
-docker build -t inkforge .
+docker build -t colophon .
 docker run -d \
   -p 3000:3000 \
-  -e INKFORGE__AUTH__SECRET="$(openssl rand -hex 32)" \
-  -v inkforge-uploads:/app/uploads \
-  -v inkforge-backups:/app/backups \
-  -v inkforge-data:/app/data \
-  inkforge
+  -e COLOPHON__AUTH__SECRET="$(openssl rand -hex 32)" \
+  -v colophon-uploads:/app/uploads \
+  -v colophon-backups:/app/backups \
+  -v colophon-data:/app/data \
+  colophon
 ```
 
 The Docker image includes Litestream for continuous SQLite replication to S3-compatible storage.
 
 ## Next Steps
 
-- [Plugin Development](./plugin-guide.md) — extend InkForge with Rust-native plugins
+- [Plugin Development](./plugin-guide.md) — extend Colophon with Rust-native plugins
 - [Webhook Configuration](./webhook-guide.md) — trigger external services on post events
 - [Architecture Overview](./architecture.md) — understand the design and performance characteristics

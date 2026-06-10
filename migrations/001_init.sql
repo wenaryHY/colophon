@@ -100,8 +100,8 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 INSERT OR IGNORE INTO settings (key, value) VALUES
-    ('site_title', 'InkForge'),
-    ('site_description', 'A personal blog powered by InkForge'),
+    ('site_title', 'Colophon'),
+    ('site_description', 'A personal blog powered by Colophon'),
     ('site_url', 'http://localhost:3000'),
     ('allow_register', 'true'),
     ('allow_comment', 'true'),

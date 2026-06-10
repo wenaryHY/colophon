@@ -126,7 +126,7 @@ export function TiptapPanel({ value, onChange, onHtmlChange }: Props) {
   // Register global insert function for media library
   useEffect(() => {
     if (!editor) return;
-    (window as any).inkforgeInsertMarkdown = (text: string) => {
+    (window as any).colophonInsertMarkdown = (text: string) => {
       // If it's an image markdown syntax, insert as image node
       const imageMatch = text.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
       if (imageMatch) {

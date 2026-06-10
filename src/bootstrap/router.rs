@@ -53,12 +53,12 @@ async fn health_check(
 
 /// GET /api/v1/version — 版本信息
 ///
-/// 返回当前运行的 InkForge 版本号，用于客户端兼容性检查。无需认证。
+/// 返回当前运行的 Colophon 版本号，用于客户端兼容性检查。无需认证。
 ///
 /// # Response
 /// ```json
 /// {
-///   "name": "inkforge",
+///   "name": "colophon",
 ///   "version": "1.0.0"
 /// }
 /// ```
@@ -141,7 +141,7 @@ async fn admin_page_auth_guard(
                 r#"<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>权限不足 — InkForge</title>
+<title>权限不足 — Colophon</title>
 <style>
 body{{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
 display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;

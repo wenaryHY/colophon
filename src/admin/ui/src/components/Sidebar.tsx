@@ -169,7 +169,7 @@ export function Sidebar({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <img src="/static/themes/default/logo-icon.svg" alt="InkForge" style={{ width: '36px', height: '36px' }} />
+          <img src="/static/themes/default/logo-icon.svg" alt="Colophon" style={{ width: '36px', height: '36px' }} />
         </div>
         {showText && (
           <div>
@@ -181,7 +181,7 @@ export function Sidebar({
               fontFamily: "'Manrope', sans-serif",
               letterSpacing: '-0.3px',
             }}>
-              InkForge
+              Colophon
             </div>
             <div style={{
               fontSize: '10px',

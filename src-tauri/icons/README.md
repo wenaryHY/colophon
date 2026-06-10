@@ -1,4 +1,4 @@
-# InkForge 应用图标
+# Colophon 应用图标
 
 ## 图标来源
 

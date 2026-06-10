@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This document describes the high-level design of InkForge. It is written for developers who want to understand the system before contributing, writing a plugin, or deploying in production.
+This document describes the high-level design of Colophon. It is written for developers who want to understand the system before contributing, writing a plugin, or deploying in production.
 
 ## Technology Stack
 
@@ -161,7 +161,7 @@ Measurements from a $6/month VPS (1 vCPU, 1 GB RAM, DigitalOcean) serving the de
 | **Database** | SQLite WAL mode, no separate process |
 | **Startup time** | < 500 ms (cold), < 100 ms (warm) |
 
-InkForge achieves these numbers through several design decisions:
+Colophon achieves these numbers through several design decisions:
 
 - **Single binary, single process** — no IPC overhead between web server and database.
 - **SQLite WAL mode** — concurrent reads scale well; writes are serialized by SQLite's internal locking.

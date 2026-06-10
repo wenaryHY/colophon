@@ -429,7 +429,7 @@ App (PreviewProvider)
   │     { content, contentType, theme, themeConfig, device, zoom }
   │
   ├─► 2. 写入 sessionStorage
-  │     sessionStorage.setItem('inkforge-preview-data', JSON.stringify(data))
+  │     sessionStorage.setItem('colophon-preview-data', JSON.stringify(data))
   │
   ├─► 3. 打开新标签页
   │     window.open('/preview', '_blank')

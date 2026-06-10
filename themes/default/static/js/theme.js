@@ -4,7 +4,7 @@
  */
 (function() {
   var html = document.documentElement;
-  var saved = localStorage.getItem('inkforge-theme');
+  var saved = localStorage.getItem('colophon-theme');
   
   if (saved === 'dark') {
     html.setAttribute('data-theme', 'dark');
@@ -23,7 +23,7 @@
   
   // 监听系统偏好变化
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
-    if (!localStorage.getItem('inkforge-theme')) {
+    if (!localStorage.getItem('colophon-theme')) {
       html.setAttribute('data-theme', e.matches ? 'dark' : 'light');
     }
   });
@@ -34,7 +34,7 @@ function toggleTheme() {
   var current = html.getAttribute('data-theme');
   var next = current === 'dark' ? 'light' : 'dark';
   html.setAttribute('data-theme', next);
-  localStorage.setItem('inkforge-theme', next);
+  localStorage.setItem('colophon-theme', next);
   
   var btns = document.querySelectorAll('[data-theme-toggle]');
   for (var i = 0; i < btns.length; i++) {
@@ -91,8 +91,8 @@ function toggleTheme() {
         }
         
         // 如果已登录，调用 API 持久化
-        if (window.InkForgeApi) {
-          window.InkForgeApi.apiRequest('/api/v1/me/profile', {
+        if (window.ColophonApi) {
+          window.ColophonApi.apiRequest('/api/v1/me/profile', {
             method: 'PATCH',
             body: { language: newLang }
           }).catch(function(err) {

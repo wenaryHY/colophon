@@ -10,7 +10,7 @@ export interface DraftData {
   savedAt: number;
 }
 
-const DRAFT_PREFIX = 'inkforge_draft_';
+const DRAFT_PREFIX = 'colophon_draft_';
 
 /** 草稿最大有效时长（ms）：超过 24 小时自动失效 */
 const MAX_DRAFT_AGE_MS = 24 * 60 * 60 * 1000;

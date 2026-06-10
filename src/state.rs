@@ -157,22 +157,22 @@ mod tests {
 
     #[test]
     fn parse_sqlite_url_resolves_relative_paths() {
-        let path = parse_sqlite_url("sqlite://inkforge.db?mode=rwc").unwrap();
+        let path = parse_sqlite_url("sqlite://colophon.db?mode=rwc").unwrap();
         assert!(path.is_absolute());
-        assert!(path.ends_with("inkforge.db"));
+        assert!(path.ends_with("colophon.db"));
     }
 
     #[test]
     fn parse_sqlite_url_preserves_absolute_paths() {
         let expected = if cfg!(windows) {
-            PathBuf::from("C:/inkforge/data.db")
+            PathBuf::from("C:/colophon/data.db")
         } else {
-            PathBuf::from("/app/data/inkforge.db")
+            PathBuf::from("/app/data/colophon.db")
         };
         let url = if cfg!(windows) {
-            "sqlite:///C:/inkforge/data.db?mode=rwc"
+            "sqlite:///C:/colophon/data.db?mode=rwc"
         } else {
-            "sqlite:///app/data/inkforge.db?mode=rwc"
+            "sqlite:///app/data/colophon.db?mode=rwc"
         };
         let path = parse_sqlite_url(url).unwrap();
         assert_eq!(path, expected);

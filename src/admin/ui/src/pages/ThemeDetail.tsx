@@ -166,7 +166,7 @@ export default function ThemeDetail() {
               </div>
               <div>
                 <div style={{ fontSize: '12px', color: 'var(--md-outline)', marginBottom: '6px' }}>{t('minVersionText')}</div>
-                <div style={{ fontSize: '14px', color: 'var(--md-on-surface)' }}>{manifest.min_inkforge_version || t('undeclared')}</div>
+                <div style={{ fontSize: '14px', color: 'var(--md-on-surface)' }}>{manifest.min_colophon_version || t('undeclared')}</div>
               </div>
             </div>
           </section>

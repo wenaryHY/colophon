@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <script>
-(function(){var t=localStorage.getItem('inkforge-theme');
+(function(){var t=localStorage.getItem('colophon-theme');
 if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
 document.documentElement.setAttribute('data-theme','dark');})();
 </script>
@@ -15,7 +15,7 @@ document.documentElement.setAttribute('data-theme','dark');})();
 <meta name="description" content="{{ seo_meta.description }}">
 {% if seo_meta.keywords %}<meta name="keywords" content="{{ seo_meta.keywords }}">{% endif %}
 <link rel="sitemap" type="application/xml" href="/sitemap.xml">
-<link rel="alternate" type="application/atom+xml" href="/rss.xml" title="InkForge">
+<link rel="alternate" type="application/atom+xml" href="/rss.xml" title="Colophon">
 <link rel="canonical" href="{{ seo_meta.canonical_url }}">
 <!-- 多语言 SEO：告诉搜索引擎此页面支持多语言（通过 cookie 切换） -->
 <link rel="alternate" hreflang="zh" href="{{ seo_meta.canonical_url }}">

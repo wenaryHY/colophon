@@ -28,7 +28,7 @@ use super::{
 };
 
 const BACKUP_ARCHIVE_NAME: &str = "backup.zip";
-const BACKUP_DB_ENTRY: &str = "database/inkforge.db";
+const BACKUP_DB_ENTRY: &str = "database/colophon.db";
 const BACKUP_MANIFEST_VERSION: i64 = 2;
 const CURRENT_SCHEMA_VERSION: i64 = 7;
 

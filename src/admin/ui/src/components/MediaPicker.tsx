@@ -1,6 +1,6 @@
 /**
  * MediaPicker - 从媒体库选择文件并插入编辑器的弹窗组件
- * 通过 window.inkforgeInsertMarkdown(text) 插入到当前编辑器
+ * 通过 window.colophonInsertMarkdown(text) 插入到当前编辑器
  *
  * 支持两个 tab：媒体库（浏览已有文件） / 上传（直接上传新文件）
  */
@@ -89,7 +89,7 @@ export function MediaPicker({ open, onClose }: Props) {
     const markdown = isImage
       ? `\n![${item.original_name}](${originalUrl})\n`
       : `\n[${item.original_name}](${originalUrl})\n`;
-    const fn = (window as any).inkforgeInsertMarkdown;
+    const fn = (window as any).colophonInsertMarkdown;
     if (fn) fn(markdown);
     else navigator.clipboard.writeText(markdown);
     onClose();

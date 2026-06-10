@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>注册 - {{ site_title | default("InkForge") }}</title>
+<title>注册 - {{ site_title | default("Colophon") }}</title>
 <link rel="preload" href="{{ theme_assets_url('fonts/source-sans-3-400.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{{ theme_assets_url('fonts/eb-garamond-600.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ theme_assets_url('css/fonts.css') }}">
@@ -21,7 +21,7 @@
 <body class="account-page">
 
 <section class="form-card" aria-labelledby="registerTitle">
-  <a href="/" class="site-nav__logo" style="display:block; font-size: 24px; margin-bottom: var(--space-stack-md);">InkForge</a>
+  <a href="/" class="site-nav__logo" style="display:block; font-size: 24px; margin-bottom: var(--space-stack-md);">Colophon</a>
 
   <h1 id="registerTitle" class="form-card__title">创建你的账号</h1>
   <p class="form-card__subtitle">登录状态自动同步，为每一次落笔留下印记。</p>
@@ -66,13 +66,13 @@ document.getElementById('registerForm').addEventListener('submit', async (event)
   alertEl.style.display = 'none';
 
   try {
-    await window.InkForgeApi.register({
+    await window.ColophonApi.register({
       username: document.getElementById('username').value.trim(),
       email: document.getElementById('email').value.trim(),
       display_name: document.getElementById('displayName').value.trim() || null,
       password: document.getElementById('password').value,
     });
-    const user = await window.InkForgeApi.checkLoginStatus();
+    const user = await window.ColophonApi.checkLoginStatus();
     if (!user) {
       throw new Error('注册成功但登录会话建立失败，请手动登录。');
     }

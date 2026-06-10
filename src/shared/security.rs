@@ -12,7 +12,7 @@ use crate::{shared::error::AppError, state::AppState};
 const LOGIN_WINDOW: Duration = Duration::from_secs(60);
 const MAX_LOGIN_ATTEMPTS: u32 = 8;
 
-pub const SECURITY_PROFILE_HEADER: &str = "x-inkforge-security-profile";
+pub const SECURITY_PROFILE_HEADER: &str = "x-colophon-security-profile";
 pub const SECURITY_PROFILE_THEME_HTML: &str = "theme-html";
 pub const SECURITY_PROFILE_CUSTOM_HTML: &str = "custom-html";
 pub const SECURITY_PROFILE_PREVIEW: &str = "preview";

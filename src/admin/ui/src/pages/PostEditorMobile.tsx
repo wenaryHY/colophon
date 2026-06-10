@@ -83,7 +83,7 @@ function formatRelativeTime(timestamp: number): string {
 
 /** 向 CodeMirror 编辑器插入文本 */
 function insertMarkdownToEditor(text: string) {
-  const fn = (window as any).inkforgeInsertMarkdown;
+  const fn = (window as any).colophonInsertMarkdown;
   if (fn) fn(text);
 }
 

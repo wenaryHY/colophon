@@ -67,7 +67,7 @@ mod theme_provider_tests {
             .expect("from_provider should succeed");
 
         assert_eq!(ctx.active_theme, "mock-theme");
-        assert_eq!(ctx.site_title, "InkForge");
+        assert_eq!(ctx.site_title, "Colophon");
         assert_eq!(ctx.site_description, "");
         assert_eq!(ctx.site_url, "");
         assert_eq!(ctx.admin_url, "/admin");

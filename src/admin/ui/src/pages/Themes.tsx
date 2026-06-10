@@ -143,7 +143,7 @@ export default function Themes() {
 
                     <div style={{ display: 'grid', gap: '8px', fontSize: '12.5px' }}>
                       <div style={{ color: 'var(--md-outline)' }}>{format('authorLabel', { value: theme.manifest.author || t('unknown') })}</div>
-                      <div style={{ color: 'var(--md-outline)' }}>{format('minVersionLabel', { value: theme.manifest.min_inkforge_version || t('undeclared') })}</div>
+                      <div style={{ color: 'var(--md-outline)' }}>{format('minVersionLabel', { value: theme.manifest.min_colophon_version || t('undeclared') })}</div>
                       <div style={{ color: 'var(--md-outline)' }}>{format('configCountLabel', { count: fields.length })}</div>
                     </div>
 

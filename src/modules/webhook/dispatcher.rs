@@ -377,7 +377,7 @@ async fn try_send_webhook(
     let mut req = client
         .post(&webhook.url)
         .header("Content-Type", "application/json")
-        .header("User-Agent", "InkForge-Webhook/1.0")
+        .header("User-Agent", "Colophon-Webhook/1.0")
         .body(payload.to_string());
 
     // 如果配置了 secret，添加 HMAC 签名

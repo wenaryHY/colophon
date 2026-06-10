@@ -106,7 +106,7 @@ impl PluginLoader {
         let req_str = manifest
             .engine
             .as_ref()
-            .and_then(|e| e.inkforge.as_deref())
+            .and_then(|e| e.colophon.as_deref())
             .unwrap_or("*");
 
         let req = VersionReq::parse(req_str)?;

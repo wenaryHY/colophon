@@ -1,4 +1,4 @@
-# InkForge 图标使用指南
+# Colophon 图标使用指南
 
 ## 图标文件说明
 

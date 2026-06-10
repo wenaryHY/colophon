@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-/// 等待 inkforge 服务就绪（最多 10 秒）
+/// 等待 colophon 服务就绪（最多 10 秒）
 /// 每 500ms 轮询 /api/v1/health，超时返回 Err
 pub async fn wait_ready(port: u16) -> Result<(), String> {
     let url = format!("http://127.0.0.1:{}/api/v1/health", port);
@@ -17,7 +17,7 @@ pub async fn wait_ready(port: u16) -> Result<(), String> {
     for i in 0..max_attempts {
         match client.get(&url).send().await {
             Ok(resp) if resp.status().is_success() => {
-                tracing::info!("inkforge service ready after {} attempts", i + 1);
+                tracing::info!("colophon service ready after {} attempts", i + 1);
                 return Ok(());
             }
             _ => {
@@ -26,7 +26,7 @@ pub async fn wait_ready(port: u16) -> Result<(), String> {
         }
     }
     Err(format!(
-        "inkforge service did not become ready within 10 seconds on port {}",
+        "colophon service did not become ready within 10 seconds on port {}",
         port
     ))
 }

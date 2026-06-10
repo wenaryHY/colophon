@@ -23,7 +23,7 @@ use super::{
 };
 
 const BACKUP_ARCHIVE_NAME: &str = "backup.zip";
-const BACKUP_DB_ENTRY: &str = "database/inkforge.db";
+const BACKUP_DB_ENTRY: &str = "database/colophon.db";
 const SYSTEM_SKIP_TABLES: &[&str] = &["backups", "backup_schedules", "theme_configs", "_sqlx_migrations"];
 
 fn local_backend() -> AppResult<LocalBackupStorage> {

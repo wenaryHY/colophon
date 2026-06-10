@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "InkForge",
+  "productName": "Colophon",
   "version": "1.0.0",
-  "identifier": "ai.inkforge.desktop",
+  "identifier": "ai.colophon.desktop",
   "build": {
     "frontendDist": "../src/admin/dist",
 
@@ -25,10 +25,10 @@
       "icons/128x128@2x.png",
       "icons/icon.png"
     ],
-    "publisher": "InkForge Team",
-    "copyright": "Copyright © 2026 InkForge",
+    "publisher": "Colophon Team",
+    "copyright": "Copyright © 2026 Colophon",
     "category": "Productivity",
     "shortDescription": "A modern CMS built with Rust and React",
-    "longDescription": "InkForge is a modern, fast, and secure content management system built with Rust and React. It features a powerful editor, theme system, and plugin architecture."
+    "longDescription": "Colophon is a modern, fast, and secure content management system built with Rust and React. It features a powerful editor, theme system, and plugin architecture."
   }
 }

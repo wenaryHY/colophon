@@ -1,4 +1,4 @@
-# InkForge
+# Colophon
 
 [![English](https://img.shields.io/badge/lang-English-blue)](README.md)
 [![中文](https://img.shields.io/badge/lang-中文-ff6b35)](README.zh-CN.md)
@@ -12,7 +12,7 @@
 ### 一行安装（Linux VPS）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/colophon/master/scripts/install.sh | bash
 ```
 
 打开 `http://YOUR_SERVER_IP:2000/admin` 开始设置你的站点。
@@ -25,8 +25,8 @@ curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/in
 1. 检测操作系统（Ubuntu/Debian/CentOS）和架构（x86_64/aarch64）
 2. 安装系统依赖（sqlite3、ca-certificates）
 3. 从 GitHub Releases 下载最新版二进制
-4. 创建专用系统用户 `inkforge`
-5. 创建目录：`/opt/inkforge`（程序）、`/var/lib/inkforge`（数据）、`/etc/inkforge`（密钥）
+4. 创建专用系统用户 `colophon`
+5. 创建目录：`/opt/colophon`（程序）、`/var/lib/colophon`（数据）、`/etc/colophon`（密钥）
 6. 生成随机 JWT 密钥
 7. 安装并启动 systemd 服务，监听 2000 端口
 
@@ -35,15 +35,15 @@ curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/in
 **管理服务：**
 
 ```bash
-systemctl status inkforge     # 查看状态
-systemctl restart inkforge    # 重启
-journalctl -u inkforge -f     # 查看日志
+systemctl status colophon     # 查看状态
+systemctl restart colophon    # 重启
+journalctl -u colophon -f     # 查看日志
 ```
 
 **更新版本：**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/colophon/master/scripts/install.sh | bash
 ```
 
 重新运行安装脚本会下载最新版本并替换二进制，数据和配置不会丢失。
@@ -52,25 +52,25 @@ curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/in
 
 ```bash
 # 前置条件：Rust 1.75+、Node.js 22+、SQLite 3
-git clone https://github.com/wenaryHY/inkforge.git
-cd inkforge
+git clone https://github.com/wenaryHY/colophon.git
+cd colophon
 cd src/admin/ui && npm ci && cd -
-cargo build --release -p inkforge
+cargo build --release -p colophon
 cargo run --release
 # → http://localhost:2000/admin — 创建你的管理员账号
 ```
 
 > 📖 **完整文档**：[docs/quickstart.md](docs/quickstart.md) — 15 分钟上手指南
 
-首次启动时，InkForge 会在浏览器中打开安装向导。选择一个管理员用户名和密码，挑一款主题，60 秒内即可开始写作。前端资源已预构建并嵌入单一二进制文件中——不需要反向代理，不需要独立的 Node 进程。
+首次启动时，Colophon 会在浏览器中打开安装向导。选择一个管理员用户名和密码，挑一款主题，60 秒内即可开始写作。前端资源已预构建并嵌入单一二进制文件中——不需要反向代理，不需要独立的 Node 进程。
 
-## 为什么选择 InkForge？
+## 为什么选择 Colophon？
 
-InkForge 是一款博客平台，基于一个信念构建：你的内容技术栈不应该需要一支 DevOps 团队。大多数 CMS 平台运行在 Node.js 或 PHP 上，在运行时拉入几十个依赖，空闲时占用 150–300 MB 内存。InkForge 编译为单个静态二进制文件，在单一进程中同时服务你的博客、管理后台和 API，内存占用不到 20 MB。
+Colophon 是一款博客平台，基于一个信念构建：你的内容技术栈不应该需要一支 DevOps 团队。大多数 CMS 平台运行在 Node.js 或 PHP 上，在运行时拉入几十个依赖，空闲时占用 150–300 MB 内存。Colophon 编译为单个静态二进制文件，在单一进程中同时服务你的博客、管理后台和 API，内存占用不到 20 MB。
 
 性能不是事后的补丁——它是地基。从 TLS 终止到 SQLite 查询，整个请求路径都运行在 Rust 异步运行时内，零 GC 停顿。这意味着在入门级 VPS 硬件上，即使使用默认的 SQLite WAL 模式配置，也能达到 p95 低于 10ms 的响应时间。不需要 Redis，不需要 opcache，不需要调优。
 
-InkForge 包含一个在演进中的插件系统。插件使用 Rust 编写，在运行时从 `plugins/` 目录加载。当前状态和范围见[插件系统（预览）](#插件系统预览)章节。
+Colophon 包含一个在演进中的插件系统。插件使用 Rust 编写，在运行时从 `plugins/` 目录加载。当前状态和范围见[插件系统（预览）](#插件系统预览)章节。
 
 ## 功能特性
 
@@ -100,14 +100,14 @@ InkForge 包含一个在演进中的插件系统。插件使用 Rust 编写，�
 > 基于作者默认主题、小规模数据集（约 100 篇文章）测得。
 > 完整基准测试脚本和方法论正在准备中。
 
-| | InkForge | Ghost | WordPress |
+| | Colophon | Ghost | WordPress |
 |---|---|---|---|
 | **语言** | Rust | Node.js | PHP |
 | **响应时间 (p95)** | <10ms | ~50ms | ~200ms |
 | **空闲内存** | ~20MB | ~150MB | ~256MB |
 | **月均 VPS 费用** | $6 | $15 | $20 |
 
-测试环境：$6/月 VPS（1 vCPU，1 GB RAM），默认主题，100 篇缓存文章。响应时间为服务端 p95；端到端延迟取决于 CDN 和网络。InkForge 可在最小的 DigitalOcean droplet 上舒适运行；Ghost 和 WordPress 通常需要更高一档配置才能达到相当的可靠性。
+测试环境：$6/月 VPS（1 vCPU，1 GB RAM），默认主题，100 篇缓存文章。响应时间为服务端 p95；端到端延迟取决于 CDN 和网络。Colophon 可在最小的 DigitalOcean droplet 上舒适运行；Ghost 和 WordPress 通常需要更高一档配置才能达到相当的可靠性。
 
 ## 架构
 
@@ -128,7 +128,7 @@ InkForge 包含一个在演进中的插件系统。插件使用 Rust 编写，�
 - 插件可以注册钩子、API 路由和模板函数
 - 可在管理后台启用/禁用插件，无需重启
 
-> 插件 API 目前处于预览阶段。对希望扩展 InkForge 的 Rust 开发者有用，
+> 插件 API 目前处于预览阶段。对希望扩展 Colophon 的 Rust 开发者有用，
 > 但尚不是通用的市场式插件生态。钩子覆盖面和开发者文档正在扩展中。
 
 ## 部署
@@ -144,28 +144,28 @@ bash deploy-fast.sh
 ### Docker
 
 ```bash
-docker build -t inkforge .
+docker build -t colophon .
 docker run -d \
   -p 3000:3000 \
-  -e INKFORGE__AUTH__SECRET="$(openssl rand -hex 32)" \
-  -v inkforge-uploads:/app/uploads \
-  -v inkforge-backups:/app/backups \
-  -v inkforge-data:/app/data \
-  inkforge
+  -e COLOPHON__AUTH__SECRET="$(openssl rand -hex 32)" \
+  -v colophon-uploads:/app/uploads \
+  -v colophon-backups:/app/backups \
+  -v colophon-data:/app/data \
+  colophon
 ```
 
 镜像内置 Litestream，用于将 SQLite 持续复制到 S3 兼容存储。在 `config/litestream.yml` 中配置复制策略。
 
 ### 二进制
 
-从 [Releases](https://github.com/wenaryHY/inkforge/releases) 页面下载预构建二进制，或从源码构建：
+从 [Releases](https://github.com/wenaryHY/colophon/releases) 页面下载预构建二进制，或从源码构建：
 
 ```bash
 cd src/admin/ui && npm ci && npm run build && cd -
-cargo build --release -p inkforge
+cargo build --release -p colophon
 ```
 
-将 `target/release/inkforge`、`config/` 目录、`migrations/` 和 `themes/` 复制到你的服务器。直接运行二进制——除 `libsqlite3` 外无运行时依赖。
+将 `target/release/colophon`、`config/` 目录、`migrations/` 和 `themes/` 复制到你的服务器。直接运行二进制——除 `libsqlite3` 外无运行时依赖。
 
 ## 安全
 
@@ -179,19 +179,19 @@ cargo build --release -p inkforge
 
 ## 对比
 
-InkForge 适合个人博客、开发者作品集、文档站点，以及速度与低运营成本比第三方集成生态更重要的中小型出版物。
+Colophon 适合个人博客、开发者作品集、文档站点，以及速度与低运营成本比第三方集成生态更重要的中小型出版物。
 
-Ghost 提供更成熟的管理体验、内置会员和 newsletter 系统，以及更大的主题市场。如果你今天就需要订阅计费或多作者新闻编辑室工作流，Ghost 是更安全的选择。不过，Ghost 运行在 Node.js 上，空闲内存约为 InkForge 的 7–8 倍。
+Ghost 提供更成熟的管理体验、内置会员和 newsletter 系统，以及更大的主题市场。如果你今天就需要订阅计费或多作者新闻编辑室工作流，Ghost 是更安全的选择。不过，Ghost 运行在 Node.js 上，空闲内存约为 Colophon 的 7–8 倍。
 
-WordPress 拥有所有 CMS 中规模最大的插件生态，高出数量级。如果你的站点依赖某个特定的 WooCommerce 扩展、页面构建器或深层 SEO 插件链，WordPress 是务实的选择。代价是运行时开销和攻击面——WordPress 站点需要定期打补丁、PHP opcache 层，以及通常需要单独的反向代理缓存才能达到 InkForge 开箱即得的响应时间。
+WordPress 拥有所有 CMS 中规模最大的插件生态，高出数量级。如果你的站点依赖某个特定的 WooCommerce 扩展、页面构建器或深层 SEO 插件链，WordPress 是务实的选择。代价是运行时开销和攻击面——WordPress 站点需要定期打补丁、PHP opcache 层，以及通常需要单独的反向代理缓存才能达到 Colophon 开箱即得的响应时间。
 
-InkForge 的插件系统是 Rust 原生的：插件被编译、静态链接，并在部署前由类型系统验证。这与 PHP 或 JavaScript 的插件模型有本质区别——默认更安全，但插件编写的门槛更高。
+Colophon 的插件系统是 Rust 原生的：插件被编译、静态链接，并在部署前由类型系统验证。这与 PHP 或 JavaScript 的插件模型有本质区别——默认更安全，但插件编写的门槛更高。
 
 ## 许可证
 
 **AGPLv3**（从 v1.0.0 起）。见 [LICENSE](LICENSE)。
 
-你可以根据 AGPLv3 条款免费自托管 InkForge。如果你希望将 InkForge 作为商业 SaaS 提供而不公开你的修改，请联系作者讨论替代许可。
+你可以根据 AGPLv3 条款免费自托管 Colophon。如果你希望将 Colophon 作为商业 SaaS 提供而不公开你的修改，请联系作者讨论替代许可。
 
 ## 路线图
 

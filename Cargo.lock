@@ -1085,6 +1085,73 @@ dependencies = [
 ]
 
 [[package]]
+name = "colophon"
+version = "1.0.0"
+dependencies = [
+ "ammonia",
+ "anyhow",
+ "argon2",
+ "async-trait",
+ "aws-config",
+ "aws-sdk-s3",
+ "axum",
+ "axum-extra",
+ "axum-governor",
+ "base64 0.22.1",
+ "bytes",
+ "chrono",
+ "config",
+ "cron",
+ "futures-util",
+ "governor",
+ "hex",
+ "hmac",
+ "jsonwebtoken",
+ "mime_guess",
+ "minijinja",
+ "notify",
+ "once_cell",
+ "pulldown-cmark",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "reqwest 0.12.28",
+ "semver",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "sha2",
+ "slug",
+ "sqlx",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-cron-scheduler",
+ "toml 0.8.2",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+ "walkdir",
+ "zip",
+]
+
+[[package]]
+name = "colophon-desktop"
+version = "1.0.0"
+dependencies = [
+ "colophon",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-shell",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "combine"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2999,73 +3066,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a588916bfdfd92e71cacef98a63d9b1f0d74d6599980d11894290e7ddefffcf7"
 dependencies = [
  "cfb",
-]
-
-[[package]]
-name = "inkforge"
-version = "1.0.0"
-dependencies = [
- "ammonia",
- "anyhow",
- "argon2",
- "async-trait",
- "aws-config",
- "aws-sdk-s3",
- "axum",
- "axum-extra",
- "axum-governor",
- "base64 0.22.1",
- "bytes",
- "chrono",
- "config",
- "cron",
- "futures-util",
- "governor",
- "hex",
- "hmac",
- "jsonwebtoken",
- "mime_guess",
- "minijinja",
- "notify",
- "once_cell",
- "pulldown-cmark",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "reqwest 0.12.28",
- "semver",
- "serde",
- "serde_json",
- "serial_test",
- "sha2",
- "slug",
- "sqlx",
- "thiserror 1.0.69",
- "tokio",
- "tokio-cron-scheduler",
- "toml 0.8.2",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "url",
- "uuid",
- "walkdir",
- "zip",
-]
-
-[[package]]
-name = "inkforge-desktop"
-version = "1.0.0"
-dependencies = [
- "inkforge",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-shell",
- "tokio",
- "tracing",
 ]
 
 [[package]]

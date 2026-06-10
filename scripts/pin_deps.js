@@ -1,11 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT_PKG = 'd:/inkforge/package.json';
-const UI_PKG = 'd:/inkforge/src/admin/ui/package.json';
-const CARGO_TOML = 'd:/inkforge/Cargo.toml';
-const TAURI_TOML = 'd:/inkforge/src-tauri/Cargo.toml';
-const VERSIONS_MD = 'd:/inkforge/memories/PACKAGE_VERSIONS.md';
+const ROOT_PKG = 'd:/colophon/package.json';
+const UI_PKG = 'd:/colophon/src/admin/ui/package.json';
+const CARGO_TOML = 'd:/colophon/Cargo.toml';
+const TAURI_TOML = 'd:/colophon/src-tauri/Cargo.toml';
+const VERSIONS_MD = 'd:/colophon/memories/PACKAGE_VERSIONS.md';
 
 function stripCaret(obj) {
   if (!obj) return;

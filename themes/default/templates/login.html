@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>登录 - {{ site_title | default("InkForge") }}</title>
+<title>登录 - {{ site_title | default("Colophon") }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box}
@@ -101,12 +101,12 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
   alertEl.style.display = 'none';
 
   try {
-    await window.InkForgeApi.login({
+    await window.ColophonApi.login({
       login: document.getElementById('login').value.trim(),
       password: document.getElementById('password').value,
     });
     // 验证 cookie 已由后端 Set-Cookie 设置，通过 /me 确认登录态
-    const user = await window.InkForgeApi.checkLoginStatus();
+    const user = await window.ColophonApi.checkLoginStatus();
     if (!user) {
       throw new Error(I18n.t('sessionError', '登录会话建立失败，请重试。'));
     }

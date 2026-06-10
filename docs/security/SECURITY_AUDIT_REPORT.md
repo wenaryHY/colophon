@@ -1,7 +1,7 @@
-﻿# InkForge 安全审计报告
+﻿# Colophon 安全审计报告
 
 **审计日期**: 2026-06-09 10:09  
-**审计范围**: InkForge v1.0.0 (Rust CMS)  
+**审计范围**: Colophon v1.0.0 (Rust CMS)  
 **审计方法**: 静态代码分析 + 架构审查  
 **严重等级**: P0（严重）> P1（高危）> P2（中危）> P3（低危）
 
@@ -9,7 +9,7 @@
 
 ## 执行摘要
 
-InkForge 采用 Rust + Axum 框架，整体安全架构**良好**，多数 OWASP Top 10 风险已有防御措施。主要优势在于使用类型安全的 sqlx、argon2 密码哈希、ammonia XSS 防护。
+Colophon 采用 Rust + Axum 框架，整体安全架构**良好**，多数 OWASP Top 10 风险已有防御措施。主要优势在于使用类型安全的 sqlx、argon2 密码哈希、ammonia XSS 防护。
 
 **关键发现**：
 - ✅ 0 个 P0 漏洞
@@ -51,7 +51,7 @@ POST /api/v1/admin/webhooks
   "url": "http://127.0.0.1:6379/",  # 攻击 Redis
   "events": "post.after_publish"
 }
-# 发布文章触发 webhook → InkForge 请求 Redis → 信息泄露
+# 发布文章触发 webhook → Colophon 请求 Redis → 信息泄露
 `
 
 **修复建议**:
@@ -104,7 +104,7 @@ fn is_safe_webhook_url(url: &str) -> Result<(), AppError> {
 reqwest Client 默认**跟随重定向**，攻击者可以：
 1. 创建 webhook 指向公网合法域名 https://evil.com/redirect
 2. evil.com 返回 302 → http://192.168.1.100:8080/admin
-3. InkForge 跟随重定向攻击内网
+3. Colophon 跟随重定向攻击内网
 
 **修复建议**:
 `ust
@@ -138,9 +138,9 @@ reqwest::Client::builder()
 **位置**: src/bootstrap/config.rs:119-136
 
 **问题描述**:
-代码检测不安全的默认 JWT secret，但允许通过 INKFORGE__AUTH__ALLOW_INSECURE_DEFAULT_SECRET=true 绕过。
+代码检测不安全的默认 JWT secret，但允许通过 COLOPHON__AUTH__ALLOW_INSECURE_DEFAULT_SECRET=true 绕过。
 
-**修复建议**: 完全移除 allow_insecure_default_secret 选项，生产环境必须设置 INKFORGE__AUTH__SECRET。
+**修复建议**: 完全移除 allow_insecure_default_secret 选项，生产环境必须设置 COLOPHON__AUTH__SECRET。
 
 **优先级**: **P2 - 建议修复**
 
@@ -205,7 +205,7 @@ reqwest::Client::builder()
 
 ## 🎯 总结
 
-InkForge 的安全架构**基础扎实**，Rust 的类型安全特性避免了大部分内存安全和注入漏洞。主要问题集中在应用层逻辑漏洞（Webhook SSRF）和配置松散（CSP、默认 secret）。
+Colophon 的安全架构**基础扎实**，Rust 的类型安全特性避免了大部分内存安全和注入漏洞。主要问题集中在应用层逻辑漏洞（Webhook SSRF）和配置松散（CSP、默认 secret）。
 
 修复 P1 高危项后，安全评分可提升至 **8.5/10**。
 

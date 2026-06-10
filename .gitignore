@@ -6,12 +6,12 @@ target/
 data.db
 data.db-shm
 data.db-wal
-inkforge.db
-inkforge.db-shm
-inkforge.db-wal
-inkforge.db.backup
-inkforge.db.bak
-inkforge.db.restore
+colophon.db
+colophon.db-shm
+colophon.db-wal
+colophon.db.backup
+colophon.db.bak
+colophon.db.restore
 
 # Uploads & Backups
 uploads/*
@@ -29,9 +29,9 @@ backups/
 node_modules/
 src/admin/dist/
 src/admin/ui/node_modules/
-src/admin/ui/inkforge.db
-src/admin/ui/inkforge.db-wal
-src/admin/ui/inkforge.db-shm
+src/admin/ui/colophon.db
+src/admin/ui/colophon.db-wal
+src/admin/ui/colophon.db-shm
 
 # IDE & Tools
 .DS_Store
@@ -57,8 +57,12 @@ test-*.js
 target_tmp_verify/
 cargo_check_output.txt
 docs/private/
-scripts/inkforge-publish.sh
+scripts/colophon-publish.sh
 .cursor/
 .choccy/
 .orbit/
 .playwright-mcp/
+e2e/test-results/
+inkforge.db
+inkforge.db-shm
+inkforge.db-wal

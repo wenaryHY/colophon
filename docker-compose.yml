@@ -1,17 +1,17 @@
 services:
-  inkforge:
+  colophon:
     build: .
     # 换成你推到 Docker Hub 后的镜像名：
-    # image: yourname/inkforge:latest
+    # image: yourname/colophon:latest
     ports:
-      - "${INKFORGE_PORT:-3000}:3000"
+      - "${COLOPHON_PORT:-3000}:3000"
     volumes:
-      - inkforge-data:/app/data
-      - inkforge-uploads:/app/uploads
-      - inkforge-backups:/app/backups
+      - colophon-data:/app/data
+      - colophon-uploads:/app/uploads
+      - colophon-backups:/app/backups
     environment:
-      INKFORGE__RUNTIME__MODE: "production"
-      INKFORGE__AUTH__SECRET: "${INKFORGE_AUTH_SECRET:?Set INKFORGE_AUTH_SECRET to a strong random value before starting InkForge}"
+      COLOPHON__RUNTIME__MODE: "production"
+      COLOPHON__AUTH__SECRET: "${COLOPHON_AUTH_SECRET:?Set COLOPHON_AUTH_SECRET to a strong random value before starting Colophon}"
       # S3 备份（可选，设了就自动启用）
       LITESTREAM_S3_BUCKET: "${LITESTREAM_S3_BUCKET:-}"
       AWS_REGION: "${AWS_REGION:-}"
@@ -26,6 +26,6 @@ services:
       retries: 3
 
 volumes:
-  inkforge-data:
-  inkforge-uploads:
-  inkforge-backups:
+  colophon-data:
+  colophon-uploads:
+  colophon-backups:

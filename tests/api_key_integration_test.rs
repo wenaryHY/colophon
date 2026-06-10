@@ -1,4 +1,4 @@
-use inkforge::serve;
+use colophon::serve;
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -8,10 +8,10 @@ const SETUP_ADMIN_PASSWORD: &str = "admin123";
 
 /// 启动测试服务器并等待健康检查通过
 async fn start_server_and_wait_ready(port: u16) -> reqwest::Client {
-    std::env::set_var("INKFORGE__DATABASE__URL", "sqlite::memory:");
-    std::env::set_var("INKFORGE__SERVER__PORT", port.to_string());
-    std::env::set_var("INKFORGE__STORAGE__UPLOAD_DIR", "target_tmp_test_api_key_uploads");
-    std::env::set_var("INKFORGE__THEME__THEME_DIR", "target_tmp_test_api_key_themes");
+    std::env::set_var("COLOPHON__DATABASE__URL", "sqlite::memory:");
+    std::env::set_var("COLOPHON__SERVER__PORT", port.to_string());
+    std::env::set_var("COLOPHON__STORAGE__UPLOAD_DIR", "target_tmp_test_api_key_uploads");
+    std::env::set_var("COLOPHON__THEME__THEME_DIR", "target_tmp_test_api_key_themes");
 
     tokio::spawn(async {
         if let Err(e) = serve().await {
@@ -82,7 +82,7 @@ async fn login_as_admin(client: &reqwest::Client, base: &str) -> String {
     extract_session_cookie_from_response(&resp)
 }
 
-/// 从响应的 Set-Cookie 头中提取 inkforge_session cookie 值
+/// 从响应的 Set-Cookie 头中提取 colophon_session cookie 值
 fn extract_session_cookie_from_response(resp: &reqwest::Response) -> String {
     let headers = resp.headers();
     let all_cookies: Vec<String> = headers
@@ -93,10 +93,10 @@ fn extract_session_cookie_from_response(resp: &reqwest::Response) -> String {
         .collect();
 
     for cookie_str in &all_cookies {
-        if cookie_str.starts_with("inkforge_session=") {
-            // 提取值部分 (inkforge_session=TOKEN; ...)
+        if cookie_str.starts_with("colophon_session=") {
+            // 提取值部分 (colophon_session=TOKEN; ...)
             let value_part = cookie_str
-                .strip_prefix("inkforge_session=")
+                .strip_prefix("colophon_session=")
                 .unwrap();
             let token = value_part
                 .split(';')
@@ -110,7 +110,7 @@ fn extract_session_cookie_from_response(resp: &reqwest::Response) -> String {
     }
 
     panic!(
-        "No inkforge_session cookie found in Set-Cookie headers: {:?}",
+        "No colophon_session cookie found in Set-Cookie headers: {:?}",
         all_cookies
     );
 }
@@ -119,7 +119,7 @@ fn extract_session_cookie_from_response(resp: &reqwest::Response) -> String {
 fn with_session(client: &reqwest::Client, method: reqwest::Method, url: &str, cookie: &str) -> reqwest::RequestBuilder {
     client
         .request(method, url)
-        .header("Cookie", format!("inkforge_session={}", cookie))
+        .header("Cookie", format!("colophon_session={}", cookie))
 }
 
 #[tokio::test]

@@ -731,7 +731,7 @@ pub async fn preview_page(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InkForge 预览</title>
+    <title>Colophon 预览</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #f5f5f5; display: flex; justify-content: center; min-height: 100vh; }
@@ -755,7 +755,7 @@ pub async fn preview_page(
     (async function() {
         try {
             // 从 sessionStorage 读取预览参数
-            const raw = sessionStorage.getItem('inkforge-preview-params');
+            const raw = sessionStorage.getItem('colophon-preview-params');
             if (!raw) throw new Error('No preview params found');
             const params = JSON.parse(raw);
 

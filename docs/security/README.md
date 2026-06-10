@@ -1,7 +1,7 @@
-﻿# InkForge 安全审计总结
+﻿# Colophon 安全审计总结
 
 **审计完成时间**: 2026-06-09  
-**项目**: InkForge v1.0.0  
+**项目**: Colophon v1.0.0  
 **审计类型**: 静态代码分析 + 渗透测试准备
 
 ---
@@ -77,13 +77,13 @@ hackingtool 集成了以下安全工具：
 
 **Windows PowerShell**:
 ```powershell
-cd D:\codes\inkforge
+cd D:\codes\colophon
 .\scripts\start_pentest_env.ps1
 ```
 
 **Linux/WSL**:
 ```bash
-cd /mnt/d/codes/inkforge
+cd /mnt/d/codes/colophon
 bash scripts/start_pentest_env.sh
 ```
 
@@ -164,13 +164,13 @@ nmap -sV -p- localhost
 
 - [安全审计报告](./SECURITY_AUDIT_REPORT.md)
 - [渗透测试计划](./PENETRATION_TEST_PLAN.md)
-- [InkForge 项目主页](../../README.md)
+- [Colophon 项目主页](../../README.md)
 
 ---
 
 ## ⚠️ 免责声明
 
-本审计报告仅供 InkForge 项目内部使用。所有渗透测试必须在授权的测试环境中进行，严禁对生产环境或第三方系统进行未授权的安全测试。
+本审计报告仅供 Colophon 项目内部使用。所有渗透测试必须在授权的测试环境中进行，严禁对生产环境或第三方系统进行未授权的安全测试。
 
 ---
 

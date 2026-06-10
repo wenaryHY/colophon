@@ -14,7 +14,7 @@
 <!-- 顶部导航 -->
 <header class="site-nav" id="siteNav">
   <nav class="site-nav__inner" aria-label="主导航">
-    <a href="/" class="site-nav__logo">InkForge</a>
+    <a href="/" class="site-nav__logo">Colophon</a>
     <div class="site-nav__links">
       <a href="/" class="site-nav__link">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -150,7 +150,7 @@
 <footer class="site-footer">
   <div class="site-footer__inner">
     <div class="site-footer__brand">
-      <span class="site-footer__name">InkForge</span>
+      <span class="site-footer__name">Colophon</span>
       <span class="site-footer__copy">© {{ site_title }}</span>
     </div>
     <nav class="site-footer__links" aria-label="次级链接">
@@ -193,7 +193,7 @@ async function loadStats() {
 
 async function loadComments() {
   try {
-    const data = await window.InkForgeApi.apiRequest('/api/me/comments?page=1&page_size=20');
+    const data = await window.ColophonApi.apiRequest('/api/me/comments?page=1&page_size=20');
     const items = data.items || [];
 
     if (items.length === 0) {
@@ -227,7 +227,7 @@ document.getElementById('profileForm').addEventListener('submit', async (event) 
   const button = document.getElementById('saveProfileBtn');
   button.disabled = true;
   try {
-    await window.InkForgeApi.apiRequest('/api/v1/me/profile', {
+    await window.ColophonApi.apiRequest('/api/v1/me/profile', {
       method: 'PATCH',
       body: {
         display_name: document.getElementById('displayName').value.trim(),
@@ -256,7 +256,7 @@ document.getElementById('passwordForm').addEventListener('submit', async (event)
 
   button.disabled = true;
   try {
-    await window.InkForgeApi.apiRequest('/api/v1/me/password', {
+    await window.ColophonApi.apiRequest('/api/v1/me/password', {
       method: 'PATCH',
       body: {
         current_password: document.getElementById('currentPassword').value,
@@ -274,7 +274,7 @@ document.getElementById('passwordForm').addEventListener('submit', async (event)
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   try {
-    await window.InkForgeApi.logout();
+    await window.ColophonApi.logout();
   } finally {
     window.location.href = '/login';
   }
@@ -348,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       try {
         // 调用 API 更新用户语言偏好
-        await window.InkForgeApi.apiRequest('/api/v1/me/profile', {
+        await window.ColophonApi.apiRequest('/api/v1/me/profile', {
           method: 'PATCH',
           body: { language: newLang },
         });

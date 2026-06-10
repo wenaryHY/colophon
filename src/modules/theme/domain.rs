@@ -45,7 +45,7 @@ pub struct ThemeManifest {
     pub version: String,
     pub author: String,
     pub description: String,
-    pub min_inkforge_version: String,
+    pub min_colophon_version: String,
     #[serde(default)]
     pub preview_image: Option<String>,
     #[serde(default)]

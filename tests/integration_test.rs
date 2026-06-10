@@ -1,15 +1,15 @@
-use inkforge::serve;
+use colophon::serve;
 use std::time::Duration;
 use tokio::time::sleep;
 
 #[tokio::test]
 async fn test_setup_flow_integration() {
     // 独立测试环境隔离
-    std::env::set_var("INKFORGE__DATABASE__URL", "sqlite::memory:");
-    std::env::set_var("INKFORGE__SERVER__PORT", "2001");
+    std::env::set_var("COLOPHON__DATABASE__URL", "sqlite::memory:");
+    std::env::set_var("COLOPHON__SERVER__PORT", "2001");
     // 给测试分配特定的目录，避免污染本地开发文件
-    std::env::set_var("INKFORGE__STORAGE__UPLOAD_DIR", "target_tmp_test_uploads");
-    std::env::set_var("INKFORGE__THEME__THEME_DIR", "target_tmp_test_themes");
+    std::env::set_var("COLOPHON__STORAGE__UPLOAD_DIR", "target_tmp_test_uploads");
+    std::env::set_var("COLOPHON__THEME__THEME_DIR", "target_tmp_test_themes");
 
     // 后台启动服务器
     tokio::spawn(async {

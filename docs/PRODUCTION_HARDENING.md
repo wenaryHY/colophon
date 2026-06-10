@@ -1,16 +1,16 @@
-# InkForge Production Hardening
+# Colophon Production Hardening
 
-这份清单用于把 InkForge 从“能跑”收敛到更稳的生产部署。目标是：应用进程不以 root 运行，服务文件不可被普通用户改写，生产目录只包含运行所需文件，密钥不写进 systemd unit。
+这份清单用于把 Colophon 从“能跑”收敛到更稳的生产部署。目标是：应用进程不以 root 运行，服务文件不可被普通用户改写，生产目录只包含运行所需文件，密钥不写进 systemd unit。
 
 ## 1. 创建运行用户和目录
 
 ```bash
-adduser --system --group --home /var/lib/inkforge inkforge
-install -d -o inkforge -g inkforge -m 0750 /var/lib/inkforge
-install -d -o inkforge -g inkforge -m 0750 /var/lib/inkforge/uploads
-install -d -o inkforge -g inkforge -m 0750 /var/backups/inkforge
-install -d -o root -g root -m 0755 /opt/inkforge
-install -d -o root -g root -m 0750 /etc/inkforge
+adduser --system --group --home /var/lib/colophon colophon
+install -d -o colophon -g colophon -m 0750 /var/lib/colophon
+install -d -o colophon -g colophon -m 0750 /var/lib/colophon/uploads
+install -d -o colophon -g colophon -m 0750 /var/backups/colophon
+install -d -o root -g root -m 0755 /opt/colophon
+install -d -o root -g root -m 0750 /etc/colophon
 ```
 
 ## 2. 发布最小运行包
@@ -18,8 +18,8 @@ install -d -o root -g root -m 0750 /etc/inkforge
 生产目录建议只保留这些内容：
 
 ```text
-/opt/inkforge/
-├── inkforge
+/opt/colophon/
+├── colophon
 ├── config/
 ├── migrations/
 ├── themes/
@@ -31,37 +31,37 @@ install -d -o root -g root -m 0750 /etc/inkforge
 ## 3. 配置密钥
 
 ```bash
-openssl rand -hex 32 > /tmp/inkforge_secret
-install -o root -g root -m 0600 /dev/null /etc/inkforge/inkforge.env
-printf 'INKFORGE__AUTH__SECRET=%s\n' "$(cat /tmp/inkforge_secret)" > /etc/inkforge/inkforge.env
-rm -f /tmp/inkforge_secret
+openssl rand -hex 32 > /tmp/colophon_secret
+install -o root -g root -m 0600 /dev/null /etc/colophon/colophon.env
+printf 'COLOPHON__AUTH__SECRET=%s\n' "$(cat /tmp/colophon_secret)" > /etc/colophon/colophon.env
+rm -f /tmp/colophon_secret
 ```
 
-`INKFORGE__RUNTIME__MODE=production` 会阻止默认 JWT secret 启动。不要在 `/etc/systemd/system/inkforge.service` 里直接写真实密钥。
+`COLOPHON__RUNTIME__MODE=production` 会阻止默认 JWT secret 启动。不要在 `/etc/systemd/system/colophon.service` 里直接写真实密钥。
 
 ## 4. 安装 systemd 服务
 
-仓库提供了模板：`deploy/inkforge.service`。
+仓库提供了模板：`deploy/colophon.service`。
 
 ```bash
-install -o root -g root -m 0644 deploy/inkforge.service /etc/systemd/system/inkforge.service
+install -o root -g root -m 0644 deploy/colophon.service /etc/systemd/system/colophon.service
 systemctl daemon-reload
-systemctl enable --now inkforge
-systemctl status inkforge --no-pager
+systemctl enable --now colophon
+systemctl status colophon --no-pager
 ```
 
 关键检查：
 
 ```bash
-stat -c '%a %U:%G %n' /etc/systemd/system/inkforge.service
-systemctl show inkforge -p User -p Group -p EnvironmentFiles
+stat -c '%a %U:%G %n' /etc/systemd/system/colophon.service
+systemctl show colophon -p User -p Group -p EnvironmentFiles
 ss -tulpn | grep ':2000'
 ```
 
 期望结果：
 
 - 服务文件权限是 `644 root:root`。
-- 进程用户是 `inkforge`。
+- 进程用户是 `colophon`。
 - 应用只监听 `127.0.0.1:2000`，由 Nginx 暴露公网入口。
 
 ## 5. Nginx 反代要点
@@ -100,7 +100,7 @@ server {
 ```bash
 curl -fsS http://127.0.0.1:2000/api/v1/health
 curl -fsS -I http://127.0.0.1/api/v1/health
-journalctl -u inkforge -n 100 --no-pager
+journalctl -u colophon -n 100 --no-pager
 ```
 
-如果启用备份复制，优先使用 Docker 镜像里的 Litestream 链路，或者在裸机上单独安装 Litestream 并把 SQLite 数据库路径指向 `/var/lib/inkforge/inkforge.db`。
+如果启用备份复制，优先使用 Docker 镜像里的 Litestream 链路，或者在裸机上单独安装 Litestream 并把 SQLite 数据库路径指向 `/var/lib/colophon/colophon.db`。

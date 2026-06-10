@@ -104,7 +104,7 @@ function SelectErrorText({ children }: { children: ReactNode }) {
 
 // ── 全局样式注入（Radix data-attribute 选择器） ──
 
-const SELECT_STYLE_ID = 'inkforge-radix-select-styles';
+const SELECT_STYLE_ID = 'colophon-radix-select-styles';
 
 function ensureSelectStylesInjected() {
   if (typeof document === 'undefined') return;

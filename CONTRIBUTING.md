@@ -1,15 +1,15 @@
-# Contributing to InkForge
+# Contributing to Colophon
 
 **[English](#english)** | **[中文](#zh)**
 
-Thank you for your interest in InkForge! We welcome all forms of contributions.
-感谢你对 InkForge 的关注！我们欢迎各种形式的贡献。
+Thank you for your interest in Colophon! We welcome all forms of contributions.
+感谢你对 Colophon 的关注！我们欢迎各种形式的贡献。
 
 ---
 
 ## Good First Issues
 
-Look for issues labeled `good first issue` in the [issue tracker](https://github.com/wenaryHY/inkforge/issues).
+Look for issues labeled `good first issue` in the [issue tracker](https://github.com/wenaryHY/colophon/issues).
 
 Good places to start:
 - Fix a typo or improve an error message
@@ -28,8 +28,8 @@ Not sure if a change is appropriate? Open an issue first to discuss.
 - SQLite 3
 
 ```bash
-git clone https://github.com/wenaryHY/inkforge.git
-cd inkforge
+git clone https://github.com/wenaryHY/colophon.git
+cd colophon
 cd src/admin/ui && npm ci && cd -
 ```
 
@@ -51,7 +51,7 @@ npm run dev
 **Production build:**
 
 ```bash
-cargo build --release -p inkforge
+cargo build --release -p colophon
 ```
 
 The admin UI is automatically embedded during `cargo build`.
@@ -60,7 +60,7 @@ The admin UI is automatically embedded during `cargo build`.
 
 ```bash
 # Backend
-cargo test -p inkforge
+cargo test -p colophon
 
 # Frontend type check + build
 cd src/admin/ui && npm run build
@@ -105,7 +105,7 @@ The backend must independently validate, sanitize, and authorize all incoming da
 ## Rust Guidelines
 
 - **Zero-cost abstraction**: Use traits + generics for swappable components (databases, storage, protocols). Prefer compile-time polymorphism; avoid `Box<dyn Trait>` unless necessary.
-- **No `unsafe`**: InkForge serves untrusted clients. If you believe `unsafe` is needed, explain in your PR.
+- **No `unsafe`**: Colophon serves untrusted clients. If you believe `unsafe` is needed, explain in your PR.
 - **Clippy clean**: `cargo clippy -- -D warnings` must pass before submitting.
 
 ---
@@ -121,7 +121,7 @@ The backend must independently validate, sanitize, and authorize all incoming da
 
 - New features must include tests covering the main path and at least one edge case.
 - Bug fixes must include a regression test that reproduces the bug (red-green-refactor).
-- Backend: `cargo test -p inkforge`. Frontend: `cd src/admin/ui && npm test`.
+- Backend: `cargo test -p colophon`. Frontend: `cd src/admin/ui && npm test`.
 
 ---
 
@@ -180,7 +180,7 @@ You may use AI tools, but you must understand every line you submit.
 - [ ] UI works at 320px width (if applicable)
 
 **Testing**
-- [ ] Relevant tests added; `cargo test -p inkforge` passes
+- [ ] Relevant tests added; `cargo test -p colophon` passes
 - [ ] `cd src/admin/ui && npm run build` succeeds
 - [ ] No committed keys, tokens, or AI tool traces
 
@@ -203,8 +203,8 @@ These are not hard rejections — we will guide you through revisions.
 
 ## Need Help?
 
-- Ask in [Issues](https://github.com/wenaryHY/inkforge/issues)
-- Discuss ideas in [Discussions](https://github.com/wenaryHY/inkforge/discussions)
+- Ask in [Issues](https://github.com/wenaryHY/colophon/issues)
+- Discuss ideas in [Discussions](https://github.com/wenaryHY/colophon/discussions)
 - Look at existing code for similar examples
 
 ---
@@ -215,4 +215,4 @@ By contributing, you agree that your contributions will be licensed under the [G
 
 ---
 
-**Every contribution makes InkForge better. Thank you!**
+**Every contribution makes Colophon better. Thank you!**

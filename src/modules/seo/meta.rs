@@ -88,7 +88,7 @@ pub fn build_home_meta(
     og_image: &str,
 ) -> SeoMeta {
     let description = if site_description.trim().is_empty() {
-        format!("{} - InkForge 博客站点", site_title)
+        format!("{} - Colophon 博客站点", site_title)
     } else {
         site_description.trim().to_string()
     };

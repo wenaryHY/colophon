@@ -75,11 +75,11 @@ export interface PreviewContextType extends PreviewState {
 // ==================== 常量 ====================
 
 /** localStorage 键名 - 设备模式 */
-const DEVICE_STORAGE_KEY = 'inkforge_preview_device';
+const DEVICE_STORAGE_KEY = 'colophon_preview_device';
 /** localStorage 键名 - 缩放比例 */
-const ZOOM_STORAGE_KEY = 'inkforge_preview_zoom';
+const ZOOM_STORAGE_KEY = 'colophon_preview_zoom';
 /** sessionStorage 键：预览参数传递给新标签页 */
-export const SESSION_STORAGE_KEY_FOR_PREVIEW_PARAMETERS_PASSED_TO_NEW_TAB = 'inkforge-preview-params';
+export const SESSION_STORAGE_KEY_FOR_PREVIEW_PARAMETERS_PASSED_TO_NEW_TAB = 'colophon-preview-params';
 /** 默认缩放比例 */
 const DEFAULT_ZOOM = 1.0;
 /** 最小缩放比例 */

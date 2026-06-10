@@ -1,7 +1,7 @@
 {
-  "name": "inkforge-frontend-tests",
+  "name": "colophon-frontend-tests",
   "version": "1.0.0",
-  "description": "Property-based tests for InkForge frontend templates",
+  "description": "Property-based tests for Colophon frontend templates",
   "private": true,
   "scripts": {
     "test": "node profile.test.js"

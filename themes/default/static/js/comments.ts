@@ -1,5 +1,5 @@
 ﻿/**
- * InkForge comment frontend module.
+ * Colophon comment frontend module.
  */
 
 type ToastType = 'success' | 'error' | 'info';
@@ -30,11 +30,11 @@ function t(key: string): string {
 }
 
 function logDebug(event: string, details?: Record<string, unknown>): void {
-  console.debug('[InkForge][comments][debug]', event, details || {});
+  console.debug('[Colophon][comments][debug]', event, details || {});
 }
 
 function logError(event: string, details?: Record<string, unknown>): void {
-  console.error('[InkForge][comments][error]', event, details || {});
+  console.error('[Colophon][comments][error]', event, details || {});
 }
 
 declare global {
@@ -43,7 +43,7 @@ declare global {
       id?: string;
       slug?: string;
     };
-    InkForgeApi: {
+    ColophonApi: {
       apiRequest<T>(path: string, options?: RequestInit & { body?: unknown }): Promise<T>;
       sanitizeRedirect(target: string | null | undefined, fallback?: string): string;
     };
@@ -128,7 +128,7 @@ async function submitComment(event: Event): Promise<void> {
     const slug = window.__POST_DATA__?.slug || '';
     logDebug('submit_start', { slug });
 
-    const result = await window.InkForgeApi.apiRequest(`/api/v1/posts/${slug}/comments`, {
+    const result = await window.ColophonApi.apiRequest(`/api/v1/posts/${slug}/comments`, {
       method: 'POST',
       body: {
         content: String(data.get('content') || '').trim(),
@@ -145,7 +145,7 @@ async function submitComment(event: Event): Promise<void> {
   } catch (error) {
     const requestError = error as Error & { status?: number };
     if (requestError.status === 401) {
-      const target = window.InkForgeApi.sanitizeRedirect(window.location.pathname + window.location.search, '/');
+      const target = window.ColophonApi.sanitizeRedirect(window.location.pathname + window.location.search, '/');
       logDebug('submit_redirect_login', { slug, target });
       window.location.href = `/login?redirect=${encodeURIComponent(target)}`;
       return;
@@ -250,9 +250,9 @@ function initComments(): void {
 
   initCommentWebSocket();
 
-  if (!document.getElementById('inkforge-fadein-style')) {
+  if (!document.getElementById('colophon-fadein-style')) {
     const style = document.createElement('style');
-    style.id = 'inkforge-fadein-style';
+    style.id = 'colophon-fadein-style';
     style.textContent =
       '@keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }';
     document.head.appendChild(style);

@@ -1,4 +1,4 @@
-use inkforge::serve;
+use colophon::serve;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::time::{sleep, timeout};
@@ -7,7 +7,7 @@ const WEBHOOK_TEST_PORT: u16 = 2003;
 const WEBHOOK_TEST_BASE: &str = "http://127.0.0.1:2003";
 const SETUP_ADMIN_PASSWORD: &str = "admin123";
 
-/// 缓存 Set-Cookie 头中 inkforge_session cookie 的 token 值
+/// 缓存 Set-Cookie 头中 colophon_session cookie 的 token 值
 #[derive(Debug)]
 struct SessionCookie {
     token: String,
@@ -15,11 +15,11 @@ struct SessionCookie {
 
 /// 启动测试服务器并等待健康检查通过
 async fn start_server_and_wait_ready(port: u16) -> reqwest::Client {
-    std::env::set_var("INKFORGE__DATABASE__URL", "sqlite::memory:");
-    std::env::set_var("INKFORGE__SERVER__PORT", port.to_string());
-    std::env::set_var("INKFORGE__STORAGE__UPLOAD_DIR", "target_tmp_test_webhook_uploads");
-    std::env::set_var("INKFORGE__THEME__THEME_DIR", "target_tmp_test_webhook_themes");
-    std::env::set_var("INKFORGE_TEST_MODE", "true");
+    std::env::set_var("COLOPHON__DATABASE__URL", "sqlite::memory:");
+    std::env::set_var("COLOPHON__SERVER__PORT", port.to_string());
+    std::env::set_var("COLOPHON__STORAGE__UPLOAD_DIR", "target_tmp_test_webhook_uploads");
+    std::env::set_var("COLOPHON__THEME__THEME_DIR", "target_tmp_test_webhook_themes");
+    std::env::set_var("COLOPHON_TEST_MODE", "true");
 
     tokio::spawn(async {
         if let Err(e) = serve().await {
@@ -91,12 +91,12 @@ async fn login_as_admin(client: &reqwest::Client, base: &str) -> SessionCookie {
         .collect();
 
     for cookie_str in &all_cookies {
-        if let Some(token) = extract_token_from_cookie(cookie_str, "inkforge_session=") {
+        if let Some(token) = extract_token_from_cookie(cookie_str, "colophon_session=") {
             return SessionCookie { token };
         }
     }
 
-    panic!("No inkforge_session cookie found in: {:?}", all_cookies);
+    panic!("No colophon_session cookie found in: {:?}", all_cookies);
 }
 
 fn extract_token_from_cookie(cookie_str: &str, prefix: &str) -> Option<String> {
@@ -109,7 +109,7 @@ fn extract_token_from_cookie(cookie_str: &str, prefix: &str) -> Option<String> {
 
 /// 向请求添加 session cookie
 fn add_session_cookie(request: reqwest::RequestBuilder, cookie: &SessionCookie) -> reqwest::RequestBuilder {
-    request.header("Cookie", format!("inkforge_session={}", cookie.token))
+    request.header("Cookie", format!("colophon_session={}", cookie.token))
 }
 
 /// 本地 HTTP 捕获服务器，用于接收 webhook 请求

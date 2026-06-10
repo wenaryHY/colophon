@@ -1,6 +1,6 @@
 # 从零到上线：一个 Rust CMS 的诞生记
 
-五月初，InkForge v1.0 上线了。一个用 Rust 写的博客 CMS，一个人，从零到部署上线，正好一个月。
+五月初，Colophon v1.0 上线了。一个用 Rust 写的博客 CMS，一个人，从零到部署上线，正好一个月。
 
 回头看看，有些话想说。
 
@@ -20,7 +20,7 @@
 
 部署过程比想象中顺利。Rust 编译出来的单个二进制文件大概 11MB，`scp` 传上去，配个 systemd 服务就跑起来了。Nginx 反代几行配置，Cloudflare 改个 DNS 记录，半小时搞定。
 
-真正花时间的是安全加固。单独建了 `inkforge` 系统用户，生产密钥不写进 systemd unit，应用只绑定 `127.0.0.1:2000`。还把后端的安全审计工具都跑了一遍——nuclei 扫 HTTP 漏洞，sqlmap 测 SQL 注入，XSStrike 打 XSS。每一轮扫完都心惊胆战，生怕自己的 API 被一把梭穿。
+真正花时间的是安全加固。单独建了 `colophon` 系统用户，生产密钥不写进 systemd unit，应用只绑定 `127.0.0.1:2000`。还把后端的安全审计工具都跑了一遍——nuclei 扫 HTTP 漏洞，sqlmap 测 SQL 注入，XSStrike 打 XSS。每一轮扫完都心惊胆战，生怕自己的 API 被一把梭穿。
 
 还好，没出大问题。唯一一次核弹级发现是 nuclei 扫出来一个路径穿越嫌疑——主题 ZIP 上传时如果解压不校验路径，可以读到系统文件。好在 Rust 的 `fs_extra` 的 `enclosed_name()` 已经挡掉了这发子弹，虚惊一场。
 
@@ -28,11 +28,11 @@
 
 代码写完了，真正的心跳加速才刚开始。
 
-把二进制推到服务器上，`systemctl start inkforge`，然后你对着浏览器刷新。那一刻的紧张感跟等高考成绩差不多。出问题了吗？端口对吗？防火墙开了吗？为什么 Cloudflare 报 521？Nginx 的 `proxy_pass` 写对了吗？
+把二进制推到服务器上，`systemctl start colophon`，然后你对着浏览器刷新。那一刻的紧张感跟等高考成绩差不多。出问题了吗？端口对吗？防火墙开了吗？为什么 Cloudflare 报 521？Nginx 的 `proxy_pass` 写对了吗？
 
 说实话我从来没管过服务器。systemd 的 unit 文件是现学的，Nginx 的 `proxy_set_header` 是从 Stack Overflow 复制过来一个个试的。我第一次配好以后访问 `https://wenary.me` 看到自己的博客出来——那个感觉比写完任何一行代码都爽。
 
-但这只是开始。后来我把应用从 root 用户改成了独立的 `inkforge` 用户，加了 `ProtectSystem=strict`、`NoNewPrivileges`、`PrivateTmp`，把应用目录锁成只读。做这些的时候我一直在想：我现在做的这些，是不是运维每天都在做？他们真不容易。
+但这只是开始。后来我把应用从 root 用户改成了独立的 `colophon` 用户，加了 `ProtectSystem=strict`、`NoNewPrivileges`、`PrivateTmp`，把应用目录锁成只读。做这些的时候我一直在想：我现在做的这些，是不是运维每天都在做？他们真不容易。
 
 ## 用黑客工具攻击自己的网站
 
@@ -66,4 +66,4 @@
 
 如果有下一个人问我"要不要做独立项目"，我会说：做。但不是因为能做多大，而是因为你会成为更好的开发者。你会被迫面对所有你以前依赖别人处理的问题，而你发现自己其实可以。
 
-> 写完这篇心得的时间是 2026 年 5 月 31 日，距项目启动正好一个月。感谢所有使用和关注 InkForge 的人。
+> 写完这篇心得的时间是 2026 年 5 月 31 日，距项目启动正好一个月。感谢所有使用和关注 Colophon 的人。

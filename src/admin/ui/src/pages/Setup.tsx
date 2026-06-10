@@ -64,7 +64,7 @@ export default function Setup() {
   const [completed, setCompleted] = useState(false);
   const [redirectTarget, setRedirectTarget] = useState('/admin');
   const [form, setForm] = useState<FormState>({
-    site_title: 'InkForge',
+    site_title: 'Colophon',
     site_description: '',
     site_url: '',
     admin_url: '',
@@ -421,7 +421,7 @@ export default function Setup() {
               </div>
               <div className="md3-grid-2">
                 <Field label={t('siteTitle')}>
-                  <input value={form.site_title} onChange={(e) => update('site_title', e.target.value)} className="md3-input" placeholder="InkForge" />
+                  <input value={form.site_title} onChange={(e) => update('site_title', e.target.value)} className="md3-input" placeholder="Colophon" />
                 </Field>
                 <Field label={t('siteUrl')} hint={t('siteUrlHint')}>
                   <input value={form.site_url} onChange={(e) => handleSiteUrlChange(e.target.value)} className="md3-input" placeholder="http://localhost:2000" />
@@ -438,7 +438,7 @@ export default function Setup() {
                 </Field>
               </div>
               <Field label={t('siteDescription')} hint={t('siteDescriptionHint')}>
-                <textarea value={form.site_description} onChange={(e) => update('site_description', e.target.value)} className="md3-input" style={{ minHeight: '108px', resize: 'vertical' }} placeholder="A personal blog powered by InkForge" />
+                <textarea value={form.site_description} onChange={(e) => update('site_description', e.target.value)} className="md3-input" style={{ minHeight: '108px', resize: 'vertical' }} placeholder="A personal blog powered by Colophon" />
               </Field>
             </section>
 

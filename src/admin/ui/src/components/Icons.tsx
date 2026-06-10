@@ -1,5 +1,5 @@
 /**
- * InkForge Icons — Lucide React 统一导出
+ * Colophon Icons — Lucide React 统一导出
  * 所有图标集中管理，方便统一调整 size / strokeWidth / className
  */
 import {

@@ -1,4 +1,4 @@
-# InkForge
+# Colophon
 
 [![English](https://img.shields.io/badge/lang-English-blue)](README.md)
 [![中文](https://img.shields.io/badge/lang-中文-ff6b35)](README.zh-CN.md)
@@ -12,7 +12,7 @@
 ### One-Line Install (Linux VPS)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/colophon/master/scripts/install.sh | bash
 ```
 
 Open `http://YOUR_SERVER_IP:2000/admin` to set up your site.
@@ -25,8 +25,8 @@ Supports Debian/Ubuntu (apt) and Fedora/CentOS (dnf/yum) on x86_64 and aarch64.
 1. Detects your OS (Ubuntu/Debian/CentOS) and architecture (x86_64/aarch64)
 2. Installs system dependencies (sqlite3, ca-certificates)
 3. Downloads the latest release binary from GitHub Releases
-4. Creates a dedicated `inkforge` system user
-5. Sets up directories: `/opt/inkforge` (app), `/var/lib/inkforge` (data), `/etc/inkforge` (secrets)
+4. Creates a dedicated `colophon` system user
+5. Sets up directories: `/opt/colophon` (app), `/var/lib/colophon` (data), `/etc/colophon` (secrets)
 6. Generates a random JWT secret
 7. Installs and starts the systemd service on port 2000
 
@@ -35,15 +35,15 @@ Supports Debian/Ubuntu (apt) and Fedora/CentOS (dnf/yum) on x86_64 and aarch64.
 **Manage your installation:**
 
 ```bash
-systemctl status inkforge     # check status
-systemctl restart inkforge    # restart
-journalctl -u inkforge -f     # view logs
+systemctl status colophon     # check status
+systemctl restart colophon    # restart
+journalctl -u colophon -f     # view logs
 ```
 
 **Update to a new version:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wenaryHY/inkforge/master/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wenaryHY/colophon/master/scripts/install.sh | bash
 ```
 
 Re-running the installer downloads the latest version and replaces the binary. Your data and config are preserved.
@@ -52,25 +52,25 @@ Re-running the installer downloads the latest version and replaces the binary. Y
 
 ```bash
 # Prerequisites: Rust 1.75+, Node.js 22+, SQLite 3
-git clone https://github.com/wenaryHY/inkforge.git
-cd inkforge
+git clone https://github.com/wenaryHY/colophon.git
+cd colophon
 cd src/admin/ui && npm ci && cd -
-cargo build --release -p inkforge
+cargo build --release -p colophon
 cargo run --release
 # → http://localhost:2000/admin — create your admin account
 ```
 
 > 📖 **Full documentation**: [docs/quickstart.md](docs/quickstart.md) — 15-minute setup guide
 
-On first launch, InkForge opens the setup wizard in your browser. Choose an admin username and password, pick a theme, and you are writing within 60 seconds. The frontend assets are prebuilt and embedded into the single binary — no reverse proxy, no separate Node process.
+On first launch, Colophon opens the setup wizard in your browser. Choose an admin username and password, pick a theme, and you are writing within 60 seconds. The frontend assets are prebuilt and embedded into the single binary — no reverse proxy, no separate Node process.
 
-## Why InkForge?
+## Why Colophon?
 
-InkForge is a blogging platform built around one conviction: your content stack should not require a DevOps team. Most CMS platforms run on Node.js or PHP, pull in dozens of dependencies at runtime, and idle at 150–300 MB of RAM. InkForge compiles to a single static binary that serves your blog, admin panel, and API from a single process using under 20 MB of memory.
+Colophon is a blogging platform built around one conviction: your content stack should not require a DevOps team. Most CMS platforms run on Node.js or PHP, pull in dozens of dependencies at runtime, and idle at 150–300 MB of RAM. Colophon compiles to a single static binary that serves your blog, admin panel, and API from a single process using under 20 MB of memory.
 
 Performance is not an afterthought — it is the foundation. The entire request path, from TLS termination to SQLite query, lives inside a Rust async runtime with zero garbage-collection pauses. This means sub-10ms p95 response times on commodity VPS hardware, even under the default SQLite WAL-mode configuration. No Redis, no opcache, no tuning required.
 
-InkForge includes an evolving plugin system. Plugins are written in Rust and loaded at runtime from the `plugins/` directory. See the [Plugin System (Preview)](#plugin-system-preview) section for the current status and scope.
+Colophon includes an evolving plugin system. Plugins are written in Rust and loaded at runtime from the `plugins/` directory. See the [Plugin System (Preview)](#plugin-system-preview) section for the current status and scope.
 
 ## Features
 
@@ -100,14 +100,14 @@ InkForge includes an evolving plugin system. Plugins are written in Rust and loa
 > Measured on the author's default theme with a small dataset (~100 posts).
 > Full benchmark scripts and methodology are being prepared.
 
-| | InkForge | Ghost | WordPress |
+| | Colophon | Ghost | WordPress |
 |---|---|---|---|
 | **Language** | Rust | Node.js | PHP |
 | **Response (p95)** | <10ms | ~50ms | ~200ms |
 | **RAM idle** | ~20MB | ~150MB | ~256MB |
 | **Monthly VPS** | $6 | $15 | $20 |
 
-Measured on a $6/mo VPS (1 vCPU, 1 GB RAM) serving the default theme with 100 cached posts. Response times are server-side p95; end-to-end latency depends on CDN and network. InkForge runs comfortably on the smallest DigitalOcean droplet; Ghost and WordPress typically need the next tier up for comparable reliability.
+Measured on a $6/mo VPS (1 vCPU, 1 GB RAM) serving the default theme with 100 cached posts. Response times are server-side p95; end-to-end latency depends on CDN and network. Colophon runs comfortably on the smallest DigitalOcean droplet; Ghost and WordPress typically need the next tier up for comparable reliability.
 
 ## Architecture
 
@@ -129,7 +129,7 @@ The plugin system is functional but still evolving:
 - Enable/disable plugins from the admin panel without restarting
 
 > The plugin API is in preview. It is useful for Rust developers who
-> want to extend InkForge, but is not yet a general marketplace-style
+> want to extend Colophon, but is not yet a general marketplace-style
 > plugin ecosystem. Hook coverage and developer documentation are
 > being expanded.
 
@@ -146,28 +146,28 @@ Builds the frontend and Rust binary locally inside WSL, uploads both to your ser
 ### Docker
 
 ```bash
-docker build -t inkforge .
+docker build -t colophon .
 docker run -d \
   -p 3000:3000 \
-  -e INKFORGE__AUTH__SECRET="$(openssl rand -hex 32)" \
-  -v inkforge-uploads:/app/uploads \
-  -v inkforge-backups:/app/backups \
-  -v inkforge-data:/app/data \
-  inkforge
+  -e COLOPHON__AUTH__SECRET="$(openssl rand -hex 32)" \
+  -v colophon-uploads:/app/uploads \
+  -v colophon-backups:/app/backups \
+  -v colophon-data:/app/data \
+  colophon
 ```
 
 The image includes Litestream for continuous SQLite replication to S3-compatible storage. Configure replication in `config/litestream.yml`.
 
 ### Binary
 
-Download a prebuilt binary from the [Releases](https://github.com/wenaryHY/inkforge/releases) page, or build from source:
+Download a prebuilt binary from the [Releases](https://github.com/wenaryHY/colophon/releases) page, or build from source:
 
 ```bash
 cd src/admin/ui && npm ci && npm run build && cd -
-cargo build --release -p inkforge
+cargo build --release -p colophon
 ```
 
-Copy `target/release/inkforge`, your `config/` directory, `migrations/`, and `themes/` to your server. Run the binary directly — no runtime dependencies beyond `libsqlite3`.
+Copy `target/release/colophon`, your `config/` directory, `migrations/`, and `themes/` to your server. Run the binary directly — no runtime dependencies beyond `libsqlite3`.
 
 ## Security
 
@@ -181,19 +181,19 @@ Copy `target/release/inkforge`, your `config/` directory, `migrations/`, and `th
 
 ## Comparison
 
-InkForge is a good fit for personal blogs, developer portfolios, documentation sites, and small-to-medium publications where speed and low operating cost matter more than an ecosystem of third-party integrations.
+Colophon is a good fit for personal blogs, developer portfolios, documentation sites, and small-to-medium publications where speed and low operating cost matter more than an ecosystem of third-party integrations.
 
-Ghost offers a more mature admin experience, a built-in membership and newsletter system, and a larger theme marketplace. If you need subscription billing or a multi-author newsroom workflow today, Ghost is the safer choice. However, Ghost runs on Node.js and idles at roughly 7–8× the memory footprint of InkForge.
+Ghost offers a more mature admin experience, a built-in membership and newsletter system, and a larger theme marketplace. If you need subscription billing or a multi-author newsroom workflow today, Ghost is the safer choice. However, Ghost runs on Node.js and idles at roughly 7–8× the memory footprint of Colophon.
 
-WordPress has the largest plugin ecosystem of any CMS by an order of magnitude. If your site depends on a specific WooCommerce extension, a page builder, or a deep SEO plugin chain, WordPress is the pragmatic option. The tradeoff is runtime cost and attack surface — WordPress sites require regular patching, a PHP opcache layer, and typically a separate caching reverse proxy to achieve response times comparable to InkForge out of the box.
+WordPress has the largest plugin ecosystem of any CMS by an order of magnitude. If your site depends on a specific WooCommerce extension, a page builder, or a deep SEO plugin chain, WordPress is the pragmatic option. The tradeoff is runtime cost and attack surface — WordPress sites require regular patching, a PHP opcache layer, and typically a separate caching reverse proxy to achieve response times comparable to Colophon out of the box.
 
-InkForge's plugin system is Rust-native: plugins are compiled, statically linked, and verified by the type system before deployment. This is fundamentally different from PHP or JavaScript plugin models — safer by construction, but with a higher bar for plugin authorship.
+Colophon's plugin system is Rust-native: plugins are compiled, statically linked, and verified by the type system before deployment. This is fundamentally different from PHP or JavaScript plugin models — safer by construction, but with a higher bar for plugin authorship.
 
 ## License
 
 **AGPLv3** (starting from v1.0.0). See [LICENSE](LICENSE).
 
-You may self-host InkForge for free under the terms of the AGPLv3. If you wish to offer InkForge as a commercial SaaS without releasing your modifications, please contact the authors to discuss an alternative license.
+You may self-host Colophon for free under the terms of the AGPLv3. If you wish to offer Colophon as a commercial SaaS without releasing your modifications, please contact the authors to discuss an alternative license.
 
 ## Roadmap
 

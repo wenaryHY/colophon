@@ -42,7 +42,7 @@
 <!-- 顶部导航 -->
 <header class="site-nav" id="siteNav">
   <nav class="site-nav__inner" aria-label="主导航">
-    <a href="/" class="site-nav__logo" aria-label="InkForge 首页">InkForge</a>
+    <a href="/" class="site-nav__logo" aria-label="Colophon 首页">Colophon</a>
     <div class="site-nav__links">
       <a href="/" class="site-nav__link is-active"><span data-i18n="navHome">Home</span></a>
       <a href="/#articles" class="site-nav__link"><span data-i18n="navArticles">Articles</span></a>
@@ -167,8 +167,8 @@
 <footer class="site-footer">
   <div class="site-footer__inner">
     <div class="site-footer__brand">
-      <span class="site-footer__name">InkForge</span>
-      <span class="site-footer__copy">© {{ site_title }} · Powered by <a href="{{ admin_url or '/admin' }}" style="color: var(--primary); font-weight:500;">InkForge</a></span>
+      <span class="site-footer__name">Colophon</span>
+      <span class="site-footer__copy">© {{ site_title }} · Powered by <a href="{{ admin_url or '/admin' }}" style="color: var(--primary); font-weight:500;">Colophon</a></span>
     </div>
     <nav class="site-footer__links" aria-label="次级链接">
       <a href="#" class="site-footer__link"><span data-i18n="footerPrivacy">Privacy Policy</span></a>
@@ -394,8 +394,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       
       // 如果在 profile 页面，调用 API 更新用户语言偏好
-      if (window.location.pathname.includes('/profile') && window.InkForgeAPI) {
-        window.InkForgeAPI.updateProfile({ language: targetLang })
+      if (window.location.pathname.includes('/profile') && window.ColophonAPI) {
+        window.ColophonAPI.updateProfile({ language: targetLang })
           .catch(err => console.error('Failed to update language preference:', err));
       }
     });

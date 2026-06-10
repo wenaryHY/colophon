@@ -8,11 +8,11 @@ type ApiError = Error & {
 };
 
 function logDebug(event: string, details?: Record<string, unknown>): void {
-  console.debug('[InkForge][frontend][debug]', event, details || {});
+  console.debug('[Colophon][frontend][debug]', event, details || {});
 }
 
 function logError(event: string, details?: Record<string, unknown>): void {
-  console.error('[InkForge][frontend][error]', event, details || {});
+  console.error('[Colophon][frontend][error]', event, details || {});
 }
 
 function normalizeBody(options: ApiOptions): RequestInit {

@@ -1,17 +1,17 @@
 [package]
-name = "inkforge-desktop"
+name = "colophon-desktop"
 version = "1.0.0"
 edition = "2021"
 
 [lib]
-name = "inkforge_desktop_lib"
+name = "colophon_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "=2.5.6", features = [] }
 
 [dependencies]
-inkforge = { path = "../" }
+colophon = { path = "../" }
 tauri = { version = "=2.10.3", features = [] }
 tauri-plugin-shell = "=2.3.5"
 serde = { version = "=1.0.228", features = ["derive"] }

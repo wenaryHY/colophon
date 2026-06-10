@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('InkForge Main Flow', () => {
+test.describe('Colophon Main Flow', () => {
   test('Complete setup wizard and publish a post', async ({ page }) => {
     // 1. 访问安装向导
     await page.goto('/setup');
@@ -9,7 +9,7 @@ test.describe('InkForge Main Flow', () => {
     await expect(page.locator('text=完成首次安装')).toBeVisible();
 
     // 2. 填写表单
-    await page.fill('input[placeholder="InkForge"]', 'E2E Test Site');
+    await page.fill('input[placeholder="Colophon"]', 'E2E Test Site');
     await page.fill('input[placeholder="http://localhost:2000"]', 'http://127.0.0.1:2002');
     
     // admin URL 自动推导，直接填写管理员信息

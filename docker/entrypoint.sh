@@ -8,9 +8,9 @@ if [ "${LITESTREAM_ENABLED:-1}" = "1" ]; then
     echo "Litestream enabled: replicating to S3 bucket ${LITESTREAM_S3_BUCKET}"
     # 用 envsubst 替换 litestream.yml 中的 ${VAR} 占位符
     envsubst < /app/config/litestream.yml > /tmp/litestream.yml
-    exec litestream replicate -config /tmp/litestream.yml -exec /app/inkforge
+    exec litestream replicate -config /tmp/litestream.yml -exec /app/colophon
   fi
-  echo "Litestream disabled: missing S3 environment variables. Starting InkForge directly."
+  echo "Litestream disabled: missing S3 environment variables. Starting Colophon directly."
 fi
 
-exec /app/inkforge
+exec /app/colophon

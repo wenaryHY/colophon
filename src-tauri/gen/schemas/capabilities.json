@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"InkForge desktop default capability","local":true,"windows":["*"],"permissions":["core:default","shell:allow-spawn","shell:allow-kill","shell:allow-stdin-write"]}}
+{"default":{"identifier":"default","description":"Colophon desktop default capability","local":true,"windows":["*"],"permissions":["core:default","shell:allow-spawn","shell:allow-kill","shell:allow-stdin-write"]}}

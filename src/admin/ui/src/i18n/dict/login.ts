@@ -2,7 +2,7 @@
 export const loginDict = {
   zh: {
     // 标题
-    title: 'InkForge',
+    title: 'Colophon',
     subtitle: '博客管理后台',
 
     // Tab
@@ -47,7 +47,7 @@ export const loginDict = {
   },
   en: {
     // Title
-    title: 'InkForge',
+    title: 'Colophon',
     subtitle: 'Blog Admin',
 
     // Tab

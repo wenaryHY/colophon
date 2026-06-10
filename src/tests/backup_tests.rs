@@ -29,9 +29,9 @@ mod backup_integration_tests {
     fn test_backup_filename_pattern() {
         // 测试备份文件名模式
         let timestamp = "20260411_120000";
-        let filename = format!("inkforge_backup_{}.db", timestamp);
+        let filename = format!("colophon_backup_{}.db", timestamp);
 
-        assert!(filename.starts_with("inkforge_backup_"));
+        assert!(filename.starts_with("colophon_backup_"));
         assert!(filename.ends_with(".db"));
         assert!(filename.contains(timestamp));
     }
@@ -39,7 +39,7 @@ mod backup_integration_tests {
     #[test]
     fn test_backup_path_validation() {
         // 测试备份路径验证概念
-        let valid_path = "backups/inkforge_backup_20260411_120000.db";
+        let valid_path = "backups/colophon_backup_20260411_120000.db";
         let invalid_path = "../../../etc/passwd";
 
         assert!(valid_path.starts_with("backups/"));

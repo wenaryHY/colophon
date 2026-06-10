@@ -29,11 +29,11 @@ async function main() {
 
   const env = {
     ...process.env,
-    INKFORGE__SERVER__PORT: '2002',
-    INKFORGE__DATABASE__URL: 'sqlite::memory:',
-    INKFORGE__STORAGE__UPLOAD_DIR: 'target_tmp_e2e_uploads',
-    INKFORGE__THEME__THEME_DIR: 'target_tmp_e2e_themes',
-    INKFORGE__RUNTIME__MODE: 'development',
+    COLOPHON__SERVER__PORT: '2002',
+    COLOPHON__DATABASE__URL: 'sqlite::memory:',
+    COLOPHON__STORAGE__UPLOAD_DIR: 'target_tmp_e2e_uploads',
+    COLOPHON__THEME__THEME_DIR: 'target_tmp_e2e_themes',
+    COLOPHON__RUNTIME__MODE: 'development',
   };
 
   const server = spawn('cargo', ['run'], {

@@ -1,6 +1,6 @@
 # Plugin Development Guide
 
-InkForge plugins are Rust crates compiled and statically linked into the server binary. There is no runtime dynamic dispatch overhead — the Rust compiler verifies type safety and API contracts at build time. Enabling or disabling a plugin is a boolean toggle in the admin panel.
+Colophon plugins are Rust crates compiled and statically linked into the server binary. There is no runtime dynamic dispatch overhead — the Rust compiler verifies type safety and API contracts at build time. Enabling or disabling a plugin is a boolean toggle in the admin panel.
 
 ## How Plugins Are Discovered
 
@@ -61,10 +61,10 @@ id = "hello-world-a3f9b2c1"
 title = "Hello World"
 version = "0.1.0"
 description = "A demo plugin"
-author = "InkForge Team"
+author = "Colophon Team"
 
 [engine]
-inkforge = ">=0.3.0"
+colophon = ">=0.3.0"
 
 [hooks]
 template = true
@@ -86,7 +86,7 @@ entry = "settings.html"
 Fields explained:
 
 - **`[plugin]`** — identity and metadata. `id` must match the directory name.
-- **`[engine]`** — minimum InkForge version required. The manager checks this at load time.
+- **`[engine]`** — minimum Colophon version required. The manager checks this at load time.
 - **`[hooks]`** — capability flags declaring what the plugin uses. Set `template = true` if you call `extend_template_env`, `routes = true` for `api_routes`, and `assets = ["css"]` (or `["js"]`) for `frontend_assets`.
 - **`[[settings]]`** — user-configurable settings surfaced in the admin panel. Each entry has a `key`, `label`, `type`, `default`, and `description`.
 - **`[admin]`** — enables the plugin settings page and points to an optional custom settings template.
@@ -205,7 +205,7 @@ impl Plugin for HelloWorldPlugin {
 
 ## Hook System: Filter vs Action
 
-InkForge has two hook types, each with different semantics:
+Colophon has two hook types, each with different semantics:
 
 | | Filter | Action |
 |---|---|---|

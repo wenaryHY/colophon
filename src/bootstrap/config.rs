@@ -82,7 +82,7 @@ impl AppConfig {
         self.runtime.mode.eq_ignore_ascii_case("production")
     }
 
-    /// cookie 是否加 Secure 标记（独立于 runtime.mode，由 INKFORGE__AUTH__COOKIE_SECURE 控制）
+    /// cookie 是否加 Secure 标记（独立于 runtime.mode，由 COLOPHON__AUTH__COOKIE_SECURE 控制）
     pub fn cookie_secure(&self) -> bool {
         self.auth.cookie_secure
     }
@@ -91,10 +91,10 @@ impl AppConfig {
         Ok(config::Config::builder()
             .add_source(config::File::with_name("config/default").required(false))
             .add_source(config::File::with_name("config/local").required(false))
-            .add_source(config::Environment::with_prefix("INKFORGE").separator("__"))
+            .add_source(config::Environment::with_prefix("COLOPHON").separator("__"))
             .set_default("server.host", "0.0.0.0")?
             .set_default("server.port", 2000)?
-            .set_default("database.url", "sqlite://inkforge.db?mode=rwc")?
+            .set_default("database.url", "sqlite://colophon.db?mode=rwc")?
             .set_default("auth.secret", "change-me-in-production-please")?
             .set_default("auth.expires_in_seconds", 900)?
             .set_default("auth.turnstile_secret", "")?
@@ -115,7 +115,7 @@ impl AppConfig {
 
     pub fn validate(&self) -> Result<()> {
         const UNSAFE_SECRETS: &[&str] = &[
-            "inkforge-change-me-in-production",
+            "colophon-change-me-in-production",
             "change-me-in-production-please",
         ];
         if !UNSAFE_SECRETS.contains(&self.auth.secret.as_str()) {
@@ -125,13 +125,13 @@ impl AppConfig {
         // 生产模式必须设置非默认 secret（无绕过选项）
         if self.is_production() {
             bail!(
-                "生产环境必须设置 INKFORGE__AUTH__SECRET（不能使用默认值）"
+                "生产环境必须设置 COLOPHON__AUTH__SECRET（不能使用默认值）"
             );
         }
 
         // 开发模式警告
         tracing::warn!(
-            "⚠️  开发模式使用默认 JWT secret。生产环境前请设置 INKFORGE__AUTH__SECRET"
+            "⚠️  开发模式使用默认 JWT secret。生产环境前请设置 COLOPHON__AUTH__SECRET"
         );
         Ok(())
     }

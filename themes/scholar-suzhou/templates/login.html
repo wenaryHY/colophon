@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>登录 - {{ site_title | default("InkForge") }}</title>
+<title>登录 - {{ site_title | default("Colophon") }}</title>
 <link rel="preload" href="{{ theme_assets_url('fonts/source-sans-3-400.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{{ theme_assets_url('fonts/eb-garamond-600.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ theme_assets_url('css/fonts.css') }}">
@@ -22,7 +22,7 @@
 
 <section class="form-card" aria-labelledby="loginTitle">
   <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-stack-md);">
-    <a href="/" class="site-nav__logo" style="font-size: 24px;">InkForge</a>
+    <a href="/" class="site-nav__logo" style="font-size: 24px;">Colophon</a>
     <div class="lang-switch" role="group" aria-label="语言切换">
       <button class="lang-switch__btn" type="button" data-lang="zh">中</button>
       <button class="lang-switch__btn" type="button" data-lang="en">En</button>
@@ -113,11 +113,11 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
   alertEl.style.display = 'none';
 
   try {
-    await window.InkForgeApi.login({
+    await window.ColophonApi.login({
       login: document.getElementById('login').value.trim(),
       password: document.getElementById('password').value,
     });
-    const user = await window.InkForgeApi.checkLoginStatus();
+    const user = await window.ColophonApi.checkLoginStatus();
     if (!user) {
       throw new Error(I18n.t('sessionError', '登录会话建立失败，请重试。'));
     }

@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # 二进制
-COPY --from=backend /app/target/release/inkforge /app/inkforge
+COPY --from=backend /app/target/release/colophon /app/colophon
 # 数据
 COPY --from=backend /app/migrations /app/migrations
 COPY --from=backend /app/themes /app/themes
@@ -47,10 +47,10 @@ RUN mkdir -p /app/uploads /app/backups /app/data && \
     chmod +x /app/entrypoint.sh
 
 ENV RUST_LOG=info
-ENV INKFORGE__SERVER__PORT=3000
-ENV INKFORGE__DATABASE__URL=sqlite:///app/data/inkforge.db?mode=rwc
-ENV INKFORGE__STORAGE__UPLOAD_DIR=/app/uploads
-ENV INKFORGE__PATHS__ADMIN_DIST_DIR=/app/src/admin/dist
+ENV COLOPHON__SERVER__PORT=3000
+ENV COLOPHON__DATABASE__URL=sqlite:///app/data/colophon.db?mode=rwc
+ENV COLOPHON__STORAGE__UPLOAD_DIR=/app/uploads
+ENV COLOPHON__PATHS__ADMIN_DIST_DIR=/app/src/admin/dist
 ENV LITESTREAM_ENABLED=1
 
 EXPOSE 3000

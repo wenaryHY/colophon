@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ─────────────────────────────────────────────
-#  InkForge Release Packager
+#  Colophon Release Packager
 #  Builds release tarballs for GitHub Releases.
 #  Usage: ./scripts/release.sh [version]
 #  Example: ./scripts/release.sh v1.0.1
@@ -20,10 +20,10 @@ VERSION="${VERSION#v}"
 TAG="v${VERSION}"
 
 ARCH="$(uname -m)"
-ASSET_NAME="inkforge-${TAG}-linux-${ARCH}.tar.gz"
-STAGING_DIR="target/release-pkg/inkforge-${TAG}-linux-${ARCH}"
+ASSET_NAME="colophon-${TAG}-linux-${ARCH}.tar.gz"
+STAGING_DIR="target/release-pkg/colophon-${TAG}-linux-${ARCH}"
 
-echo "=== Building InkForge ${TAG} (${ARCH}) ==="
+echo "=== Building Colophon ${TAG} (${ARCH}) ==="
 
 # ── 1. Build backend ──
 echo "[1/3] cargo build --release ..."
@@ -45,7 +45,7 @@ rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"/{themes,admin-dist,migrations}
 
 # Binary
-cp target/release/inkforge "$STAGING_DIR/inkforge"
+cp target/release/colophon "$STAGING_DIR/colophon"
 
 # Themes
 cp -r themes/default "$STAGING_DIR/themes/"
@@ -59,7 +59,7 @@ cp -r migrations/*.sql "$STAGING_DIR/migrations/"
 # Create tarball
 mkdir -p target/release-pkg
 tar -czf "target/release-pkg/${ASSET_NAME}" -C "target/release-pkg" \
-    "inkforge-${TAG}-linux-${ARCH}"
+    "colophon-${TAG}-linux-${ARCH}"
 
 SIZE=$(du -h "target/release-pkg/${ASSET_NAME}" | cut -f1)
 echo ""
@@ -69,4 +69,4 @@ echo ""
 echo "Upload to GitHub:"
 echo "   gh release create ${TAG} target/release-pkg/${ASSET_NAME} --title '${TAG}' --notes 'Release ${TAG}'"
 echo ""
-echo "Or manually at: https://github.com/wenaryHY/inkforge/releases/new?tag=${TAG}"
+echo "Or manually at: https://github.com/wenaryHY/colophon/releases/new?tag=${TAG}"

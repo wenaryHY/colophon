@@ -1,6 +1,6 @@
 # Webhook Guide
 
-Webhooks in InkForge let external services react to post lifecycle events. When a post is saved or published, InkForge sends an HTTP POST with a JSON payload to every URL you configure. Built-in retry logic, concurrency control, and delivery logging give you visibility into every call.
+Webhooks in Colophon let external services react to post lifecycle events. When a post is saved or published, Colophon sends an HTTP POST with a JSON payload to every URL you configure. Built-in retry logic, concurrency control, and delivery logging give you visibility into every call.
 
 ## Supported Events
 
@@ -88,13 +88,13 @@ All webhooks for a given event are dispatched in parallel, governed by a `tokio:
 | Max concurrent webhooks | 5 | `webhook.max_concurrency` |
 | Total dispatch timeout | 60 seconds | `webhook.timeout_seconds` |
 
-If there are 12 enabled webhooks listening to `post.after_publish`, InkForge sends at most 5 HTTP requests at a time. The remaining 7 wait for a semaphore permit. If the entire batch does not complete within 60 seconds, any outstanding requests are cancelled.
+If there are 12 enabled webhooks listening to `post.after_publish`, Colophon sends at most 5 HTTP requests at a time. The remaining 7 wait for a semaphore permit. If the entire batch does not complete within 60 seconds, any outstanding requests are cancelled.
 
 Each individual HTTP request has a 10-second connection timeout (set on the `reqwest::Client`).
 
 ## Retry Strategy
 
-When a webhook delivery fails with a 5xx server error or a network error (connection refused, DNS failure, timeout), InkForge retries automatically. The retry behavior:
+When a webhook delivery fails with a 5xx server error or a network error (connection refused, DNS failure, timeout), Colophon retries automatically. The retry behavior:
 
 - **Exponential backoff**: delay = `5 × 2^(attempt-1)` seconds, capped at 60 seconds. The sequence is 5s → 10s → 20s → 40s → 60s.
 - **Maximum 5 retries** (6 total attempts including the initial call).
@@ -125,7 +125,7 @@ A separate `__event_failed__` sentinel webhook captures delivery records when th
 
 ## Signature Verification
 
-If you provide a `secret` when creating a webhook, InkForge attaches an HMAC-SHA256 signature to every request:
+If you provide a `secret` when creating a webhook, Colophon attaches an HMAC-SHA256 signature to every request:
 
 ```
 X-Webhook-Signature: sha256=<hex-encoded-hmac>
@@ -202,7 +202,7 @@ Returns `{"deleted": true}`. Delivery logs are preserved for audit purposes.
 For local development, [webhook.site](https://webhook.site) provides a free, instant webhook receiver:
 
 1. Open webhook.site — you get a unique URL like `https://webhook.site/abc123-...`.
-2. Create a webhook in InkForge pointing to that URL.
+2. Create a webhook in Colophon pointing to that URL.
 3. Publish a post and watch the payload appear in real time.
 
 This is the fastest way to inspect payload format, headers, and timing before wiring up your actual integration.
@@ -212,5 +212,5 @@ This is the fastest way to inspect payload format, headers, and timing before wi
 - **"No deliveries recorded"** — confirm the webhook is enabled and the event field matches (`post.after_publish`, not `post.after_publish` with extra whitespace).
 - **"Webhook returns 4xx"** — check that your receiver accepts `Content-Type: application/json` and the payload shape. 4xx errors are not retried.
 - **"Delivery timed out"** — your receiver may be taking longer than 10 seconds to respond. Consider acknowledging immediately and processing asynchronously.
-- **"Too many concurrent deliveries"** — increase `webhook.max_concurrency` in `config/inkforge.toml` (restart required).
+- **"Too many concurrent deliveries"** — increase `webhook.max_concurrency` in `config/colophon.toml` (restart required).
 - **Check logs** — search for `module = "webhook"` in the application logs. Every delivery attempt, retry, and error is logged at the appropriate level.

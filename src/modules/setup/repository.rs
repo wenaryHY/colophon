@@ -53,7 +53,7 @@ where
         persisted_stage,
         setup_completed,
         user_count,
-        site_title: setting_repository::get_string(executor, "site_title", "InkForge").await?,
+        site_title: setting_repository::get_string(executor, "site_title", "Colophon").await?,
         site_description: setting_repository::get_string(executor, "site_description", "").await?,
         site_url: setting_repository::get_string(executor, "site_url", "").await?,
         admin_url: setting_repository::get_string(executor, "admin_url", "").await?,

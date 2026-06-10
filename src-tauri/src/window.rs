@@ -13,7 +13,7 @@ pub fn open_setup_window(app: &AppHandle) -> Result<(), String> {
     let url = format!("http://127.0.0.1:{}/setup", SERVER_PORT);
 
     WebviewWindowBuilder::new(app, SETUP_WINDOW_LABEL, WebviewUrl::External(url.parse().unwrap()))
-        .title("InkForge — 首次安装")
+        .title("Colophon — 首次安装")
         .inner_size(860.0, 680.0)
         .min_inner_size(640.0, 540.0)
         .center()
@@ -30,7 +30,7 @@ pub fn open_admin_window(app: &AppHandle) -> Result<(), String> {
     let url = format!("http://127.0.0.1:{}/admin", SERVER_PORT);
 
     WebviewWindowBuilder::new(app, ADMIN_WINDOW_LABEL, WebviewUrl::External(url.parse().unwrap()))
-        .title("InkForge")
+        .title("Colophon")
         .inner_size(1280.0, 820.0)
         .min_inner_size(800.0, 600.0)
         .center()

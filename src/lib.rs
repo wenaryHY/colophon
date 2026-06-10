@@ -32,7 +32,7 @@ pub async fn serve() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "inkforge=info,axum=info,tower_http=info".into()),
+                .unwrap_or_else(|_| "colophon=info,axum=info,tower_http=info".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -45,7 +45,7 @@ pub async fn serve() -> anyhow::Result<()> {
         tracing::warn!(
             "Turnstile verification is configured (turnstile_secret is set) but turnstile_site_key is empty. \
              The Turnstile widget will not render on the login page, but backend validation is enabled. \
-             This is likely a configuration error — set INKFORGE__AUTH__TURNSTILE_SITE_KEY to match."
+             This is likely a configuration error — set COLOPHON__AUTH__TURNSTILE_SITE_KEY to match."
         );
     }
     std::fs::create_dir_all(&config.storage.upload_dir)?;
@@ -114,7 +114,7 @@ pub async fn serve() -> anyhow::Result<()> {
     let app = build_router(state).await;
 
     let addr = SocketAddr::new(config.server.host.parse()?, config.server.port);
-    tracing::info!("InkForge listening on http://{}", addr);
+    tracing::info!("Colophon listening on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;

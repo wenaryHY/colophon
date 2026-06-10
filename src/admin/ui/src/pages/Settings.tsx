@@ -208,10 +208,10 @@ export default function Settings() {
 
       <SettingSection title={t('basicInfo')} description={t('basicInfoDesc')} isMobile={isMobile}>
         <FormRow label={t('siteTitle')} isMobile={isMobile}>
-          <Input value={kv.site_title || ''} onChange={(e) => update('site_title', e.target.value)} placeholder="InkForge" />
+          <Input value={kv.site_title || ''} onChange={(e) => update('site_title', e.target.value)} placeholder="Colophon" />
         </FormRow>
         <FormRow label={t('siteDescription')} hint={t('siteDescHint')} isMobile={isMobile}>
-          <Input value={kv.site_description || ''} onChange={(e) => update('site_description', e.target.value)} placeholder="A personal blog powered by InkForge" />
+          <Input value={kv.site_description || ''} onChange={(e) => update('site_description', e.target.value)} placeholder="A personal blog powered by Colophon" />
         </FormRow>
         <FormRow label={t('siteUrl')} hint={t('siteUrlHintFull')} isMobile={isMobile}>
           <Input value={kv.site_url || ''} onChange={(e) => update('site_url', e.target.value)} placeholder="https://example.com" />

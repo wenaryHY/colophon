@@ -1,6 +1,6 @@
 import type { Language } from './types';
 
-const STORAGE_KEY = 'inkforge_language';
+const STORAGE_KEY = 'colophon_language';
 
 /**
  * 检测用户语言偏好

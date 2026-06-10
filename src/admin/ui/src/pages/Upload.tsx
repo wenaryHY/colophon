@@ -127,7 +127,7 @@ export default function Upload() {
   }
 
   function insertIntoEditor(url: string) {
-    const insertFn = (window as any).inkforgeInsertMarkdown;
+    const insertFn = (window as any).colophonInsertMarkdown;
     if (!insertFn) { toast(t('openEditorFirst'), 'error'); return; }
     const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
     const text = isImage ? `\n![](${url})\n` : `\n[文件](${url})\n`;

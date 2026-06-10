@@ -15,7 +15,7 @@ description = "A test"
 author = "Tester"
 
 [engine]
-inkforge = ">=0.3.0"
+colophon = ">=0.3.0"
 
 [hooks]
 template = true
@@ -76,7 +76,7 @@ title = "T"
 version = "0.1.0"
 
 [engine]
-inkforge = ">=0.3.0"
+colophon = ">=0.3.0"
 "#;
         let manifest: PluginManifest = toml::from_str(toml_str).unwrap();
         assert!(loader.check_version(&manifest).unwrap());
@@ -92,7 +92,7 @@ title = "T"
 version = "0.1.0"
 
 [engine]
-inkforge = ">=0.3.0"
+colophon = ">=0.3.0"
 "#;
         let manifest: PluginManifest = toml::from_str(toml_str).unwrap();
         assert!(!loader.check_version(&manifest).unwrap());

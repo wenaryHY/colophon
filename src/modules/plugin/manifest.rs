@@ -26,7 +26,7 @@ pub struct PluginMeta {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineMeta {
-    pub inkforge: Option<String>,
+    pub colophon: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

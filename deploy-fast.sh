@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================================
-# InkForge 快速部署脚本 (WSL 本地编译 → scp 上传)
+# Colophon 快速部署脚本 (WSL 本地编译 → scp 上传)
 # 用法: 在 WSL 中执行 bash deploy-fast.sh
 # ============================================================
 
@@ -18,14 +18,14 @@ readonly COLOR_BOLD='\033[1m'
 readonly SSH_KEY_PATH="${HOME}/.ssh/id_ed25519"
 readonly SERVER_IP="162.243.28.76"
 readonly SERVER_USER="root"
-readonly REMOTE_BINARY_PATH="/opt/inkforge/inkforge"
-readonly REMOTE_DIST_PATH="/opt/inkforge/src/admin/dist"
-readonly REMOTE_ADMIN_HTML_PATH="/opt/inkforge/src/admin/admin.html"
-readonly REMOTE_THEME_TEMPLATES_PATH="/opt/inkforge/themes"
-readonly REMOTE_THEME_STATIC_PATH="/opt/inkforge/themes"
-readonly REMOTE_BACKUP_DIR="/root/inkforge-backups"
+readonly REMOTE_BINARY_PATH="/opt/colophon/colophon"
+readonly REMOTE_DIST_PATH="/opt/colophon/src/admin/dist"
+readonly REMOTE_ADMIN_HTML_PATH="/opt/colophon/src/admin/admin.html"
+readonly REMOTE_THEME_TEMPLATES_PATH="/opt/colophon/themes"
+readonly REMOTE_THEME_STATIC_PATH="/opt/colophon/themes"
+readonly REMOTE_BACKUP_DIR="/root/colophon-backups"
 readonly HEALTH_CHECK_URL="http://127.0.0.1:2000/api/v1/health"
-readonly SERVICE_NAME="inkforge"
+readonly SERVICE_NAME="colophon"
 
 # ── 脚本路径推导 ────────────────────────────────────────────
 # 脚本放在项目根目录，SCRIPT_DIR 即 PROJECT_DIR
@@ -123,9 +123,9 @@ log_success "前端构建完成"
 # ── 步骤 3: Rust 构建 ────────────────────────────────────────
 log_step "3" "Rust release 构建 (多核并行)"
 
-cargo build --release -p inkforge
+cargo build --release -p colophon
 
-readonly BINARY_PATH="${PROJECT_DIR}/target/release/inkforge"
+readonly BINARY_PATH="${PROJECT_DIR}/target/release/colophon"
 if [ ! -f "${BINARY_PATH}" ]; then
     log_error "构建产物不存在: ${BINARY_PATH}"
     exit 1
@@ -143,10 +143,10 @@ scp_upload "${BINARY_PATH}" "${SERVER_USER}@${SERVER_IP}:${REMOTE_BINARY_PATH}.n
 
 # 4b. 打包并上传前端文件
 log_info "打包前端文件..."
-TAR_PATH="/tmp/inkforge-dist-$(date +%s).tar.gz"
+TAR_PATH="/tmp/colophon-dist-$(date +%s).tar.gz"
 tar -czf "${TAR_PATH}" -C "${FRONTEND_DIST_DIR}" .
 log_info "上传前端文件..."
-scp_upload "${TAR_PATH}" "${SERVER_USER}@${SERVER_IP}:/tmp/inkforge-dist.tar.gz"
+scp_upload "${TAR_PATH}" "${SERVER_USER}@${SERVER_IP}:/tmp/colophon-dist.tar.gz"
 rm -f "${TAR_PATH}"
 
 # 4c. 上传主题模板 — 打包为 tar.gz
@@ -154,16 +154,16 @@ log_info "上传主题模板..."
 THEME_SOURCE_DIR="${PROJECT_DIR}/themes"
 
 if [ -d "${THEME_SOURCE_DIR}" ] && [ -d "${THEME_SOURCE_DIR}/templates" ]; then
-    THEME_TAR="/tmp/inkforge-theme-$$.tar.gz"
+    THEME_TAR="/tmp/colophon-theme-$$.tar.gz"
     tar -czf "$THEME_TAR" -C "$THEME_SOURCE_DIR" templates static
     scp_upload "$THEME_TAR" "${SERVER_USER}@${SERVER_IP}:/tmp/"
     rm -f "$THEME_TAR"
 
     ssh_cmd "
         mkdir -p ${REMOTE_THEME_TEMPLATES_PATH} ${REMOTE_THEME_STATIC_PATH}
-        tar -xzf /tmp/inkforge-theme-*.tar.gz -C ${REMOTE_THEME_TEMPLATES_PATH}/..
-        rm -f /tmp/inkforge-theme-*.tar.gz
-        chown -R inkforge:inkforge ${REMOTE_THEME_TEMPLATES_PATH} ${REMOTE_THEME_STATIC_PATH}
+        tar -xzf /tmp/colophon-theme-*.tar.gz -C ${REMOTE_THEME_TEMPLATES_PATH}/..
+        rm -f /tmp/colophon-theme-*.tar.gz
+        chown -R colophon:colophon ${REMOTE_THEME_TEMPLATES_PATH} ${REMOTE_THEME_STATIC_PATH}
     "
     log_success "主题模板上传完成"
 else
@@ -174,10 +174,10 @@ fi
 log_info "服务器端解压前端文件..."
 ssh_cmd "
     mkdir -p ${REMOTE_DIST_PATH}
-    tar -xzf /tmp/inkforge-dist.tar.gz -C ${REMOTE_DIST_PATH}/
+    tar -xzf /tmp/colophon-dist.tar.gz -C ${REMOTE_DIST_PATH}/
     cp ${REMOTE_DIST_PATH}/admin.html ${REMOTE_ADMIN_HTML_PATH}
-    chown -R inkforge:inkforge /opt/inkforge/src/admin
-    rm /tmp/inkforge-dist.tar.gz
+    chown -R colophon:colophon /opt/colophon/src/admin
+    rm /tmp/colophon-dist.tar.gz
 "
 
 log_success "全部文件上传完成"
@@ -195,32 +195,32 @@ COLOR_RED='\033[0;31m'
 COLOR_RESET='\033[0m'
 
 # 5a. 确保备份目录存在
-mkdir -p /root/inkforge-backups
+mkdir -p /root/colophon-backups
 
 # 5b. 数据库备份
 echo "[server] 备份数据库..."
-BACKUP_FILE="/root/inkforge-backups/predeploy-$(date -u +%Y%m%d-%H%M%S).db.sql.gz"
-sqlite3 /var/lib/inkforge/inkforge.db '.dump' | gzip > "${BACKUP_FILE}"
+BACKUP_FILE="/root/colophon-backups/predeploy-$(date -u +%Y%m%d-%H%M%S).db.sql.gz"
+sqlite3 /var/lib/colophon/colophon.db '.dump' | gzip > "${BACKUP_FILE}"
 echo "[server] 备份完成: ${BACKUP_FILE}"
 
 # 5c. 保留旧版本
 echo "[server] 保留旧版本二进制..."
-cp /opt/inkforge/inkforge /opt/inkforge/inkforge.old 2>/dev/null || true
+cp /opt/colophon/colophon /opt/colophon/colophon.old 2>/dev/null || true
 
 # 5d. 停止服务
-echo "[server] 停止 inkforge 服务..."
-systemctl stop inkforge
+echo "[server] 停止 colophon 服务..."
+systemctl stop colophon
 sleep 1
 
 # 5e. 替换二进制
 echo "[server] 替换二进制..."
-mv /opt/inkforge/inkforge.new /opt/inkforge/inkforge
-chown inkforge:inkforge /opt/inkforge/inkforge
-chmod +x /opt/inkforge/inkforge
+mv /opt/colophon/colophon.new /opt/colophon/colophon
+chown colophon:colophon /opt/colophon/colophon
+chmod +x /opt/colophon/colophon
 
 # 5f. 启动服务
-echo "[server] 启动 inkforge 服务..."
-systemctl start inkforge
+echo "[server] 启动 colophon 服务..."
+systemctl start colophon
 sleep 3
 
 # 5g. 健康检查
@@ -229,8 +229,8 @@ if curl -fsS http://127.0.0.1:2000/api/v1/health >/dev/null 2>&1; then
     echo -e "${COLOR_GREEN}[server] DEPLOY SUCCESS ${COLOR_RESET}"
 else
     echo -e "${COLOR_RED}[server] DEPLOY FAILED - 回滚请执行:"
-    echo "  cp /opt/inkforge/inkforge.old /opt/inkforge/inkforge"
-    echo "  systemctl restart inkforge${COLOR_RESET}"
+    echo "  cp /opt/colophon/colophon.old /opt/colophon/colophon"
+    echo "  systemctl restart colophon${COLOR_RESET}"
     exit 1
 fi
 REMOTE_SCRIPT

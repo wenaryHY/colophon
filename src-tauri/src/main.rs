@@ -4,5 +4,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    inkforge_desktop_lib::run();
+    colophon_desktop_lib::run();
 }

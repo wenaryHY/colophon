@@ -1,9 +1,9 @@
 dbs:
-  - path: /app/data/inkforge.db
+  - path: /app/data/colophon.db
     replicas:
       - type: s3
         bucket: ${LITESTREAM_S3_BUCKET}
-        path: inkforge
+        path: colophon
         region: ${AWS_REGION}
         access-key-id: ${AWS_ACCESS_KEY_ID}
         secret-access-key: ${AWS_SECRET_ACCESS_KEY}

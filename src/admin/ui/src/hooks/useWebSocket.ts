@@ -32,7 +32,7 @@ export function useWebSocket(onEvent?: WSHandler) {
     wsRef.current = new WebSocket(`${protocol}//${location.host}/ws/admin`);
 
     wsRef.current.onopen = () => {
-      console.log('[InkForge WS] 已连接');
+      console.log('[Colophon WS] 已连接');
       attemptsRef.current = 0;
       if (timerRef.current) {
         clearTimeout(timerRef.current);
@@ -43,15 +43,15 @@ export function useWebSocket(onEvent?: WSHandler) {
     wsRef.current.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        console.log('[InkForge WS] 收到事件:', payload.type);
+        console.log('[Colophon WS] 收到事件:', payload.type);
         onEventRef.current?.(payload as { type: WSEventType });
       } catch (error) {
-        console.error('[InkForge WS] 解析消息失败:', error);
+        console.error('[Colophon WS] 解析消息失败:', error);
       }
     };
 
     wsRef.current.onclose = () => {
-      console.log('[InkForge WS] 连接断开');
+      console.log('[Colophon WS] 连接断开');
       wsRef.current = null;
       if (!user || timerRef.current) return;
       const delay = Math.min(1000 * Math.pow(2, attemptsRef.current), 30000);
