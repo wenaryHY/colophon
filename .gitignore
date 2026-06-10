@@ -28,6 +28,10 @@ backups/
 # Frontend
 node_modules/
 src/admin/dist/
+src/admin/ui/node_modules/
+src/admin/ui/inkforge.db
+src/admin/ui/inkforge.db-wal
+src/admin/ui/inkforge.db-shm
 
 # IDE & Tools
 .DS_Store

@@ -4,9 +4,9 @@ InkForge plugins are Rust crates compiled and statically linked into the server 
 
 ## How Plugins Are Discovered
 
-A `build.rs` script scans the `plugins/` directory at compile time. Any subdirectory containing both a `plugin.toml` manifest and a `lib.rs` entry point is auto-discovered and registered. No manual wiring required — add a directory and rebuild.
+Plugins are discovered at runtime from the `plugins/` directory. Each plugin must have a `plugin.toml` manifest. The `PluginLoader` scans subdirectories containing both a `plugin.toml` manifest and source files, auto-discovers them, and registers them into the `PluginManager`.
 
-The manifest's `[plugin].id` field must match the directory name exactly (e.g. `plugins/hello-world-a3f9b2c1/` → `id = "hello-world-a3f9b2c1"`). The build script enforces this invariant and skips mismatches with a warning.
+The manifest's `[plugin].id` field must match the directory name exactly (e.g. `plugins/hello-world-a3f9b2c1/` → `id = "hello-world-a3f9b2c1"`). The loader enforces this invariant and skips mismatches with a warning.
 
 ## The Plugin Trait
 
@@ -275,7 +275,7 @@ These are available in all theme templates across every page render.
 - **Hook registration**: `module = "hook"` logs show which plugin registered which hooks.
 - **Action Registry**: `module = "action_registry"` logs every action's lifecycle — `spawned`, `running`, `done`, `failed`, or `timeout`. This is invaluable for debugging fire-and-forget hooks that seem to do nothing.
 - **Disabled plugins**: if a plugin route returns 404 unexpectedly, check the `plugin_status` table or the admin panel's plugin toggle.
-- **Build script warnings**: `cargo:warning=plugin id 'X' != directory 'Y', skipping` means your manifest `id` doesn't match the directory name.
+- **Plugin loader warnings**: the PluginLoader logs a warning when a manifest `id` doesn't match the directory name — check startup logs for `module = "plugin"`.
 
 ## Next Steps
 

@@ -10,7 +10,7 @@ This document describes the high-level design of InkForge. It is written for dev
 | Database | **SQLite 3** via `sqlx 0.7` (WAL mode) | All persistent state: posts, users, comments, settings |
 | Templates | **MiniJinja** | Server-side theme rendering |
 | Admin frontend | **React 19 + TypeScript + Vite 8** | Embedded SPA, built at compile time |
-| Plugin system | **Rust trait + build.rs discovery** | Compile-time safe extension points |
+| Plugin system | **Rust trait + runtime discovery** | PluginLoader scans plugins/ directory at startup |
 | Desktop shell | **Tauri 2** (optional) | Shares the same `lib.rs` entry point as the server |
 | Deployment | **Single binary** with embedded assets | One file + one config directory |
 
@@ -84,10 +84,11 @@ The built-in webhook dispatcher registers itself as an action hook on both event
 ## PluginManager Lifecycle
 
 ```
-Build time:  build.rs scans plugins/  ──►  generates plugin_registry.rs
-                                         ──►  calls PluginRegistry::register() for each
+Startup:     PluginLoader::discover()  ──►  scans plugins/ directory
+                                         ──►  reads plugin.toml manifests
+                                         ──►  returns Vec<DiscoveredPlugin>
 
-Runtime:     PluginManager::load()  ──►  takes all plugins from global registry
+Runtime:     PluginManager::load_with()  ──►  creates PluginManager from discovered list
                 │
                 ├── init_all(state)  ──►  calls plugin.init() for each
                 │                        ──►  registers hooks into HookRegistry
@@ -99,7 +100,7 @@ Runtime:     PluginManager::load()  ──►  takes all plugins from global reg
                 └── shutdown_all() ──►  calls plugin.shutdown() for each (on server stop)
 ```
 
-Plugins are discovered at build time via `build.rs`, which scans `plugins/` for directories containing both `plugin.toml` and `lib.rs`. Each plugin's `lib.rs` is included as a `#[path]` module in a generated `plugin_registry.rs` file, and its constructor is registered into a global `Lazy<Mutex<Vec<Box<dyn Plugin>>>>` registry. At runtime, `PluginManager::load()` takes ownership of all plugins from this registry.
+Plugins are discovered at runtime from the `plugins/` directory. Each plugin must have a `plugin.toml` manifest. The `PluginLoader` scans subdirectories, reads their manifests, and returns a list of `DiscoveredPlugin` structs. `PluginManager::load_with()` takes that list and initializes all plugins.
 
 Enabling or disabling a plugin at runtime toggles a row in the `plugin_status` table. The plugin's hooks remain registered but are checked against this table before execution. Plugin routes return 404 if disabled.
 
@@ -165,7 +166,7 @@ InkForge achieves these numbers through several design decisions:
 - **Single binary, single process** — no IPC overhead between web server and database.
 - **SQLite WAL mode** — concurrent reads scale well; writes are serialized by SQLite's internal locking.
 - **Fire-and-forget actions** — webhooks, notifications, and search indexing never delay the HTTP response. The user always gets a response after the database commit, regardless of how many downstream integrations are configured.
-- **Compile-time plugin linking** — zero dynamic dispatch overhead. Disabled plugins cost nothing beyond the `plugin_status` table lookup.
+- **Static plugin linking** — zero dynamic dispatch overhead. Disabled plugins cost nothing beyond the `plugin_status` table lookup.
 - **Embedded frontend** — the React SPA is built at compile time and served from memory via `rust-embed`. No separate static file server, no CDN required for basic operation.
 
 ## Database Schema (Simplified)
