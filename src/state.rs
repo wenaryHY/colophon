@@ -53,6 +53,7 @@ pub struct AppState {
     pub pool: SqlitePool,
     pub config: AppConfig,
     pub upload_dir: PathBuf,
+    pub static_dir: PathBuf,
     pub theme_dir: PathBuf,
     pub admin_dist_dir: PathBuf,
     /// Path to the SQLite database file, for backup/restore
@@ -97,6 +98,7 @@ impl AppState {
         let db_path = parse_sqlite_url(&config.database.url)?;
         Ok(Self {
             upload_dir: AppConfig::resolve_path(&config.storage.upload_dir)?,
+            static_dir: AppConfig::resolve_path(&config.storage.static_dir)?,
             theme_dir: AppConfig::resolve_path(&config.theme.theme_dir)?,
             admin_dist_dir: AppConfig::resolve_path(&config.paths.admin_dist_dir)?,
             db_path,

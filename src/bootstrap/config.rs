@@ -45,6 +45,7 @@ pub struct AuthConfig {
 pub struct StorageConfig {
     pub upload_dir: String,
     pub max_upload_size_mb: u64,
+    pub static_dir: String,
 }
 
 #[allow(dead_code)]
@@ -102,6 +103,7 @@ impl AppConfig {
             .set_default("auth.cookie_secure", false)?
             .set_default("storage.upload_dir", "uploads")?
             .set_default("storage.max_upload_size_mb", 10)?
+            .set_default("storage.static_dir", "static")?
             .set_default("theme.theme_dir", "themes")?
             .set_default("theme.active_theme_fallback", "default")?
             .set_default("theme.default_mode", "system")?

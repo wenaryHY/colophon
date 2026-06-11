@@ -455,6 +455,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/static/plugins/{plugin_slug}/{*file_path}",
             get(modules::theme::handler::serve_plugin_static),
         )
+        .route("/static/{*file_path}", get(modules::theme::handler::serve_global_static))
         .route("/setup", get(serve_setup_entry))
         .nest("/admin", {
             Router::new()

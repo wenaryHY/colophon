@@ -50,6 +50,7 @@ pub async fn serve() -> anyhow::Result<()> {
     }
     std::fs::create_dir_all(&config.storage.upload_dir)?;
     std::fs::create_dir_all(&config.theme.theme_dir)?;
+    std::fs::create_dir_all(&config.storage.static_dir)?;
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)

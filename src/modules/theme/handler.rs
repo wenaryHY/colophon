@@ -527,6 +527,45 @@ pub async fn serve_plugin_static(
     }
 }
 
+pub async fn serve_global_static(
+    State(state): State<Arc<AppState>>,
+    Path(file_path): Path<String>,
+) -> impl IntoResponse {
+    if file_path.contains("..") || file_path.contains('\\') || file_path.starts_with('/') {
+        return (StatusCode::FORBIDDEN, "403 Forbidden").into_response();
+    }
+
+    let full_path = state.static_dir.join(&file_path);
+
+    let ext = full_path.extension().and_then(|s| s.to_str()).unwrap_or("");
+    let mime = match ext {
+        "css" => "text/css",
+        "js" => "application/javascript",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "svg" => "image/svg+xml",
+        "webp" => "image/webp",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        "ttf" => "font/ttf",
+        "ico" => "image/x-icon",
+        _ => "application/octet-stream",
+    };
+
+    match tokio::fs::read(&full_path).await {
+        Ok(d) => (
+            [
+                (header::CONTENT_TYPE, mime),
+                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+            ],
+            d,
+        )
+            .into_response(),
+        Err(_) => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
+    }
+}
+
 /// 在 HTML 中注入 CSP meta 标签，用于 iframe srcdoc 场景
 /// HTTP CSP 响应头在 srcdoc 中不生效，必须通过 meta 标签传递
 #[allow(non_snake_case)]
