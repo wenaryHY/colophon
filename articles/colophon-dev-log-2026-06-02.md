@@ -1,4 +1,4 @@
-# InkForge 开发日志：泛型、OOM 与换行符——一个无头 CMS 的五月生存报告
+# Colophon 开发日志：泛型、OOM 与换行符——一个无头 CMS 的五月生存报告
 
 **2026-06-02 · 技术复盘**
 
@@ -6,9 +6,9 @@
 
 ## 开篇
 
-这个月我们给 InkForge 加了五样东西，修了十二个以上的 bug，删了一千多行代码，炸了一次生产环境。写这篇日志的时候服务器还活着，先给自己鼓个掌 (￣▽￣)ノ
+这个月我们给 Colophon 加了五样东西，修了十二个以上的 bug，删了一千多行代码，炸了一次生产环境。写这篇日志的时候服务器还活着，先给自己鼓个掌 (￣▽￣)ノ
 
-InkForge 是什么——一个 Rust + React 的无头 CMS，跑在 DigitalOcean 1C2G 的土豆服务器上。你问为什么是 1C2G？因为够用，而且穷。
+Colophon 是什么——一个 Rust + React 的无头 CMS，跑在 DigitalOcean 1C2G 的土豆服务器上。你问为什么是 1C2G？因为够用，而且穷。
 
 ---
 
@@ -156,8 +156,8 @@ migration checksum mismatch
 
 1. Python 脚本修 hash → 单引号被 PowerShell 当成命令的一部分吃掉了
 2. 直接删 `_sqlx_migrations` 表 → 删完只剩 1 行 → 全量 re-apply → FTS5（全文搜索）建索引报错
-3. 从备份恢复数据库 → 文件权限是 root → inkforge 用户写不进去
-4. `chown inkforge:inkforge` → 终于跑起来了
+3. 从备份恢复数据库 → 文件权限是 root → colophon 用户写不进去
+4. `chown colophon:colophon` → 终于跑起来了
 
 整整 30 分钟的生产宕机。根因：**换行符**。
 
@@ -180,6 +180,6 @@ dos2unix migrations/*.sql
 - **服务器不是本地**——CRLF 这种问题在本地开发永远遇不到，但它会在你最不想它出现的时候出现
 - **有些事不该你做**——无头 CMS 做图片优化就是越界了，把职责交还给正确的工具
 
-写这篇日志的时候，InkForge 安静地跑在土豆服务器上，CPU 占用 3%。前面的路还很长，但至少这个月活下来了。
+写这篇日志的时候，Colophon 安静地跑在土豆服务器上，CPU 占用 3%。前面的路还很长，但至少这个月活下来了。
 
 下个月见 (๑•̀ㅂ•́)و✧

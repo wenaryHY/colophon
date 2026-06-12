@@ -1,4 +1,4 @@
-# InkForge 开发日志：Action Registry、Webhook 加固与 89 个测试——一个无头 CMS 的六月精修
+# Colophon 开发日志：Action Registry、Webhook 加固与 89 个测试——一个无头 CMS 的六月精修
 
 **2026-06-06 · 技术复盘**
 
@@ -8,7 +8,7 @@
 
 上篇文章里我说"下个月见"。flag 立完第二天就开始写代码了——这次不是大功能，而是一轮"生产就绪"级别的精修。
 
-InkForge 跑在 DigitalOcean 1C2G 土豆服务器上已经一个多月了。表面上风平浪静——CPU 3%，内存 20MB。但我知道底下藏着多少"假设它能跑"的定时炸弹。这个月的主题就是：**把每一个不可观测的角落点亮**。
+Colophon 跑在 DigitalOcean 1C2G 土豆服务器上已经一个多月了。表面上风平浪静——CPU 3%，内存 20MB。但我知道底下藏着多少"假设它能跑"的定时炸弹。这个月的主题就是：**把每一个不可观测的角落点亮**。
 
 ---
 
@@ -25,7 +25,7 @@ action spawned  → running  → done / failed / timeout
 每个 action 分配一个 UUID，带 `started_at` 和 `finished_at` 两个时间戳，失败时记录完整错误信息。状态机用 tracing 日志输出到 systemd journal，查看只需一行：
 
 ```bash
-journalctl -u inkforge | grep action_registry
+journalctl -u colophon | grep action_registry
 ```
 
 `info` 级别记录 spawn/done，`error` 记录失败，`warn` 记录超时。没有前端页面——这不是给用户看的，是给运维和调试用的。超过 1 小时的已完成记录会被惰性清理，不会撑爆内存。
@@ -89,7 +89,7 @@ my-slug-a3f9b2 → 随机后缀，查一次，不冲突就用这个
 
 不是"测试覆盖率达到 90%"，而是"新增了 89 个测试"。这两句话的区别很大——前者是覆盖率指标，后者是交付物数量。测试覆盖率是副产品，重点是这些测试保护了什么路径。
 
-配合已有的后端集成测试，InkForge 的核心链路——认证、文章 CRUD、搜索、主题渲染、webhook 分发——都有了回归保护。
+配合已有的后端集成测试，Colophon 的核心链路——认证、文章 CRUD、搜索、主题渲染、webhook 分发——都有了回归保护。
 
 ---
 
@@ -105,6 +105,6 @@ my-slug-a3f9b2 → 随机后缀，查一次，不冲突就用这个
 
 一个 CMS 能不能用于生产，不取决于它有多少功能，而取决于你有多了解它会在哪里坏。
 
-InkForge 还在土豆服务器上安静地跑着。这次的改动，让它坏的时候至少留下痕迹——而不是悄无声息地把用户的事件吞掉。
+Colophon 还在土豆服务器上安静地跑着。这次的改动，让它坏的时候至少留下痕迹——而不是悄无声息地把用户的事件吞掉。
 
 下个月见 (๑•̀ㅂ•́)و✧
