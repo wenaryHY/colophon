@@ -1,0 +1,10 @@
+# 基准测试生成的报告
+reports/*
+!reports/.gitkeep
+
+# 内存监控数据
+*.csv
+
+# 临时文件
+*.tmp
+*.log

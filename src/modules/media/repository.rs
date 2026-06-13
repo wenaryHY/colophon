@@ -151,10 +151,12 @@ pub async fn delete_media<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Erro
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query("UPDATE media SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
-        .bind(id)
-        .execute(executor)
-        .await?;
+    sqlx::query(
+        "UPDATE media SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
+    )
+    .bind(id)
+    .execute(executor)
+    .await?;
     Ok(())
 }
 

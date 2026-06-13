@@ -95,10 +95,7 @@ pub async fn build_template_engine(
             "tojson",
             |value: Value| -> Result<String, minijinja::Error> {
                 serde_json::to_string(&value).map_err(|err| {
-                    minijinja::Error::new(
-                        minijinja::ErrorKind::InvalidOperation,
-                        err.to_string(),
-                    )
+                    minijinja::Error::new(minijinja::ErrorKind::InvalidOperation, err.to_string())
                 })
             },
         );
@@ -165,9 +162,7 @@ pub async fn build_template_engine(
     let cats = ctx.categories.clone();
     env.add_function(
         "get_categories",
-        move || -> Result<Value, minijinja::Error> {
-            Ok(Value::from_serialize(&cats))
-        },
+        move || -> Result<Value, minijinja::Error> { Ok(Value::from_serialize(&cats)) },
     );
 
     // Plugin hooks (per-request)

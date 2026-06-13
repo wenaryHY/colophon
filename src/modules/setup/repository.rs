@@ -2,10 +2,7 @@ use std::str::FromStr;
 
 use uuid::Uuid;
 
-use crate::modules::{
-    setting::repository as setting_repository,
-    setup::domain::SetupStage,
-};
+use crate::modules::{setting::repository as setting_repository, setup::domain::SetupStage};
 
 pub struct SetupSnapshot {
     pub stage: SetupStage,
@@ -21,7 +18,8 @@ pub struct SetupSnapshot {
 
 impl SetupSnapshot {
     pub fn needs_state_backfill(&self) -> bool {
-        self.persisted_stage != Some(self.stage) || self.setup_completed != self.stage.is_completed()
+        self.persisted_stage != Some(self.stage)
+            || self.setup_completed != self.stage.is_completed()
     }
 }
 
@@ -46,7 +44,8 @@ where
     let persisted_stage = setting_repository::get_optional_string(executor, "setup_stage")
         .await?
         .and_then(|value| SetupStage::from_str(&value).ok());
-    let stage = persisted_stage.unwrap_or_else(|| SetupStage::infer_legacy(setup_completed, user_count));
+    let stage =
+        persisted_stage.unwrap_or_else(|| SetupStage::infer_legacy(setup_completed, user_count));
 
     Ok(SetupSnapshot {
         stage,
@@ -69,7 +68,11 @@ where
     setting_repository::upsert(
         executor,
         "setup_completed",
-        if stage.is_completed() { "true" } else { "false" },
+        if stage.is_completed() {
+            "true"
+        } else {
+            "false"
+        },
     )
     .await
 }
@@ -101,7 +104,11 @@ pub async fn create_installation(
     upsert_setting(
         &mut *tx,
         "allow_register",
-        if model.allow_register { "true" } else { "false" },
+        if model.allow_register {
+            "true"
+        } else {
+            "false"
+        },
     )
     .await?;
     upsert_setting(&mut *tx, "setup_stage", SetupStage::Completed.as_str()).await?;
@@ -111,11 +118,7 @@ pub async fn create_installation(
     Ok(user_id)
 }
 
-async fn upsert_setting<'e, E>(
-    executor: E,
-    key: &str,
-    value: &str,
-) -> Result<(), sqlx::Error>
+async fn upsert_setting<'e, E>(executor: E, key: &str, value: &str) -> Result<(), sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {

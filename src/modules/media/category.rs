@@ -125,9 +125,9 @@ pub async fn delete_category(state: Arc<AppState>, id: &str) -> AppResult<serde_
          SET deleted_at = datetime('now'), updated_at = datetime('now')
          WHERE id = ?",
     )
-        .bind(id)
-        .execute(&state.pool)
-        .await?;
+    .bind(id)
+    .execute(&state.pool)
+    .await?;
 
     deleted_json()
 }

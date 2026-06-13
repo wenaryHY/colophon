@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::shared::error::AppResult;
+use std::collections::HashMap;
 
 pub async fn get_all<'e, E>(executor: E, plugin_name: &str) -> AppResult<HashMap<String, String>>
 where
@@ -10,7 +10,7 @@ where
         key: String,
         value: String,
     }
-    
+
     let rows = sqlx::query_as!(
         PluginSettingRow,
         r#"
@@ -32,7 +32,7 @@ where
     let now = chrono::Utc::now().to_rfc3339();
     sqlx::query(
         "INSERT INTO plugin_settings (plugin_name, key, value, updated_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT(plugin_name, key) DO UPDATE SET value = ?, updated_at = ?"
+         ON CONFLICT(plugin_name, key) DO UPDATE SET value = ?, updated_at = ?",
     )
     .bind(plugin_name)
     .bind(key)

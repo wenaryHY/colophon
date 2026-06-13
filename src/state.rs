@@ -10,12 +10,9 @@ use tokio::sync::{broadcast, Mutex, RwLock};
 use tokio_cron_scheduler::JobScheduler;
 
 use crate::{
-    bootstrap::config::AppConfig,
-    modules::plugin::manager::PluginManager,
-    modules::setup::domain::SetupStage,
-    modules::theme::cache::TemplateContextCache,
-    shared::security::LoginRateLimiter,
-    ws::ServerEvent,
+    bootstrap::config::AppConfig, modules::plugin::manager::PluginManager,
+    modules::setup::domain::SetupStage, modules::theme::cache::TemplateContextCache,
+    shared::security::LoginRateLimiter, ws::ServerEvent,
 };
 
 /// 静态资源版本控制 manifest，从构建时生成的 JSON 加载
@@ -28,23 +25,25 @@ impl AssetManifest {
     /// 从编译期嵌入的 JSON 加载 manifest
     pub fn load() -> Self {
         const MANIFEST_JSON: &str = include_str!("../target/generated/asset-manifest.json");
-        let map: HashMap<String, String> =
-            serde_json::from_str(MANIFEST_JSON).unwrap_or_default();
+        let map: HashMap<String, String> = serde_json::from_str(MANIFEST_JSON).unwrap_or_default();
         Self { map }
     }
 
     /// 将主题路径和文件路径转换为带版本号的 URL 路径
-    /// 
+    ///
     /// # 参数
     /// - `theme`: 主题名称（如 "default"）
     /// - `path`: 相对于 static 目录的路径（如 "css/theme.css"）
-    /// 
+    ///
     /// # 返回
     /// 带版本号的路径，如 "css/theme.css?v=abc12345"
     /// 若未找到对应文件，降级返回原始路径（不带版本号）
     pub fn resolve(&self, theme: &str, path: &str) -> String {
         let key = format!("{}/{}", theme, path);
-        self.map.get(&key).cloned().unwrap_or_else(|| path.to_string())
+        self.map
+            .get(&key)
+            .cloned()
+            .unwrap_or_else(|| path.to_string())
     }
 }
 
@@ -58,6 +57,8 @@ pub struct AppState {
     pub admin_dist_dir: PathBuf,
     /// Path to the SQLite database file, for backup/restore
     pub db_path: PathBuf,
+    /// Backup directory path (default: "backups", override in tests)
+    pub backup_dir: PathBuf,
     /// Broadcast sender for WebSocket real-time notifications (容量 256)
     pub event_tx: broadcast::Sender<ServerEvent>,
     /// Cached site_url from DB, updated on setting change.
@@ -102,6 +103,7 @@ impl AppState {
             theme_dir: AppConfig::resolve_path(&config.theme.theme_dir)?,
             admin_dist_dir: AppConfig::resolve_path(&config.paths.admin_dist_dir)?,
             db_path,
+            backup_dir: AppConfig::resolve_path("backups")?,
             pool,
             config,
             event_tx,
@@ -124,8 +126,8 @@ impl AppState {
         self.template_env_cache.write().await.clear();
     }
 
-    pub fn backup_root_dir() -> anyhow::Result<PathBuf> {
-        AppConfig::resolve_path("backups")
+    pub fn backup_root_dir(&self) -> PathBuf {
+        self.backup_dir.clone()
     }
 }
 

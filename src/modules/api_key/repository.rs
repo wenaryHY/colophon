@@ -1,4 +1,3 @@
-
 use uuid::Uuid;
 
 use super::domain::{ApiKey, ApiKeyWithUser};
@@ -120,10 +119,7 @@ where
     .await
 }
 
-pub async fn update_api_key_last_used_at<'e, E>(
-    executor: E,
-    id: &str,
-) -> Result<(), sqlx::Error>
+pub async fn update_api_key_last_used_at<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {

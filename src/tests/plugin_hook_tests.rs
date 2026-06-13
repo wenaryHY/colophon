@@ -1,11 +1,13 @@
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
     use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
     use std::sync::Arc;
-    use async_trait::async_trait;
     use tokio::time::{sleep, Duration};
 
-    use crate::modules::plugin::hook::{Hook, HookContext, HookData, HookHandler, PostAfterPublishData};
+    use crate::modules::plugin::hook::{
+        Hook, HookContext, HookData, HookHandler, PostAfterPublishData,
+    };
     use crate::modules::plugin::hook_registry::HookRegistry;
     use crate::shared::error::AppResult;
 
@@ -59,11 +61,21 @@ mod tests {
     async fn register_and_dispatch_filter() {
         let registry = HookRegistry::new();
         let counter = Arc::new(AtomicU32::new(0));
-        let hook = Hook::new_filter("test.hook", 10, "test-plugin", Arc::new(CountingHook { counter: counter.clone() }));
+        let hook = Hook::new_filter(
+            "test.hook",
+            10,
+            "test-plugin",
+            Arc::new(CountingHook {
+                counter: counter.clone(),
+            }),
+        );
         registry.register("test-plugin", vec![hook]).await;
 
         let mut ctx = make_ctx();
-        registry.dispatch_filter("test.hook", &mut ctx).await.unwrap();
+        registry
+            .dispatch_filter("test.hook", &mut ctx)
+            .await
+            .unwrap();
         assert_eq!(counter.load(Ordering::SeqCst), 1);
     }
 
@@ -85,13 +97,32 @@ mod tests {
             }
         }
 
-        let hook_a = Hook::new_filter("test.hook", 20, "p-a", Arc::new(PriorityHook { order: order.clone(), id: 2 }));
-        let hook_b = Hook::new_filter("test.hook", 5, "p-b", Arc::new(PriorityHook { order: order.clone(), id: 1 }));
+        let hook_a = Hook::new_filter(
+            "test.hook",
+            20,
+            "p-a",
+            Arc::new(PriorityHook {
+                order: order.clone(),
+                id: 2,
+            }),
+        );
+        let hook_b = Hook::new_filter(
+            "test.hook",
+            5,
+            "p-b",
+            Arc::new(PriorityHook {
+                order: order.clone(),
+                id: 1,
+            }),
+        );
         registry.register("a", vec![hook_a]).await;
         registry.register("b", vec![hook_b]).await;
 
         let mut ctx = make_ctx();
-        registry.dispatch_filter("test.hook", &mut ctx).await.unwrap();
+        registry
+            .dispatch_filter("test.hook", &mut ctx)
+            .await
+            .unwrap();
         let executed = order.lock().await.clone();
         assert_eq!(executed, vec![1, 2], "lower priority should execute first");
     }
@@ -101,13 +132,24 @@ mod tests {
         let registry = HookRegistry::new();
         let counter = Arc::new(AtomicU32::new(0));
         let fail = Hook::new_filter("test.hook", 5, "fail", Arc::new(FailingHook));
-        let after = Hook::new_filter("test.hook", 10, "after", Arc::new(CountingHook { counter: counter.clone() }));
+        let after = Hook::new_filter(
+            "test.hook",
+            10,
+            "after",
+            Arc::new(CountingHook {
+                counter: counter.clone(),
+            }),
+        );
         registry.register("test", vec![fail, after]).await;
 
         let mut ctx = make_ctx();
         let result = registry.dispatch_filter("test.hook", &mut ctx).await;
         assert!(result.is_err());
-        assert_eq!(counter.load(Ordering::SeqCst), 0, "hook after failure should not execute");
+        assert_eq!(
+            counter.load(Ordering::SeqCst),
+            0,
+            "hook after failure should not execute"
+        );
     }
 
     #[tokio::test]
@@ -115,12 +157,25 @@ mod tests {
         let registry = HookRegistry::new();
         let counter = Arc::new(AtomicU32::new(0));
         let fail = Hook::new_filter("test.hook", 5, "fail", Arc::new(FailingHook));
-        let ok = Hook::new_filter("test.hook", 10, "ok", Arc::new(CountingHook { counter: counter.clone() }));
+        let ok = Hook::new_filter(
+            "test.hook",
+            10,
+            "ok",
+            Arc::new(CountingHook {
+                counter: counter.clone(),
+            }),
+        );
         registry.register("test", vec![fail, ok]).await;
 
         let mut ctx = make_ctx();
-        registry.dispatch_filter_best_effort("test.hook", &mut ctx).await;
-        assert_eq!(counter.load(Ordering::SeqCst), 1, "ok hook should still execute after failure in best_effort mode");
+        registry
+            .dispatch_filter_best_effort("test.hook", &mut ctx)
+            .await;
+        assert_eq!(
+            counter.load(Ordering::SeqCst),
+            1,
+            "ok hook should still execute after failure in best_effort mode"
+        );
     }
 
     #[tokio::test]
@@ -142,12 +197,23 @@ mod tests {
             }
         }
 
-        let hook = Hook::new_action("test.hook", 10, "test", Arc::new(FlagHook { flag: flag.clone(), ms: 100 }));
+        let hook = Hook::new_action(
+            "test.hook",
+            10,
+            "test",
+            Arc::new(FlagHook {
+                flag: flag.clone(),
+                ms: 100,
+            }),
+        );
         registry.register("test", vec![hook]).await;
 
         let ctx = make_ctx();
         registry.dispatch_action("test.hook", ctx).await;
-        assert!(!flag.load(Ordering::SeqCst), "action should not block caller");
+        assert!(
+            !flag.load(Ordering::SeqCst),
+            "action should not block caller"
+        );
         sleep(Duration::from_millis(200)).await;
         assert!(flag.load(Ordering::SeqCst), "action should complete async");
     }
@@ -168,13 +234,27 @@ mod tests {
     async fn unregister_all_removes_hooks() {
         let registry = HookRegistry::new();
         let counter = Arc::new(AtomicU32::new(0));
-        let hook = Hook::new_filter("test.hook", 10, "test", Arc::new(CountingHook { counter: counter.clone() }));
+        let hook = Hook::new_filter(
+            "test.hook",
+            10,
+            "test",
+            Arc::new(CountingHook {
+                counter: counter.clone(),
+            }),
+        );
         registry.register("test", vec![hook]).await;
         registry.unregister_all("test").await;
 
         let mut ctx = make_ctx();
-        registry.dispatch_filter("test.hook", &mut ctx).await.unwrap();
-        assert_eq!(counter.load(Ordering::SeqCst), 0, "unregistered hook should not fire");
+        registry
+            .dispatch_filter("test.hook", &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(
+            counter.load(Ordering::SeqCst),
+            0,
+            "unregistered hook should not fire"
+        );
     }
 
     #[tokio::test]
@@ -182,6 +262,9 @@ mod tests {
         let registry = HookRegistry::new();
         let mut ctx = make_ctx();
         let result = registry.dispatch_filter("nonexistent.hook", &mut ctx).await;
-        assert!(result.is_ok(), "dispatching without registered hooks should be safe");
+        assert!(
+            result.is_ok(),
+            "dispatching without registered hooks should be safe"
+        );
     }
 }

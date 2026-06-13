@@ -75,7 +75,9 @@ async fn resolve_unique_post_slug(
     if !repository::slug_exists(pool, &slug_with_long_suffix, exclude_post_id).await? {
         return Ok(slug_with_long_suffix);
     }
-    Err(AppError::Anyhow(anyhow::anyhow!("unable to generate unique slug after max retries")))
+    Err(AppError::Anyhow(anyhow::anyhow!(
+        "unable to generate unique slug after max retries"
+    )))
 }
 
 async fn attach_admin_post(state: &AppState, post: AdminPost) -> AppResult<AdminPostResponse> {
@@ -209,15 +211,14 @@ pub async fn create_post(
         .map(|value| value.trim().to_string())
         .unwrap_or_else(|| slugify(&body.title));
 
-    let mut slug = resolve_unique_post_slug(
-        &state.pool,
-        &slug_from_user_or_generated_from_title,
-        None,
-    ).await?;
+    let mut slug =
+        resolve_unique_post_slug(&state.pool, &slug_from_user_or_generated_from_title, None)
+            .await?;
 
     let status = normalize_status(body.status)?;
     let visibility = normalize_visibility(body.visibility)?;
-    let mut content_html = body.content_html
+    let mut content_html = body
+        .content_html
         .filter(|h| !h.trim().is_empty())
         .map(|h| sanitize_html(&h))
         .unwrap_or_else(|| markdown_to_html(&content_md));
@@ -338,10 +339,8 @@ pub async fn update_post(
 
     let old_status = current.status;
 
-    let mut content_type = normalize_content_type(
-        body.content_type
-            .or(Some(current.content_type)),
-    )?;
+    let mut content_type =
+        normalize_content_type(body.content_type.or(Some(current.content_type)))?;
 
     let is_page = content_type.is_page();
     let page_render_mode = normalize_page_render_mode(
@@ -360,8 +359,10 @@ pub async fn update_post(
     // If content_md is provided, update it.
     // If content_md changed and content_html is not explicitly provided (or unchanged),
     // regenerate content_html from the new content_md.
-    let content_md_changed =
-        body.content_md.as_ref().map_or(false, |md| md != &current.content_md);
+    let content_md_changed = body
+        .content_md
+        .as_ref()
+        .map_or(false, |md| md != &current.content_md);
     let content_md = body.content_md.unwrap_or(current.content_md.clone());
     let mut content_html = if content_md_changed {
         markdown_to_html(&content_md)
@@ -378,12 +379,13 @@ pub async fn update_post(
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| current.slug.clone());
-    let mut slug = resolve_unique_post_slug(&state.pool, &slug_from_user_or_kept_from_current, Some(id)).await?;
+    let mut slug =
+        resolve_unique_post_slug(&state.pool, &slug_from_user_or_kept_from_current, Some(id))
+            .await?;
     let mut excerpt = body.excerpt.or(current.excerpt.clone());
     let cover_media_id = body.cover_media_id.or(current.cover_media_id.clone());
     let status = normalize_status(body.status.or(Some(current.status)))?;
-    let visibility =
-        normalize_visibility(body.visibility.or(Some(current.visibility)))?;
+    let visibility = normalize_visibility(body.visibility.or(Some(current.visibility)))?;
     let mut category_id = body.category_id.or(current.category_id.clone());
     let allow_comment = body.allow_comment.unwrap_or(current.allow_comment);
     let pinned = body.pinned.unwrap_or(current.pinned);

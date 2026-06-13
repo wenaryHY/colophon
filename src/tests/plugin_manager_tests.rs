@@ -7,8 +7,8 @@ mod plugin_manager_tests {
     use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::Arc;
 
-    use crate::modules::plugin::registry;
     use crate::modules::plugin::manager::PluginManager;
+    use crate::modules::plugin::registry;
     use crate::modules::plugin::Plugin;
     use crate::shared::error::AppResult;
     use crate::state::AppState;
@@ -98,7 +98,10 @@ mod plugin_manager_tests {
         assert!(!manager.is_empty());
 
         let remaining = registry::take_all().await;
-        assert!(remaining.is_empty(), "registry should be empty after take_all");
+        assert!(
+            remaining.is_empty(),
+            "registry should be empty after take_all"
+        );
     }
 
     #[serial]
@@ -134,7 +137,15 @@ mod plugin_manager_tests {
         let manager = PluginManager::load().await;
         manager.shutdown_all().await.unwrap();
 
-        assert_eq!(sd_count_a.load(Ordering::SeqCst), 1, "shutdown-a should be called once");
-        assert_eq!(sd_count_b.load(Ordering::SeqCst), 1, "shutdown-b should be called once");
+        assert_eq!(
+            sd_count_a.load(Ordering::SeqCst),
+            1,
+            "shutdown-a should be called once"
+        );
+        assert_eq!(
+            sd_count_b.load(Ordering::SeqCst),
+            1,
+            "shutdown-b should be called once"
+        );
     }
 }

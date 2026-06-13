@@ -18,7 +18,9 @@ const SETUP_REFRESH_MAX_AGE: u64 = 604800;
 pub async fn status(
     State(state): State<Arc<AppState>>,
 ) -> AppResult<Json<ApiResponse<SetupStatusResponse>>> {
-    Ok(Json(ApiResponse::success(service::get_status(state).await?)))
+    Ok(Json(ApiResponse::success(
+        service::get_status(state).await?,
+    )))
 }
 
 pub async fn initialize(
@@ -31,8 +33,11 @@ pub async fn initialize(
     let refresh_cookie = build_refresh_cookie(&refresh_token, cookie_secure);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
         .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
-    let session_cookie =
-        build_session_cookie(&payload.token, state.config.auth.expires_in_seconds, cookie_secure);
+    let session_cookie = build_session_cookie(
+        &payload.token,
+        state.config.auth.expires_in_seconds,
+        cookie_secure,
+    );
     let session_header = axum::http::HeaderValue::from_str(&session_cookie)
         .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
 

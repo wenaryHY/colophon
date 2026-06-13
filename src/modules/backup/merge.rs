@@ -24,10 +24,15 @@ use super::{
 
 const BACKUP_ARCHIVE_NAME: &str = "backup.zip";
 const BACKUP_DB_ENTRY: &str = "database/colophon.db";
-const SYSTEM_SKIP_TABLES: &[&str] = &["backups", "backup_schedules", "theme_configs", "_sqlx_migrations"];
+const SYSTEM_SKIP_TABLES: &[&str] = &[
+    "backups",
+    "backup_schedules",
+    "theme_configs",
+    "_sqlx_migrations",
+];
 
-fn local_backend() -> AppResult<LocalBackupStorage> {
-    Ok(LocalBackupStorage::new(AppState::backup_root_dir()?))
+fn local_backend(state: &AppState) -> AppResult<LocalBackupStorage> {
+    Ok(LocalBackupStorage::new(state.backup_root_dir()))
 }
 
 fn hash_bytes(data: &[u8]) -> String {
@@ -39,9 +44,7 @@ fn hash_bytes(data: &[u8]) -> String {
 fn is_safe_sqlite_ident(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 128
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 fn quote_sqlite_ident(name: &str) -> String {
@@ -78,7 +81,7 @@ fn extract_archive(bytes: &[u8]) -> AppResult<(Vec<u8>, String)> {
 }
 
 async fn validate_sqlite_image_bytes(state: &AppState, db_bytes: &[u8]) -> AppResult<()> {
-    let backup_dir = AppState::backup_root_dir()?;
+    let backup_dir = state.backup_root_dir();
     fs::create_dir_all(&backup_dir).await?;
     let tmp_path = backup_dir.join(format!("validate-merge-{}.db", uuid::Uuid::new_v4()));
     fs::write(&tmp_path, db_bytes).await?;
@@ -135,7 +138,9 @@ async fn table_columns(
     table: &str,
 ) -> AppResult<Vec<String>> {
     if schema != "main" && schema != "restore_db" {
-        return Err(AppError::BadRequest("invalid sqlite schema for merge".into()));
+        return Err(AppError::BadRequest(
+            "invalid sqlite schema for merge".into(),
+        ));
     }
     let sql = format!(
         "PRAGMA {}.table_info('{}')",
@@ -239,7 +244,7 @@ async fn merge_post_tags(conn: &mut SqliteConnection) -> AppResult<()> {
 }
 
 async fn merge_database(state: &AppState, db_bytes: &[u8]) -> AppResult<()> {
-    let backup_dir = AppState::backup_root_dir()?;
+    let backup_dir = state.backup_root_dir();
     fs::create_dir_all(&backup_dir).await?;
     let restore_path = backup_dir.join(format!("merge-restore-{}.db", uuid::Uuid::new_v4()));
     fs::write(&restore_path, db_bytes).await?;
@@ -333,7 +338,7 @@ pub async fn merge_restore_backup(
     .await?;
 
     let result = async {
-        let backend = local_backend()?;
+        let backend = local_backend(&state)?;
         let bytes = backend.read(&backup.id, BACKUP_ARCHIVE_NAME).await?;
 
         let mut progress = Vec::new();

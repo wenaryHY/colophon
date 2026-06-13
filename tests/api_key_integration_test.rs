@@ -10,8 +10,14 @@ const SETUP_ADMIN_PASSWORD: &str = "admin123";
 async fn start_server_and_wait_ready(port: u16) -> reqwest::Client {
     std::env::set_var("COLOPHON__DATABASE__URL", "sqlite::memory:");
     std::env::set_var("COLOPHON__SERVER__PORT", port.to_string());
-    std::env::set_var("COLOPHON__STORAGE__UPLOAD_DIR", "target_tmp_test_api_key_uploads");
-    std::env::set_var("COLOPHON__THEME__THEME_DIR", "target_tmp_test_api_key_themes");
+    std::env::set_var(
+        "COLOPHON__STORAGE__UPLOAD_DIR",
+        "target_tmp_test_api_key_uploads",
+    );
+    std::env::set_var(
+        "COLOPHON__THEME__THEME_DIR",
+        "target_tmp_test_api_key_themes",
+    );
 
     tokio::spawn(async {
         if let Err(e) = serve().await {
@@ -95,14 +101,8 @@ fn extract_session_cookie_from_response(resp: &reqwest::Response) -> String {
     for cookie_str in &all_cookies {
         if cookie_str.starts_with("colophon_session=") {
             // 提取值部分 (colophon_session=TOKEN; ...)
-            let value_part = cookie_str
-                .strip_prefix("colophon_session=")
-                .unwrap();
-            let token = value_part
-                .split(';')
-                .next()
-                .unwrap_or("")
-                .to_string();
+            let value_part = cookie_str.strip_prefix("colophon_session=").unwrap();
+            let token = value_part.split(';').next().unwrap_or("").to_string();
             if !token.is_empty() {
                 return token;
             }
@@ -116,7 +116,12 @@ fn extract_session_cookie_from_response(resp: &reqwest::Response) -> String {
 }
 
 /// 创建带 session cookie 的请求构建器
-fn with_session(client: &reqwest::Client, method: reqwest::Method, url: &str, cookie: &str) -> reqwest::RequestBuilder {
+fn with_session(
+    client: &reqwest::Client,
+    method: reqwest::Method,
+    url: &str,
+    cookie: &str,
+) -> reqwest::RequestBuilder {
     client
         .request(method, url)
         .header("Cookie", format!("colophon_session={}", cookie))
@@ -152,8 +157,12 @@ async fn test_api_key_lifecycle() {
 
     let create_body: serde_json::Value = create_resp.json().await.unwrap();
     let api_key_data = &create_body["data"];
-    let full_key = api_key_data["api_key"].as_str().expect("api_key field missing in response");
-    let key_id = api_key_data["id"].as_str().expect("id field missing in response");
+    let full_key = api_key_data["api_key"]
+        .as_str()
+        .expect("api_key field missing in response");
+    let key_id = api_key_data["id"]
+        .as_str()
+        .expect("id field missing in response");
 
     // 断言返回完整 key（ink_ 前缀）
     assert!(
@@ -191,7 +200,9 @@ async fn test_api_key_lifecycle() {
     );
 
     let list_body: serde_json::Value = list_resp.json().await.unwrap();
-    let items = list_body["data"].as_array().expect("data should be an array");
+    let items = list_body["data"]
+        .as_array()
+        .expect("data should be an array");
     assert!(!items.is_empty(), "API key list should not be empty");
 
     let found = items.iter().any(|item| item["id"].as_str() == Some(key_id));

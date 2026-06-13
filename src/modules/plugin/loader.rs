@@ -1,6 +1,6 @@
+use semver::VersionReq;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use semver::VersionReq;
 
 use crate::shared::error::{AppError, AppResult};
 

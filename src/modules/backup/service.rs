@@ -32,8 +32,8 @@ const BACKUP_DB_ENTRY: &str = "database/colophon.db";
 const BACKUP_MANIFEST_VERSION: i64 = 2;
 const CURRENT_SCHEMA_VERSION: i64 = 7;
 
-fn local_backend() -> AppResult<LocalBackupStorage> {
-    Ok(LocalBackupStorage::new(AppState::backup_root_dir()?))
+fn local_backend(state: &AppState) -> AppResult<LocalBackupStorage> {
+    Ok(LocalBackupStorage::new(state.backup_root_dir()))
 }
 
 fn hash_bytes(data: &[u8]) -> String {
@@ -47,7 +47,7 @@ fn quote_sqlite_literal(value: &str) -> String {
 }
 
 async fn export_consistent_db_snapshot_strict(state: &AppState) -> AppResult<Vec<u8>> {
-    let backups_dir = AppState::backup_root_dir()?;
+    let backups_dir = state.backup_root_dir();
     fs::create_dir_all(&backups_dir).await?;
 
     let snapshot_path = backups_dir.join(format!("snapshot-{}.db", uuid::Uuid::new_v4()));
@@ -73,7 +73,7 @@ async fn export_consistent_db_snapshot_strict(state: &AppState) -> AppResult<Vec
 
 #[allow(dead_code)]
 async fn export_consistent_db_snapshot(state: &AppState) -> AppResult<Vec<u8>> {
-    let backups_dir = AppState::backup_root_dir()?;
+    let backups_dir = state.backup_root_dir();
     fs::create_dir_all(&backups_dir).await?;
 
     let snapshot_path = backups_dir.join(format!("snapshot-{}.db", uuid::Uuid::new_v4()));
@@ -239,9 +239,7 @@ async fn restore_database_file(state: &AppState, db_bytes: &[u8]) -> AppResult<P
 fn is_safe_sqlite_ident(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 128
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 fn quote_sqlite_ident(name: &str) -> String {
@@ -255,7 +253,7 @@ fn is_malformed_sqlite_error(err: &sqlx::Error) -> bool {
 }
 
 async fn validate_sqlite_image_bytes(state: &AppState, db_bytes: &[u8]) -> AppResult<()> {
-    let backup_dir = AppState::backup_root_dir()?;
+    let backup_dir = state.backup_root_dir();
     fs::create_dir_all(&backup_dir).await?;
     let tmp_path = backup_dir.join(format!("validate-{}.db", uuid::Uuid::new_v4()));
     fs::write(&tmp_path, db_bytes).await?;
@@ -510,7 +508,7 @@ pub async fn create_backup(
 
     let backup_id =
         repository::create_backup(&state.pool, provider.as_str(), size, &manifest_hash).await?;
-    let backend = local_backend()?;
+    let backend = local_backend(&state)?;
     let path = backend
         .save(&backup_id, BACKUP_ARCHIVE_NAME, &archive)
         .await?;
@@ -548,7 +546,7 @@ pub async fn delete_backup(state: Arc<AppState>, id: String) -> AppResult<serde_
         .await?
         .ok_or(AppError::NotFound)?;
 
-    let backend = local_backend()?;
+    let backend = local_backend(&state)?;
     backend.delete(&backup.id, BACKUP_ARCHIVE_NAME).await?;
     repository::delete_backup(&state.pool, &backup.id).await?;
 
@@ -572,7 +570,7 @@ pub async fn restore_backup(
     )
     .await?;
 
-    let backend = local_backend()?;
+    let backend = local_backend(&state)?;
     let bytes = backend.read(&backup.id, BACKUP_ARCHIVE_NAME).await?;
 
     let mut progress = Vec::new();

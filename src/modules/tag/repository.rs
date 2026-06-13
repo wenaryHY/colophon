@@ -71,10 +71,10 @@ where
         sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM tags WHERE (slug = ? OR name = ?) AND deleted_at IS NULL)",
         )
-            .bind(slug)
-            .bind(name)
-            .fetch_one(executor)
-            .await
+        .bind(slug)
+        .bind(name)
+        .fetch_one(executor)
+        .await
     }
 }
 
@@ -103,12 +103,14 @@ where
 {
     if let Some(name) = name {
         if let Some(slug) = slug {
-            sqlx::query("UPDATE tags SET name = ?, slug = ?, updated_at = datetime('now') WHERE id = ?")
-                .bind(name)
-                .bind(slug)
-                .bind(id)
-                .execute(executor)
-                .await?;
+            sqlx::query(
+                "UPDATE tags SET name = ?, slug = ?, updated_at = datetime('now') WHERE id = ?",
+            )
+            .bind(name)
+            .bind(slug)
+            .bind(id)
+            .execute(executor)
+            .await?;
         } else {
             sqlx::query("UPDATE tags SET name = ?, updated_at = datetime('now') WHERE id = ?")
                 .bind(name)
@@ -130,10 +132,12 @@ pub async fn delete_tag<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query("UPDATE tags SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
-        .bind(id)
-        .execute(executor)
-        .await?;
+    sqlx::query(
+        "UPDATE tags SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
+    )
+    .bind(id)
+    .execute(executor)
+    .await?;
     Ok(())
 }
 

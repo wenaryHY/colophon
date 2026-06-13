@@ -262,21 +262,26 @@ pub async fn upload_custom_page(
     let mut slug: Option<String> = None;
     let mut file_data: Option<(String, Option<String>, Vec<u8>)> = None;
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::Multipart(format!("multipart field error: {}", e))
-    })? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::Multipart(format!("multipart field error: {}", e)))?
+    {
         match field.name() {
             Some("slug") => {
-                slug = Some(field.text().await.map_err(|e| {
-                    AppError::BadRequest(format!("failed to read slug: {}", e))
-                })?);
+                slug =
+                    Some(field.text().await.map_err(|e| {
+                        AppError::BadRequest(format!("failed to read slug: {}", e))
+                    })?);
             }
             Some("file") => {
                 let filename = field.file_name().unwrap_or("untitled").to_string();
                 let ct = field.content_type().map(|s| s.to_string());
-                let data = field.bytes().await.map_err(|e| {
-                    AppError::BadRequest(format!("failed to read file: {}", e))
-                })?.to_vec();
+                let data = field
+                    .bytes()
+                    .await
+                    .map_err(|e| AppError::BadRequest(format!("failed to read file: {}", e)))?
+                    .to_vec();
                 file_data = Some((filename, ct, data));
             }
             _ => {}
@@ -286,8 +291,8 @@ pub async fn upload_custom_page(
     let slug = slug
         .filter(|s| !s.trim().is_empty())
         .ok_or(AppError::BadRequest("slug field is required".into()))?;
-    let (filename, ct, data) = file_data
-        .ok_or(AppError::BadRequest("file field is required".into()))?;
+    let (filename, ct, data) =
+        file_data.ok_or(AppError::BadRequest("file field is required".into()))?;
 
     let path = service::upload_custom_page(state, &slug, filename, ct, data).await?;
     Ok(Json(ApiResponse::success(serde_json::json!({
@@ -307,7 +312,10 @@ pub async fn render_custom_page(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    if page.content_type != ContentType::Page || page.status != PostStatus::Published || page.visibility != Visibility::Public {
+    if page.content_type != ContentType::Page
+        || page.status != PostStatus::Published
+        || page.visibility != Visibility::Public
+    {
         return Err(AppError::NotFound);
     }
 
@@ -330,9 +338,18 @@ pub async fn render_custom_page(
         _ => {
             // "editor" mode — render via theme template using content_html
             let ctx = TemplateContext::load(&state).await?;
-            let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
+            let current_lang =
+                crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
             let plugin_guard = state.plugin_manager.read().await;
-            let env = crate::modules::theme::engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest, Some(&current_lang)).await?;
+            let env = crate::modules::theme::engine::build_template_engine(
+                &ctx,
+                &state.theme_dir,
+                &*plugin_guard,
+                &state.template_env_cache,
+                &state.asset_manifest,
+                Some(&current_lang),
+            )
+            .await?;
             let tmpl = env
                 .get_template("post.html")
                 .map_err(|e| AppError::Anyhow(anyhow::anyhow!("template error: {}", e)))?;
@@ -340,15 +357,27 @@ pub async fn render_custom_page(
             let description = seo::meta::extract_description(&page.content_html, "");
             let og_image = "";
             let seo_meta = seo::meta::build_post_meta_with_content_type(
-                &ctx.site_title, &ctx.site_url,
-                &page.title, &slug, Some(description.as_str()), &page.content_html,
-                "", og_image, page.content_type,
+                &ctx.site_title,
+                &ctx.site_url,
+                &page.title,
+                &slug,
+                Some(description.as_str()),
+                &page.content_html,
+                "",
+                og_image,
+                page.content_type,
             );
 
             let json_ld = seo::meta::build_post_json_ld_with_content_type(
-                &ctx.site_title, &ctx.site_url,
-                &page.title, &slug, &description,
-                "", None, "", page.content_type,
+                &ctx.site_title,
+                &ctx.site_url,
+                &page.title,
+                &slug,
+                &description,
+                "",
+                None,
+                "",
+                page.content_type,
             );
 
             let html = tmpl

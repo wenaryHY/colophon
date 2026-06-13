@@ -74,10 +74,7 @@ mod config_tests {
         let mut config = AppConfig::load().unwrap();
         config.runtime.mode = "production".to_string();
         config.auth.secret = "my-secret-key-123".to_string();
-        assert!(
-            config.validate().is_ok(),
-            "生产模式应接受自定义 secret"
-        );
+        assert!(config.validate().is_ok(), "生产模式应接受自定义 secret");
     }
 
     #[test]
@@ -176,13 +173,13 @@ mod theme_domain_tests {
 
 // 新增集成测试模块
 mod auth_tests;
-mod post_tests;
-mod setup_tests;
 mod backup_tests;
-mod theme_engine_tests;
-mod theme_provider_tests;
+mod plugin_hook_tests;
+mod plugin_id_strategy_tests;
 mod plugin_manager_tests;
 mod plugin_manifest_tests;
-mod plugin_id_strategy_tests;
-mod plugin_hook_tests;
 mod plugin_settings_tests;
+mod post_tests;
+mod setup_tests;
+mod theme_engine_tests;
+mod theme_provider_tests;

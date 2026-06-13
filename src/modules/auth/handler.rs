@@ -12,8 +12,7 @@ use crate::{
 
 use super::{
     dto::{LoginRequest, RegisterRequest},
-    repository,
-    service,
+    repository, service,
 };
 
 pub async fn register(
@@ -26,14 +25,12 @@ pub async fn register(
 
     // Turnstile 验证：配置了 secret 时强制校验，token 缺失或无效均拒绝
     if !state.config.auth.turnstile_secret.is_empty() {
-        let token = body.turnstile_token.as_ref().ok_or_else(|| {
-            crate::shared::error::AppError::BadRequest("请完成人机验证".into())
-        })?;
-        if !crate::shared::turnstile::verify_turnstile(
-            token,
-            &state.config.auth.turnstile_secret,
-        )
-        .await
+        let token = body
+            .turnstile_token
+            .as_ref()
+            .ok_or_else(|| crate::shared::error::AppError::BadRequest("请完成人机验证".into()))?;
+        if !crate::shared::turnstile::verify_turnstile(token, &state.config.auth.turnstile_secret)
+            .await
         {
             tracing::warn!(
                 module = "auth",
@@ -66,8 +63,11 @@ pub async fn register(
     )
     .await?;
     let access_token = login_data.access_token.clone();
-    let refresh_cookie =
-        build_refresh_cookie(&refresh_token, REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS, cookie_secure);
+    let refresh_cookie = build_refresh_cookie(
+        &refresh_token,
+        REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS,
+        cookie_secure,
+    );
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
         .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
     let json = Json(ApiResponse::success(login_data));
@@ -93,14 +93,12 @@ pub async fn login(
 
     // Turnstile 验证：配置了 secret 时强制校验，token 缺失或无效均拒绝
     if !state.config.auth.turnstile_secret.is_empty() {
-        let token = body.turnstile_token.as_ref().ok_or_else(|| {
-            crate::shared::error::AppError::BadRequest("请完成人机验证".into())
-        })?;
-        if !crate::shared::turnstile::verify_turnstile(
-            token,
-            &state.config.auth.turnstile_secret,
-        )
-        .await
+        let token = body
+            .turnstile_token
+            .as_ref()
+            .ok_or_else(|| crate::shared::error::AppError::BadRequest("请完成人机验证".into()))?;
+        if !crate::shared::turnstile::verify_turnstile(token, &state.config.auth.turnstile_secret)
+            .await
         {
             tracing::warn!(
                 module = "auth",
@@ -166,9 +164,7 @@ pub async fn logout(
     );
 
     // 撤销 refresh token（如果存在）
-    if let Some(cookie) =
-        jar.get(auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN)
-    {
+    if let Some(cookie) = jar.get(auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN) {
         let token_hash = jwt::hash_token(cookie.value());
         if let Err(e) = repository::revoke_refresh_token(&state.pool, &token_hash).await {
             tracing::warn!(

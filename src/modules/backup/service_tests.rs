@@ -1,0 +1,529 @@
+#[cfg(test)]
+mod tests {
+    use sqlx::SqlitePool;
+    use std::sync::Arc;
+    use tokio::fs;
+    use tokio::sync::{broadcast, RwLock};
+
+    use crate::{
+        infra::backup::BackupStorageBackend, modules::plugin::manager::PluginManager,
+        modules::setup::domain::SetupStage, state::AppState,
+    };
+
+    use super::super::{
+        domain::BackupProvider,
+        service::{create_backup, delete_backup, list_backups, restore_backup_from_bytes},
+    };
+
+    /// 创建测试环境：临时数据库 + AppState
+    async fn setup_test_env() -> (Arc<AppState>, String) {
+        let test_id = uuid::Uuid::new_v4();
+        let db_path = format!("test_backup_{}.db", test_id);
+        let backup_dir = format!("test_backups_{}", test_id);
+
+        // 创建数据库连接
+        let pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path))
+            .await
+            .expect("Failed to create test database");
+
+        // 运行 migrations
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("Failed to run migrations");
+
+        // 创建基础配置
+        let config = crate::bootstrap::config::AppConfig::load().unwrap_or_else(|_| {
+            // 测试环境降级配置
+            panic!("Cannot load config for test");
+        });
+        let (event_tx, _) = broadcast::channel(16);
+        let plugin_manager = Arc::new(tokio::sync::RwLock::new(PluginManager::load().await));
+
+        // 创建 AppState
+        let state = AppState {
+            pool: pool.clone(),
+            config,
+            upload_dir: std::path::PathBuf::from("test_uploads"),
+            static_dir: std::path::PathBuf::from("static"),
+            theme_dir: std::path::PathBuf::from("themes"),
+            admin_dist_dir: std::path::PathBuf::from("admin/dist"),
+            db_path: std::path::PathBuf::from(&db_path),
+            backup_dir: std::path::PathBuf::from(&backup_dir),
+            event_tx,
+            site_url: Arc::new(RwLock::new("http://localhost:3000".to_string())),
+            admin_url: Arc::new(RwLock::new("http://localhost:3000/admin".to_string())),
+            setup_stage: Arc::new(RwLock::new(SetupStage::Completed)),
+            login_rate_limiter: Arc::new(tokio::sync::Mutex::new(
+                crate::shared::security::LoginRateLimiter::new(),
+            )),
+            comment_rate_limiter: Arc::new(tokio::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
+            template_cache: Arc::new(
+                crate::modules::theme::cache::TemplateContextCache::with_default_ttl(),
+            ),
+            template_env_cache: Arc::new(RwLock::new(std::collections::HashMap::new())),
+            plugin_manager,
+            backup_scheduler: Arc::new(tokio::sync::Mutex::new(None)),
+            asset_manifest: Arc::new(crate::state::AssetManifest::load()),
+        };
+
+        (Arc::new(state), backup_dir)
+    }
+
+    /// 清理测试文件
+    async fn cleanup_test_files(db_path: &str, backup_dir: &str) {
+        let _ = fs::remove_file(db_path).await;
+        let _ = fs::remove_file(format!("{}.bak", db_path)).await;
+        let _ = fs::remove_file(format!("{}.restore", db_path)).await;
+        let _ = fs::remove_dir_all(backup_dir).await;
+        let _ = fs::remove_dir_all("backups").await;
+        let _ = fs::remove_dir_all("test_uploads").await;
+    }
+
+    /// 创建测试用户
+    async fn create_test_user(pool: &SqlitePool) -> String {
+        let user_id = uuid::Uuid::new_v4().to_string();
+        sqlx::query(
+            "INSERT INTO users (id, username, email, password_hash, display_name, role, status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 'admin', 'active', datetime('now'), datetime('now'))",
+        )
+        .bind(&user_id)
+        .bind("testuser")
+        .bind("test@example.com")
+        .bind("dummy_hash")
+        .bind("Test User")
+        .execute(pool)
+        .await
+        .expect("Failed to create test user");
+        user_id
+    }
+
+    /// 插入测试数据
+    async fn insert_test_post(
+        pool: &SqlitePool,
+        author_id: &str,
+        title: &str,
+        slug: &str,
+    ) -> String {
+        let post_id = uuid::Uuid::new_v4().to_string();
+        sqlx::query(
+            "INSERT INTO posts (id, author_id, title, slug, status, created_at, updated_at) 
+             VALUES (?, ?, ?, ?, 'published', datetime('now'), datetime('now'))",
+        )
+        .bind(&post_id)
+        .bind(author_id)
+        .bind(title)
+        .bind(slug)
+        .execute(pool)
+        .await
+        .expect("Failed to insert test post");
+        post_id
+    }
+
+    #[tokio::test]
+    async fn test_create_backup_creates_valid_file() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        // 插入测试数据
+        let author_id = create_test_user(&state.pool).await;
+        insert_test_post(&state.pool, &author_id, "Test Post", "test-post").await;
+
+        // 创建备份
+        let result = create_backup(state.clone(), BackupProvider::Local)
+            .await
+            .expect("Failed to create backup");
+
+        let backup_id = result["id"].as_str().expect("Missing backup id");
+        let size = result["size"].as_i64().expect("Missing size");
+
+        // 验证备份元数据
+        assert!(!backup_id.is_empty());
+        assert!(size > 0);
+
+        // 验证备份文件存在
+        let backend =
+            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+        let bytes = backend
+            .read(backup_id, "backup.zip")
+            .await
+            .expect("Backup file should exist");
+        assert!(bytes.len() > 0);
+
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_backup_file_contains_database() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        let author_id = create_test_user(&state.pool).await;
+        insert_test_post(&state.pool, &author_id, "Content Check", "content-check").await;
+
+        let result = create_backup(state.clone(), BackupProvider::Local)
+            .await
+            .expect("Failed to create backup");
+
+        let backup_id = result["id"].as_str().expect("Missing backup id");
+
+        // 读取备份内容
+        let backend =
+            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+        let bytes = backend.read(backup_id, "backup.zip").await.unwrap();
+
+        // 验证 ZIP 包含数据库文件
+        let reader = std::io::Cursor::new(&bytes);
+        let mut archive = zip::ZipArchive::new(reader).expect("Invalid zip file");
+        let db_entry = archive
+            .by_name("database/colophon.db")
+            .expect("Backup should contain database file");
+
+        assert!(db_entry.size() > 0);
+
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_list_backups_returns_sorted_by_time() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        let author_id = create_test_user(&state.pool).await;
+
+        // 创建 3 个备份
+        for i in 0..3 {
+            insert_test_post(
+                &state.pool,
+                &author_id,
+                &format!("Post {}", i),
+                &format!("post-{}", i),
+            )
+            .await;
+            create_backup(state.clone(), BackupProvider::Local)
+                .await
+                .expect("Failed to create backup");
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+
+        // 列出备份
+        let backups = list_backups(state.clone())
+            .await
+            .expect("Failed to list backups");
+
+        assert_eq!(backups.len(), 3);
+
+        // 验证按时间倒序
+        for i in 0..backups.len() - 1 {
+            assert!(
+                backups[i].created_at >= backups[i + 1].created_at,
+                "Backups should be sorted by created_at DESC"
+            );
+        }
+
+        // 验证每个备份都有大小
+        for backup in &backups {
+            assert!(backup.size > 0);
+            assert_eq!(backup.provider, "local");
+            assert_eq!(backup.status, "completed");
+        }
+
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_restore_backup_restores_data() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        // 1. 插入原始数据
+        let author_id = create_test_user(&state.pool).await;
+        let post_id =
+            insert_test_post(&state.pool, &author_id, "Original Title", "original-slug").await;
+
+        // 2. 创建备份
+        let result = create_backup(state.clone(), BackupProvider::Local)
+            .await
+            .expect("Failed to create backup");
+        let backup_id = result["id"].as_str().unwrap().to_string();
+
+        // 3. 修改数据
+        sqlx::query("UPDATE posts SET title = ? WHERE id = ?")
+            .bind("Modified Title")
+            .bind(&post_id)
+            .execute(&state.pool)
+            .await
+            .expect("Failed to update post");
+
+        // 验证数据已修改
+        let modified: String = sqlx::query_scalar("SELECT title FROM posts WHERE id = ?")
+            .bind(&post_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to fetch modified post");
+        assert_eq!(modified, "Modified Title");
+
+        // 4. 读取备份并恢复
+        let backend =
+            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+        let backup_bytes = backend.read(&backup_id, "backup.zip").await.unwrap();
+
+        // 关闭连接池，释放数据库锁
+        state.pool.close().await;
+
+        // 重新连接
+        let new_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path))
+            .await
+            .expect("Failed to reconnect");
+
+        let new_state = Arc::new(AppState {
+            pool: new_pool.clone(),
+            config: state.config.clone(),
+            upload_dir: state.upload_dir.clone(),
+            static_dir: state.static_dir.clone(),
+            theme_dir: state.theme_dir.clone(),
+            admin_dist_dir: state.admin_dist_dir.clone(),
+            db_path: state.db_path.clone(),
+            backup_dir: state.backup_dir.clone(),
+            event_tx: state.event_tx.clone(),
+            site_url: state.site_url.clone(),
+            admin_url: state.admin_url.clone(),
+            setup_stage: state.setup_stage.clone(),
+            login_rate_limiter: state.login_rate_limiter.clone(),
+            comment_rate_limiter: state.comment_rate_limiter.clone(),
+            template_cache: state.template_cache.clone(),
+            template_env_cache: state.template_env_cache.clone(),
+            plugin_manager: state.plugin_manager.clone(),
+            backup_scheduler: state.backup_scheduler.clone(),
+            asset_manifest: state.asset_manifest.clone(),
+        });
+
+        restore_backup_from_bytes(new_state.clone(), backup_bytes)
+            .await
+            .expect("Failed to restore backup");
+
+        // 关闭连接池以确保数据落盘
+        new_pool.close().await;
+
+        // 重新连接验证数据恢复
+        let verify_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path))
+            .await
+            .expect("Failed to reconnect for verification");
+
+        // 5. 验证数据恢复
+        let restored: String = sqlx::query_scalar("SELECT title FROM posts WHERE id = ?")
+            .bind(&post_id)
+            .fetch_one(&verify_pool)
+            .await
+            .expect("Failed to fetch restored post");
+        assert_eq!(restored, "Original Title");
+
+        verify_pool.close().await;
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_delete_backup_removes_file() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        let author_id = create_test_user(&state.pool).await;
+        insert_test_post(&state.pool, &author_id, "Test", "test").await;
+
+        let result = create_backup(state.clone(), BackupProvider::Local)
+            .await
+            .expect("Failed to create backup");
+        let backup_id = result["id"].as_str().unwrap().to_string();
+
+        // 验证文件存在
+        let backend =
+            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+        assert!(backend.read(&backup_id, "backup.zip").await.is_ok());
+
+        // 删除备份
+        delete_backup(state.clone(), backup_id.clone())
+            .await
+            .expect("Failed to delete backup");
+
+        // 验证文件已删除
+        assert!(backend.read(&backup_id, "backup.zip").await.is_err());
+
+        // 验证数据库记录已删除
+        let backups = list_backups(state.clone()).await.unwrap();
+        assert!(!backups.iter().any(|b| b.id == backup_id));
+
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_rejects_path_traversal_in_backup_id() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        let malicious_ids = vec![
+            "../../../etc/passwd",
+            "..\\..\\..\\windows\\system32\\config",
+            "/etc/passwd",
+            "C:\\Windows\\System32\\config",
+            "../../sensitive_data.db",
+        ];
+
+        let backend =
+            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+
+        for id in malicious_ids {
+            // 尝试读取恶意路径
+            let result = backend.read(id, "backup.zip").await;
+            assert!(result.is_err(), "Should not allow reading path: {}", id);
+        }
+
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_backup_contains_manifest_with_correct_hash() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        let author_id = create_test_user(&state.pool).await;
+        insert_test_post(&state.pool, &author_id, "Hash Test", "hash-test").await;
+
+        let result = create_backup(state.clone(), BackupProvider::Local)
+            .await
+            .expect("Failed to create backup");
+
+        let backup_id = result["id"].as_str().unwrap();
+        let expected_hash = result["manifest_hash"].as_str().unwrap();
+
+        // 读取备份并验证 manifest
+        let backend =
+            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+        let bytes = backend.read(backup_id, "backup.zip").await.unwrap();
+
+        let reader = std::io::Cursor::new(&bytes);
+        let mut archive = zip::ZipArchive::new(reader).unwrap();
+
+        // 读取 manifest.json
+        let mut manifest_file = archive.by_name("manifest.json").unwrap();
+        let mut manifest_content = String::new();
+        std::io::Read::read_to_string(&mut manifest_file, &mut manifest_content).unwrap();
+
+        let manifest: serde_json::Value = serde_json::from_str(&manifest_content).unwrap();
+        let manifest_hash = manifest["manifest_hash"].as_str().unwrap();
+
+        assert_eq!(manifest_hash, expected_hash);
+        assert_eq!(manifest["provider"].as_str().unwrap(), "local");
+
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_restore_validates_manifest_hash() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        let author_id = create_test_user(&state.pool).await;
+        insert_test_post(
+            &state.pool,
+            &author_id,
+            "Validation Test",
+            "validation-test",
+        )
+        .await;
+
+        let result = create_backup(state.clone(), BackupProvider::Local)
+            .await
+            .expect("Failed to create backup");
+        let backup_id = result["id"].as_str().unwrap();
+
+        // 读取备份
+        let backend =
+            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+        let mut bytes = backend.read(backup_id, "backup.zip").await.unwrap();
+
+        // 篡改数据（改变最后一个字节）
+        if let Some(last) = bytes.last_mut() {
+            *last = last.wrapping_add(1);
+        }
+
+        // 尝试恢复损坏的备份
+        state.pool.close().await;
+        let new_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path))
+            .await
+            .unwrap();
+
+        let new_state = Arc::new(AppState {
+            pool: new_pool.clone(),
+            config: state.config.clone(),
+            upload_dir: state.upload_dir.clone(),
+            static_dir: state.static_dir.clone(),
+            theme_dir: state.theme_dir.clone(),
+            admin_dist_dir: state.admin_dist_dir.clone(),
+            db_path: state.db_path.clone(),
+            backup_dir: state.backup_dir.clone(),
+            event_tx: state.event_tx.clone(),
+            site_url: state.site_url.clone(),
+            admin_url: state.admin_url.clone(),
+            setup_stage: state.setup_stage.clone(),
+            login_rate_limiter: state.login_rate_limiter.clone(),
+            comment_rate_limiter: state.comment_rate_limiter.clone(),
+            template_cache: state.template_cache.clone(),
+            template_env_cache: state.template_env_cache.clone(),
+            plugin_manager: state.plugin_manager.clone(),
+            backup_scheduler: state.backup_scheduler.clone(),
+            asset_manifest: state.asset_manifest.clone(),
+        });
+
+        let result = restore_backup_from_bytes(new_state.clone(), bytes).await;
+
+        // 应该失败（ZIP 损坏或 manifest hash 不匹配）
+        assert!(result.is_err(), "Should reject corrupted backup");
+
+        new_pool.close().await;
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    #[tokio::test]
+    async fn test_multiple_backups_independent() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        let author_id = create_test_user(&state.pool).await;
+        // 创建第一个备份
+        insert_test_post(&state.pool, &author_id, "Post A", "post-a").await;
+        let result1 = create_backup(state.clone(), BackupProvider::Local)
+            .await
+            .unwrap();
+        let backup_id1 = result1["id"].as_str().unwrap().to_string();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+        // 添加更多数据并创建第二个备份
+        insert_test_post(&state.pool, &author_id, "Post B", "post-b").await;
+        let result2 = create_backup(state.clone(), BackupProvider::Local)
+            .await
+            .unwrap();
+        let backup_id2 = result2["id"].as_str().unwrap().to_string();
+
+        // 验证两个备份不同
+        assert_ne!(backup_id1, backup_id2);
+        assert_ne!(
+            result1["manifest_hash"].as_str().unwrap(),
+            result2["manifest_hash"].as_str().unwrap()
+        );
+
+        // 删除第一个备份不影响第二个
+        delete_backup(state.clone(), backup_id1.clone())
+            .await
+            .unwrap();
+
+        let backend =
+            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+        assert!(backend.read(&backup_id1, "backup.zip").await.is_err());
+        assert!(backend.read(&backup_id2, "backup.zip").await.is_ok());
+
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+}

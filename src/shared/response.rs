@@ -41,7 +41,11 @@ impl<T: Serialize> ApiResponse<T> {
         Self::error_with_request_id(code, message, current_or_generate_request_id())
     }
 
-    pub fn error_with_request_id(code: i32, message: impl Into<String>, request_id: String) -> Self {
+    pub fn error_with_request_id(
+        code: i32,
+        message: impl Into<String>,
+        request_id: String,
+    ) -> Self {
         Self {
             code,
             message: message.into(),

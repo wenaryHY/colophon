@@ -6,7 +6,7 @@ use argon2::{
 use crate::shared::error::AppError;
 
 /// 异步哈希密码
-/// 
+///
 /// 使用 Argon2id 算法对密码进行哈希。
 /// 由于 Argon2 是 CPU 密集型操作，使用 `spawn_blocking` 避免阻塞异步运行时。
 pub async fn hash_password(password: &str) -> Result<String, AppError> {
@@ -23,7 +23,7 @@ pub async fn hash_password(password: &str) -> Result<String, AppError> {
 }
 
 /// 异步验证密码
-/// 
+///
 /// 验证明文密码是否与哈希值匹配。
 /// 由于 Argon2 是 CPU 密集型操作，使用 `spawn_blocking` 避免阻塞异步运行时。
 pub async fn verify_password(password: &str, password_hash: &str) -> Result<bool, AppError> {

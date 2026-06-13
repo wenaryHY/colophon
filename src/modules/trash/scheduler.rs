@@ -8,9 +8,15 @@ use super::service;
 
 pub async fn start_trash_scheduler(state: Arc<AppState>) -> Result<(), AppError> {
     // 获取配置，默认凌晨3点执行
-    let hour_str = crate::modules::setting::repository::get_string(&state.pool, "trash_cleanup_hour", "3").await.unwrap_or_else(|_| "3".into());
-    let minute_str = crate::modules::setting::repository::get_string(&state.pool, "trash_cleanup_minute", "0").await.unwrap_or_else(|_| "0".into());
-    
+    let hour_str =
+        crate::modules::setting::repository::get_string(&state.pool, "trash_cleanup_hour", "3")
+            .await
+            .unwrap_or_else(|_| "3".into());
+    let minute_str =
+        crate::modules::setting::repository::get_string(&state.pool, "trash_cleanup_minute", "0")
+            .await
+            .unwrap_or_else(|_| "0".into());
+
     let hour = hour_str.parse::<u32>().unwrap_or(3).clamp(0, 23);
     let minute = minute_str.parse::<u32>().unwrap_or(0).clamp(0, 59);
 

@@ -10,11 +10,7 @@ use crate::{
     state::AppState,
 };
 
-use super::{
-    domain::MediaItem,
-    dto::MediaQuery,
-    repository,
-};
+use super::{domain::MediaItem, dto::MediaQuery, repository};
 
 const ALLOWED_MIME_TYPES: &[&str] = &[
     "image/jpeg",

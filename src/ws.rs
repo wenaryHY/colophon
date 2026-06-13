@@ -6,7 +6,7 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use futures_util::{SinkExt, stream::StreamExt};
+use futures_util::{stream::StreamExt, SinkExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::broadcast;

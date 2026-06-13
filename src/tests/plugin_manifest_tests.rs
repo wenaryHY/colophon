@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-    use crate::modules::plugin::manifest::PluginManifest;
     use crate::modules::plugin::loader::PluginLoader;
+    use crate::modules::plugin::manifest::PluginManifest;
+    use std::path::PathBuf;
 
     #[test]
     fn parse_valid_plugin_toml() {

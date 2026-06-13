@@ -74,8 +74,12 @@ pub struct WebhookConfig {
     pub timeout_seconds: u64,
 }
 
-fn default_webhook_max_concurrency() -> usize { 5 }
-fn default_webhook_timeout_seconds() -> u64 { 60 }
+fn default_webhook_max_concurrency() -> usize {
+    5
+}
+fn default_webhook_timeout_seconds() -> u64 {
+    60
+}
 
 impl AppConfig {
     /// 是否为生产模式（运行时判断，非编译期）
@@ -126,15 +130,11 @@ impl AppConfig {
 
         // 生产模式必须设置非默认 secret（无绕过选项）
         if self.is_production() {
-            bail!(
-                "生产环境必须设置 COLOPHON__AUTH__SECRET（不能使用默认值）"
-            );
+            bail!("生产环境必须设置 COLOPHON__AUTH__SECRET（不能使用默认值）");
         }
 
         // 开发模式警告
-        tracing::warn!(
-            "⚠️  开发模式使用默认 JWT secret。生产环境前请设置 COLOPHON__AUTH__SECRET"
-        );
+        tracing::warn!("⚠️  开发模式使用默认 JWT secret。生产环境前请设置 COLOPHON__AUTH__SECRET");
         Ok(())
     }
 

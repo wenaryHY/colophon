@@ -1,7 +1,9 @@
 use crate::shared::error::AppResult;
 
 /// 查询所有已软删除的文章
-pub async fn list_trashed_posts<'e, E>(executor: E) -> AppResult<Vec<(String, String, Option<String>, String)>>
+pub async fn list_trashed_posts<'e, E>(
+    executor: E,
+) -> AppResult<Vec<(String, String, Option<String>, String)>>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
@@ -12,7 +14,7 @@ where
         slug: Option<String>,
         deleted_at: String,
     }
-    
+
     let rows = sqlx::query_as!(
         TrashedPost,
         r#"
@@ -24,11 +26,16 @@ where
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows.into_iter().map(|r| (r.id, r.title, r.slug, r.deleted_at)).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.id, r.title, r.slug, r.deleted_at))
+        .collect())
 }
 
 /// 查询所有已软删除的分类
-pub async fn list_trashed_categories<'e, E>(executor: E) -> AppResult<Vec<(String, String, Option<String>, String)>>
+pub async fn list_trashed_categories<'e, E>(
+    executor: E,
+) -> AppResult<Vec<(String, String, Option<String>, String)>>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
@@ -39,7 +46,7 @@ where
         slug: Option<String>,
         deleted_at: String,
     }
-    
+
     let rows = sqlx::query_as!(
         TrashedCategory,
         r#"
@@ -51,11 +58,16 @@ where
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows.into_iter().map(|r| (r.id, r.name, r.slug, r.deleted_at)).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.id, r.name, r.slug, r.deleted_at))
+        .collect())
 }
 
 /// 查询所有已软删除的标签
-pub async fn list_trashed_tags<'e, E>(executor: E) -> AppResult<Vec<(String, String, Option<String>, String)>>
+pub async fn list_trashed_tags<'e, E>(
+    executor: E,
+) -> AppResult<Vec<(String, String, Option<String>, String)>>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
@@ -66,7 +78,7 @@ where
         slug: Option<String>,
         deleted_at: String,
     }
-    
+
     let rows = sqlx::query_as!(
         TrashedTag,
         r#"
@@ -78,11 +90,16 @@ where
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows.into_iter().map(|r| (r.id, r.name, r.slug, r.deleted_at)).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.id, r.name, r.slug, r.deleted_at))
+        .collect())
 }
 
 /// 查询所有已软删除的媒体
-pub async fn list_trashed_media<'e, E>(executor: E) -> AppResult<Vec<(String, String, Option<String>, String)>>
+pub async fn list_trashed_media<'e, E>(
+    executor: E,
+) -> AppResult<Vec<(String, String, Option<String>, String)>>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
@@ -93,7 +110,7 @@ where
         mime_type: Option<String>,
         deleted_at: String,
     }
-    
+
     let rows = sqlx::query_as!(
         TrashedMedia,
         r#"
@@ -105,11 +122,16 @@ where
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows.into_iter().map(|r| (r.id, r.original_name, r.mime_type, r.deleted_at)).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.id, r.original_name, r.mime_type, r.deleted_at))
+        .collect())
 }
 
 /// 查询所有已软删除的媒体分类
-pub async fn list_trashed_media_categories<'e, E>(executor: E) -> AppResult<Vec<(String, String, Option<String>, String)>>
+pub async fn list_trashed_media_categories<'e, E>(
+    executor: E,
+) -> AppResult<Vec<(String, String, Option<String>, String)>>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
@@ -120,7 +142,7 @@ where
         slug: Option<String>,
         deleted_at: String,
     }
-    
+
     let rows = sqlx::query_as!(
         TrashedMediaCategory,
         r#"
@@ -132,11 +154,16 @@ where
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows.into_iter().map(|r| (r.id, r.name, r.slug, r.deleted_at)).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.id, r.name, r.slug, r.deleted_at))
+        .collect())
 }
 
 /// 查询所有已软删除的评论
-pub async fn list_trashed_comments<'e, E>(executor: E) -> AppResult<Vec<(String, String, Option<String>, String)>>
+pub async fn list_trashed_comments<'e, E>(
+    executor: E,
+) -> AppResult<Vec<(String, String, Option<String>, String)>>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
@@ -146,7 +173,7 @@ where
         content_preview: String,
         deleted_at: String,
     }
-    
+
     let rows = sqlx::query_as!(
         TrashedComment,
         r#"
@@ -161,7 +188,10 @@ where
     )
     .fetch_all(executor)
     .await?;
-    Ok(rows.into_iter().map(|r| (r.id, r.content_preview, None, r.deleted_at)).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.id, r.content_preview, None, r.deleted_at))
+        .collect())
 }
 
 /// 恢复（清除 deleted_at）
@@ -235,7 +265,14 @@ where
     }
 
     let mut total_purged: i64 = 0;
-    let entity_tables = ["posts", "categories", "tags", "media", "media_categories", "comments"];
+    let entity_tables = [
+        "posts",
+        "categories",
+        "tags",
+        "media",
+        "media_categories",
+        "comments",
+    ];
     for table in &entity_tables {
         let sql = format!(
             "DELETE FROM {} WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', ?)",

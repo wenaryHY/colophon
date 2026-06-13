@@ -1,5 +1,5 @@
 /// SSRF 防护集成测试
-/// 
+///
 /// 验证 webhook 模块正确拒绝指向内网地址的 URL
 use colophon::serve;
 use std::time::Duration;
@@ -17,7 +17,10 @@ struct SessionCookie {
 async fn start_server_and_wait_ready(port: u16) -> reqwest::Client {
     std::env::set_var("COLOPHON__DATABASE__URL", "sqlite::memory:");
     std::env::set_var("COLOPHON__SERVER__PORT", port.to_string());
-    std::env::set_var("COLOPHON__STORAGE__UPLOAD_DIR", "target_tmp_test_ssrf_uploads");
+    std::env::set_var(
+        "COLOPHON__STORAGE__UPLOAD_DIR",
+        "target_tmp_test_ssrf_uploads",
+    );
     std::env::set_var("COLOPHON__THEME__THEME_DIR", "target_tmp_test_ssrf_themes");
 
     tokio::spawn(async {
@@ -206,7 +209,7 @@ async fn test_webhook_ssrf_protection() {
     .send()
     .await
     .expect("Request should complete");
-    
+
     assert_eq!(
         resp3.status().as_u16(),
         200,

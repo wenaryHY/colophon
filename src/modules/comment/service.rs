@@ -19,7 +19,7 @@ use crate::{
     ws::ServerEvent,
 };
 
-use crate::modules::plugin::hook::{HookContext, HookData, CommentBeforeCreateData};
+use crate::modules::plugin::hook::{CommentBeforeCreateData, HookContext, HookData};
 
 use super::{
     domain::{AdminCommentItem, CommentItem},
@@ -368,8 +368,7 @@ async fn check_rate_limit(
     if let Some(&last_time) = map.get(user_id) {
         let elapsed = now.duration_since(last_time);
         if elapsed < Duration::from_secs(COMMENT_COOLDOWN_SECONDS) {
-            let remaining =
-                COMMENT_COOLDOWN_SECONDS.saturating_sub(elapsed.as_secs());
+            let remaining = COMMENT_COOLDOWN_SECONDS.saturating_sub(elapsed.as_secs());
             return Err(AppError::BadRequest(format!(
                 "评论发送过快，请 {} 秒后再试",
                 remaining

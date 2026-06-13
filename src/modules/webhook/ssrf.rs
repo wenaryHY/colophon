@@ -20,8 +20,8 @@ pub(super) fn is_private_or_local_url(url: &str) -> Result<bool, AppError> {
         return Ok(false);
     }
 
-    let parsed = url::Url::parse(url)
-        .map_err(|_| AppError::BadRequest("无效的 URL 格式".into()))?;
+    let parsed =
+        url::Url::parse(url).map_err(|_| AppError::BadRequest("无效的 URL 格式".into()))?;
 
     // url::Host 枚举区分 Domain / Ipv4 / Ipv6，避免手动处理 IPv6 的方括号
     let host = parsed
@@ -193,10 +193,16 @@ mod tests {
 
         // IPv6 私有地址
         assert!(is_private_ip(&IpAddr::V6(Ipv6Addr::LOCALHOST)));
-        assert!(is_private_ip(&IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 1))));
-        assert!(is_private_ip(&IpAddr::V6(Ipv6Addr::new(0xfc00, 0, 0, 0, 0, 0, 0, 1))));
+        assert!(is_private_ip(&IpAddr::V6(Ipv6Addr::new(
+            0xfe80, 0, 0, 0, 0, 0, 0, 1
+        ))));
+        assert!(is_private_ip(&IpAddr::V6(Ipv6Addr::new(
+            0xfc00, 0, 0, 0, 0, 0, 0, 1
+        ))));
 
         // IPv6 公网地址
-        assert!(!is_private_ip(&IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888))));
+        assert!(!is_private_ip(&IpAddr::V6(Ipv6Addr::new(
+            0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888
+        ))));
     }
 }

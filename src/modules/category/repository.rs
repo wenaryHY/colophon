@@ -152,8 +152,8 @@ where
          SET deleted_at = datetime('now'), updated_at = datetime('now')
          WHERE id = ?",
     )
-        .bind(id)
-        .execute(executor)
-        .await?;
+    .bind(id)
+    .execute(executor)
+    .await?;
     Ok(())
 }

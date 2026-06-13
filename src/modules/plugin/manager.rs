@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use axum::Router;
 use axum::extract::{FromRequestParts, State};
 use axum::response::IntoResponse;
+use axum::Router;
 use minijinja::Environment;
 
 use crate::shared::error::AppResult;
@@ -40,7 +40,8 @@ impl PluginManager {
     }
 
     pub async fn load_with(discovered: Vec<DiscoveredPlugin>) -> Self {
-        let manifests: Vec<PluginManifest> = discovered.iter().map(|d| d.manifest.clone()).collect();
+        let manifests: Vec<PluginManifest> =
+            discovered.iter().map(|d| d.manifest.clone()).collect();
         let all_plugins = registry::take_all().await;
         let discovered_ids: HashSet<String> = discovered
             .iter()
@@ -119,15 +120,16 @@ impl PluginManager {
                 move |State(app_state): State<Arc<AppState>>,
                       mut req: axum::extract::Request,
                       next: axum::middleware::Next|
-                      -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Response> + Send>> {
+                      -> std::pin::Pin<
+                    Box<dyn std::future::Future<Output = axum::response::Response> + Send>,
+                > {
                     let plugin_name = plugin_name.clone();
                     let pool = pool.clone();
                     Box::pin(async move {
                         // 1. AdminUser 鉴权
                         let (mut parts, body) = req.into_parts();
                         match crate::shared::auth::AdminUser::from_request_parts(
-                            &mut parts,
-                            &app_state,
+                            &mut parts, &app_state,
                         )
                         .await
                         {
@@ -161,7 +163,10 @@ impl PluginManager {
     }
 
     pub fn plugin_names(&self) -> Vec<String> {
-        self.plugins.iter().map(|plugin| plugin.name().to_string()).collect()
+        self.plugins
+            .iter()
+            .map(|plugin| plugin.name().to_string())
+            .collect()
     }
 
     pub fn is_empty(&self) -> bool {

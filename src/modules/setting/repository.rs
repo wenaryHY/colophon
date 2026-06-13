@@ -9,7 +9,7 @@ where
         key: String,
         value: String,
     }
-    
+
     sqlx::query_as!(
         SettingRow,
         r#"
@@ -22,7 +22,10 @@ where
     .await
     .map(|rows| {
         rows.into_iter()
-            .map(|row| SettingItem { key: row.key, value: row.value })
+            .map(|row| SettingItem {
+                key: row.key,
+                value: row.value,
+            })
             .collect()
     })
 }
@@ -40,11 +43,7 @@ where
         .await
 }
 
-pub async fn get_string<'e, E>(
-    executor: E,
-    key: &str,
-    default: &str,
-) -> Result<String, sqlx::Error>
+pub async fn get_string<'e, E>(executor: E, key: &str, default: &str) -> Result<String, sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {

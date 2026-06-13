@@ -24,9 +24,9 @@ use state::AppState;
 use tokio::sync::broadcast;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use std::path::PathBuf;
 use crate::modules::plugin::loader::PluginLoader;
 use crate::modules::plugin::manager::PluginManager;
+use std::path::PathBuf;
 
 pub async fn serve() -> anyhow::Result<()> {
     tracing_subscriber::registry()
@@ -79,12 +79,11 @@ pub async fn serve() -> anyhow::Result<()> {
     // TODO: 等待 plugin_registry.rs 生成
     // register_all().await;
 
-    let loader = PluginLoader::new(
-        PathBuf::from("plugins"),
-        env!("CARGO_PKG_VERSION"),
-    );
+    let loader = PluginLoader::new(PathBuf::from("plugins"), env!("CARGO_PKG_VERSION"));
     let discovered = loader.discover(&pool).await?;
-    let plugin_manager = Arc::new(tokio::sync::RwLock::new(PluginManager::load_with(discovered).await));
+    let plugin_manager = Arc::new(tokio::sync::RwLock::new(
+        PluginManager::load_with(discovered).await,
+    ));
 
     let state = Arc::new(AppState::new(
         config.clone(),
@@ -99,9 +98,18 @@ pub async fn serve() -> anyhow::Result<()> {
     state.plugin_manager.write().await.init_all(&state).await?;
     // 初始化 Webhook 分发器，注册到全局 HookRegistry
     {
-        let dispatcher = modules::webhook::dispatcher::WebhookDispatcher::new(state.pool.clone(), config.webhook.clone());
+        let dispatcher = modules::webhook::dispatcher::WebhookDispatcher::new(
+            state.pool.clone(),
+            config.webhook.clone(),
+        );
         let hooks = dispatcher.into_hooks();
-        state.plugin_manager.read().await.hook_registry().register("webhook", hooks).await;
+        state
+            .plugin_manager
+            .read()
+            .await
+            .hook_registry()
+            .register("webhook", hooks)
+            .await;
     }
     modules::backup::scheduler::start_backup_scheduler(state.clone()).await?;
     modules::trash::scheduler::start_trash_scheduler(state.clone()).await?;

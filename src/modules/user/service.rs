@@ -29,7 +29,8 @@ pub async fn update_profile(
     let display_name = merge_display_name(body.display_name, &current.display_name)?;
     let bio = merge_nullable_text(body.bio, current.bio);
     let avatar_media_id = merge_nullable_text(body.avatar_media_id, current.avatar_media_id);
-    let theme_preference = merge_theme_preference(body.theme_preference, &current.theme_preference)?;
+    let theme_preference =
+        merge_theme_preference(body.theme_preference, &current.theme_preference)?;
     let language = merge_language(body.language, &current.language)?;
 
     repository::update_profile(

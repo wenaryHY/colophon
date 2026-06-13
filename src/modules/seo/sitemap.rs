@@ -49,7 +49,7 @@ pub async fn generate_sitemap_xml_with_fallback(
 }
 
 /// 生成 hreflang 多语言标记（符合 Google SEO 最佳实践）
-/// 
+///
 /// 注意：当前未实施 URL 前缀路由（/en/posts/xxx 不存在），
 /// 所以三个 hreflang 都指向同一 URL。这符合 Google 文档的
 /// "通过 cookie/header 切换语言"模式。
@@ -91,7 +91,11 @@ async fn build_sitemap_xml_inner(site_url: &str, state: &AppState) -> Result<Str
 
     // 文章和页面
     for post in posts {
-        let path_prefix = if post.content_type == ContentType::Page { "pages" } else { "posts" };
+        let path_prefix = if post.content_type == ContentType::Page {
+            "pages"
+        } else {
+            "posts"
+        };
         let post_url = format!("{site_url}/{path_prefix}/{}", post.slug);
         let lastmod = &post.updated_at[..10];
         xml.push_str(&format!(
@@ -169,7 +173,10 @@ mod tests {
         let xml = generate_hreflang_links(url);
         // 当前无 URL 前缀路由，三个变体都指向同一 URL
         let occurrences = xml.matches(url).count();
-        assert_eq!(occurrences, 3, "expected url to appear 3 times in hreflang block");
+        assert_eq!(
+            occurrences, 3,
+            "expected url to appear 3 times in hreflang block"
+        );
     }
 
     #[test]

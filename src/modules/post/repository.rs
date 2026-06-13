@@ -471,9 +471,8 @@ pub async fn list_admin_posts<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    let mut builder = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
-        "SELECT * FROM posts WHERE deleted_at IS NULL",
-    );
+    let mut builder =
+        sqlx::QueryBuilder::<sqlx::Sqlite>::new("SELECT * FROM posts WHERE deleted_at IS NULL");
 
     if let Some(s) = status {
         builder.push(" AND status = ").push_bind(s);
@@ -497,7 +496,10 @@ where
     builder.push(" LIMIT ").push_bind(limit);
     builder.push(" OFFSET ").push_bind(offset);
 
-    builder.build_query_as::<AdminPost>().fetch_all(executor).await
+    builder
+        .build_query_as::<AdminPost>()
+        .fetch_all(executor)
+        .await
 }
 
 /// 管理后台文章计数——与 list_admin_posts 共享相同的动态 WHERE 构建模式。
@@ -532,7 +534,10 @@ where
         builder.push(" AND content_type = ").push_bind(ct);
     }
 
-    builder.build_query_scalar::<i64>().fetch_one(executor).await
+    builder
+        .build_query_scalar::<i64>()
+        .fetch_one(executor)
+        .await
 }
 
 pub async fn get_admin_post<'e, E>(executor: E, id: &str) -> Result<Option<AdminPost>, sqlx::Error>
@@ -715,10 +720,12 @@ pub async fn delete_post<'e, E>(executor: E, id: &str) -> Result<(), sqlx::Error
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query("UPDATE posts SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
-        .bind(id)
-        .execute(executor)
-        .await?;
+    sqlx::query(
+        "UPDATE posts SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
+    )
+    .bind(id)
+    .execute(executor)
+    .await?;
     Ok(())
 }
 

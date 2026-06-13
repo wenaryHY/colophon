@@ -101,12 +101,8 @@ async fn update_run_times_after_backup(
     let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(hour, minute);
     let cron_expr = frequency.cron_expression(utc_hour, utc_minute);
     let next = calculate_next_run_at_from_cron_expression(&cron_expr);
-    repository::update_schedule_run_time(
-        &state.pool,
-        &now.to_rfc3339(),
-        &next.to_rfc3339(),
-    )
-    .await?;
+    repository::update_schedule_run_time(&state.pool, &now.to_rfc3339(), &next.to_rfc3339())
+        .await?;
     Ok(())
 }
 

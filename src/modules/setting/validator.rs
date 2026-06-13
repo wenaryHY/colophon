@@ -18,12 +18,13 @@ pub fn canonical_admin_url_from_site_url(site_url: &str) -> AppResult<String> {
     Ok(format!("{}/admin", url.origin().unicode_serialization()))
 }
 
-
 pub fn normalize_bool_string(value: &str, field: &str) -> AppResult<String> {
     match value.trim() {
         "true" => Ok("true".to_string()),
         "false" => Ok("false".to_string()),
-        _ => Err(AppError::BadRequest(format!("{field} must be true or false"))),
+        _ => Err(AppError::BadRequest(format!(
+            "{field} must be true or false"
+        ))),
     }
 }
 
@@ -72,9 +73,7 @@ fn ensure_admin_path(url: &url::Url) -> AppResult<()> {
     if path == "/admin" {
         return Ok(());
     }
-    Err(AppError::BadRequest(
-        "admin_url path must be /admin".into(),
-    ))
+    Err(AppError::BadRequest("admin_url path must be /admin".into()))
 }
 
 #[cfg(test)]

@@ -11,9 +11,9 @@ use crate::shared::error::AppResult;
 use crate::shared::response::ApiResponse;
 use crate::state::AppState;
 
+use super::manager::PluginManager;
 use super::settings;
 use super::status;
-use super::manager::PluginManager;
 
 #[derive(serde::Deserialize)]
 pub struct UpdateSettingsRequest {
@@ -110,7 +110,8 @@ pub async fn list_slots(
         .filter(|m| enabled_set.contains(&m.plugin.id))
         .flat_map(|m| {
             let plugin_id = m.plugin.id.clone();
-            let admin_root = m.resources
+            let admin_root = m
+                .resources
                 .as_ref()
                 .and_then(|r| r.admin_root.as_deref())
                 .unwrap_or("admin/")
@@ -140,20 +141,25 @@ pub async fn list_plugins(
     let manifests = state.plugin_manager.read().await.discovered_manifests();
     let enabled_ids: Vec<String> = status::get_enabled_ids(&state.pool).await?;
 
-    let plugins: Vec<serde_json::Value> = manifests.into_iter().map(|m| {
-        serde_json::json!({
-            "id": m.plugin.id,
-            "title": m.plugin.title,
-            "version": m.plugin.version,
-            "description": m.plugin.description,
-            "author": m.plugin.author,
-            "enabled": enabled_ids.contains(&m.plugin.id),
-            "has_settings": m.settings.is_some(),
-            "has_admin": m.admin.as_ref().map(|a| a.enabled.unwrap_or(false)).unwrap_or(false),
+    let plugins: Vec<serde_json::Value> = manifests
+        .into_iter()
+        .map(|m| {
+            serde_json::json!({
+                "id": m.plugin.id,
+                "title": m.plugin.title,
+                "version": m.plugin.version,
+                "description": m.plugin.description,
+                "author": m.plugin.author,
+                "enabled": enabled_ids.contains(&m.plugin.id),
+                "has_settings": m.settings.is_some(),
+                "has_admin": m.admin.as_ref().map(|a| a.enabled.unwrap_or(false)).unwrap_or(false),
+            })
         })
-    }).collect();
+        .collect();
 
-    Ok(Json(ApiResponse::success(serde_json::json!({ "plugins": plugins }))))
+    Ok(Json(ApiResponse::success(
+        serde_json::json!({ "plugins": plugins }),
+    )))
 }
 
 pub async fn toggle_plugin(

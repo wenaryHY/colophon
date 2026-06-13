@@ -44,6 +44,10 @@ pub async fn get_turnstile_config(
     State(state): State<Arc<AppState>>,
 ) -> Json<TurnstileConfigResponse> {
     let site_key = state.config.auth.turnstile_site_key.clone();
-    let site_key = if site_key.is_empty() { None } else { Some(site_key) };
+    let site_key = if site_key.is_empty() {
+        None
+    } else {
+        Some(site_key)
+    };
     Json(TurnstileConfigResponse { site_key })
 }

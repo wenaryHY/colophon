@@ -40,10 +40,7 @@ pub async fn render_atom_feed(
 }
 
 /// 生成 Atom feed XML 字符串（与 handler 分离，方便测试）。
-async fn generate_atom_feed_xml(
-    state: &AppState,
-    headers: &HeaderMap,
-) -> Result<String, String> {
+async fn generate_atom_feed_xml(state: &AppState, headers: &HeaderMap) -> Result<String, String> {
     let posts = post_repository::list_recent_public_posts(&state.pool, 20)
         .await
         .map_err(|e| format!("Failed to fetch posts: {e}"))?;
@@ -70,10 +67,7 @@ async fn generate_atom_feed_xml(
             "posts"
         };
         let post_url = format!("{}/{}/{}", site_url, path_prefix, post.slug);
-        let updated = post
-            .published_at
-            .as_deref()
-            .unwrap_or(&post.updated_at);
+        let updated = post.published_at.as_deref().unwrap_or(&post.updated_at);
         let published = post.published_at.as_deref().unwrap_or(&post.created_at);
         let content = post.excerpt.as_deref().unwrap_or("");
         let author = escape_xml(&post.author_display_name);

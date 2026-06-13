@@ -50,7 +50,7 @@ pub async fn create_webhook(
     // 🔒 SSRF 防护：拒绝私有 IP
     if is_private_or_local_url(body.url.trim())? {
         return Err(AppError::BadRequest(
-            "禁止 webhook 指向内网地址或 localhost".into()
+            "禁止 webhook 指向内网地址或 localhost".into(),
         ));
     }
 
@@ -103,7 +103,7 @@ pub async fn update_webhook(
         // 🔒 SSRF 防护：拒绝私有 IP
         if is_private_or_local_url(url.trim())? {
             return Err(AppError::BadRequest(
-                "禁止 webhook 指向内网地址或 localhost".into()
+                "禁止 webhook 指向内网地址或 localhost".into(),
             ));
         }
     }

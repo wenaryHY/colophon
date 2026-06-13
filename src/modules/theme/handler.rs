@@ -18,8 +18,10 @@ use crate::{
     state::AppState,
 };
 
+use super::{
+    context::TemplateContext, domain::ThemeSummary, engine, service::ThemeService, ThemeConfig,
+};
 use crate::modules::plugin::hook::{HookContext, HookData, PostBeforeRenderData};
-use super::{context::TemplateContext, domain::ThemeSummary, engine, service::ThemeService, ThemeConfig};
 
 pub async fn active_theme(
     State(state): State<Arc<AppState>>,
@@ -144,7 +146,10 @@ pub async fn upload_theme_archive(
     let extract_result = (|| -> AppResult<()> {
         for i in 0..archive.len() {
             let mut file = archive.by_index(i).map_err(|e| {
-                crate::shared::error::AppError::Anyhow(anyhow::anyhow!("Failed to read archive: {}", e))
+                crate::shared::error::AppError::Anyhow(anyhow::anyhow!(
+                    "Failed to read archive: {}",
+                    e
+                ))
             })?;
             let entry_path = file
                 .enclosed_name()
@@ -159,8 +164,8 @@ pub async fn upload_theme_archive(
             if let Some(parent) = outpath.parent() {
                 std::fs::create_dir_all(parent).map_err(crate::shared::error::AppError::Io)?;
             }
-            let mut outfile = std::fs::File::create(&outpath)
-                .map_err(crate::shared::error::AppError::Io)?;
+            let mut outfile =
+                std::fs::File::create(&outpath).map_err(crate::shared::error::AppError::Io)?;
             std::io::copy(&mut file, &mut outfile).map_err(crate::shared::error::AppError::Io)?;
         }
         Ok(())
@@ -206,16 +211,13 @@ pub async fn render_home(
     let ctx = TemplateContext::load(&state).await?;
 
     // 查询最近 20 篇公开文章，用于首页 SEO + 服务端渲染
-    let recent_posts = crate::modules::post::repository::list_public_posts(
-        &state.pool,
-        None,
-        20,
-        0,
-    ).await.unwrap_or_default();
+    let recent_posts =
+        crate::modules::post::repository::list_public_posts(&state.pool, None, 20, 0)
+            .await
+            .unwrap_or_default();
 
     // 兜底：如果数据库 site_url 为空，从 Host header 推断
-    let fallback_site_url =
-        crate::modules::seo::infer_site_url_from_host_header(&headers);
+    let fallback_site_url = crate::modules::seo::infer_site_url_from_host_header(&headers);
     let effective_site_url = if ctx.site_url.trim().is_empty() {
         &fallback_site_url
     } else {
@@ -226,7 +228,7 @@ pub async fn render_home(
         &ctx.site_title,
         &ctx.site_description,
         effective_site_url,
-        "",  // seo_keywords
+        "", // seo_keywords
         "",
     );
     let json_ld = crate::modules::seo::meta::build_home_json_ld(
@@ -237,7 +239,15 @@ pub async fn render_home(
 
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest, Some(&current_lang)).await?;
+    let env = engine::build_template_engine(
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(&current_lang),
+    )
+    .await?;
     let tmpl = env
         .get_template("index.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -307,8 +317,7 @@ pub async fn render_post(
     let ctx = TemplateContext::load(&state).await?;
 
     // 兜底：如果数据库 site_url 为空，从 Host header 推断
-    let fallback_site_url =
-        crate::modules::seo::infer_site_url_from_host_header(&headers);
+    let fallback_site_url = crate::modules::seo::infer_site_url_from_host_header(&headers);
     let effective_site_url = if ctx.site_url.trim().is_empty() {
         &fallback_site_url
     } else {
@@ -348,7 +357,7 @@ pub async fn render_post(
         &p.slug,
         p.excerpt.as_deref(),
         &p.content_html,
-        "",  // seo_keywords
+        "", // seo_keywords
         &og_image,
         p.content_type,
     );
@@ -371,7 +380,15 @@ pub async fn render_post(
 
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let env = engine::build_template_engine(&ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest, Some(&current_lang)).await?;
+    let env = engine::build_template_engine(
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(&current_lang),
+    )
+    .await?;
     let tmpl = env
         .get_template("post.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -438,7 +455,14 @@ pub async fn serve_active_static(
     };
 
     match tokio::fs::read(&full_path).await {
-        Ok(d) => ([(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, "public, max-age=31536000, immutable")], d).into_response(),
+        Ok(d) => (
+            [
+                (header::CONTENT_TYPE, mime),
+                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+            ],
+            d,
+        )
+            .into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
     }
 }
@@ -472,7 +496,14 @@ pub async fn serve_upload_static(
     };
 
     match tokio::fs::read(&full_path).await {
-        Ok(d) => ([(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, "public, max-age=31536000, immutable")], d).into_response(),
+        Ok(d) => (
+            [
+                (header::CONTENT_TYPE, mime),
+                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+            ],
+            d,
+        )
+            .into_response(),
         Err(_) => {
             let is_image = matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "svg" | "webp");
             if is_image {
@@ -508,7 +539,10 @@ pub async fn serve_plugin_static(
     }
 
     let plugins_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("plugins");
-    let full_path = plugins_dir.join(&plugin_slug).join("static").join(&file_path);
+    let full_path = plugins_dir
+        .join(&plugin_slug)
+        .join("static")
+        .join(&file_path);
 
     let ext = full_path.extension().and_then(|s| s.to_str()).unwrap_or("");
     let mime = match ext {
@@ -522,7 +556,14 @@ pub async fn serve_plugin_static(
     };
 
     match tokio::fs::read(&full_path).await {
-        Ok(d) => ([(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, "public, max-age=31536000, immutable")], d).into_response(),
+        Ok(d) => (
+            [
+                (header::CONTENT_TYPE, mime),
+                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+            ],
+            d,
+        )
+            .into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
     }
 }
@@ -678,8 +719,14 @@ pub async fn preview_theme(
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::DEFAULT_LANG; // 预览页面使用默认语言
     let env = engine::build_template_engine(
-        &ctx, &state.theme_dir, &*plugin_guard, &state.template_env_cache, &state.asset_manifest, Some(current_lang)
-    ).await?;
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(current_lang),
+    )
+    .await?;
 
     // 选择模板
     let template_name = if content_type.is_page() && env.get_template("page.html").is_ok() {
@@ -746,7 +793,10 @@ pub async fn preview_theme(
 
 /// 验证主题 slug 是否为合法且已安装的主题标识符
 #[allow(non_snake_case)]
-fn validateThemeSlugIsInstalledAndSafeForPreviewRendering(slug: &str, theme_dir: &std::path::Path) -> Result<(), AppError> {
+fn validateThemeSlugIsInstalledAndSafeForPreviewRendering(
+    slug: &str,
+    theme_dir: &std::path::Path,
+) -> Result<(), AppError> {
     if slug.contains("..") || slug.contains('/') || slug.contains('\\') {
         return Err(AppError::BadRequest("invalid theme_slug".into()));
     }
@@ -760,11 +810,8 @@ fn validateThemeSlugIsInstalledAndSafeForPreviewRendering(slug: &str, theme_dir:
     Ok(())
 }
 
-
 /// 新标签页预览页面（空壳 HTML + 内嵌 JS）
-pub async fn preview_page(
-    _admin: AdminUser,
-) -> Result<Html<String>, AppError> {
+pub async fn preview_page(_admin: AdminUser) -> Result<Html<String>, AppError> {
     let html = r#"<!DOCTYPE html>
 <html lang="zh-CN">
 <head>

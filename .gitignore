@@ -66,3 +66,7 @@ e2e/test-results/
 inkforge.db
 inkforge.db-shm
 inkforge.db-wal
+# Test artifacts
+test_backup_*.db
+test_backup_*.db.bak
+test_backups_*/

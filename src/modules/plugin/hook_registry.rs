@@ -121,7 +121,9 @@ impl HookRegistry {
                         action_registry.mark_done(&action_id).await;
                     }
                     Ok(Err(e)) => {
-                        action_registry.mark_failed(&action_id, &e.to_string()).await;
+                        action_registry
+                            .mark_failed(&action_id, &e.to_string())
+                            .await;
                         tracing::error!(
                             module = "hook",
                             hook = hook_name,

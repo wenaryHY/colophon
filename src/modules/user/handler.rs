@@ -44,20 +44,22 @@ pub async fn update_profile(
         user_id = %auth.id,
         "updating current user profile"
     );
-    
+
     let updated_lang = body.language.clone();
     let updated_user = service::update_profile(state, &auth, body).await?;
-    
+
     // 如果更新了语言偏好，同步设置 cookie（与前端、admin 互通）
     let mut response_headers = axum::http::HeaderMap::new();
     if let Some(new_lang) = updated_lang {
         let cookie_value = crate::infra::i18n_middleware::build_lang_cookie(&new_lang);
         response_headers.insert(
             axum::http::header::SET_COOKIE,
-            cookie_value.parse().expect("cookie value must be valid HeaderValue"),
+            cookie_value
+                .parse()
+                .expect("cookie value must be valid HeaderValue"),
         );
     }
-    
+
     Ok((response_headers, Json(ApiResponse::success(updated_user))))
 }
 

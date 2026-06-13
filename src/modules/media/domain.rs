@@ -22,5 +22,3 @@ pub struct MediaItem {
     pub updated_at: String,
     pub deleted_at: Option<String>,
 }
-
-

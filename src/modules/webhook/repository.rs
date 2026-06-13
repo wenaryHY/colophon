@@ -178,11 +178,13 @@ where
             .await?;
     }
     if let Some(mr) = max_retries {
-        sqlx::query("UPDATE webhooks SET max_retries = ?, updated_at = datetime('now') WHERE id = ?")
-            .bind(mr)
-            .bind(id)
-            .execute(executor)
-            .await?;
+        sqlx::query(
+            "UPDATE webhooks SET max_retries = ?, updated_at = datetime('now') WHERE id = ?",
+        )
+        .bind(mr)
+        .bind(id)
+        .execute(executor)
+        .await?;
     }
 
     Ok(())

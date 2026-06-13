@@ -50,5 +50,7 @@ pub async fn update_settings_batch(
         super::service::update_setting(state.clone(), req).await?;
     }
     state.invalidate_all_caches().await;
-    Ok(Json(ApiResponse::success(serde_json::json!({ "updated": true }))))
+    Ok(Json(ApiResponse::success(
+        serde_json::json!({ "updated": true }),
+    )))
 }

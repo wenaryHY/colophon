@@ -4,20 +4,15 @@ use axum::{
     extract::{FromRef, FromRequestParts, OptionalFromRequestParts},
     http::{request::Parts, HeaderMap},
 };
-use std::convert::Infallible;
 use axum_extra::{
     extract::CookieJar,
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
 use sha2::{Digest, Sha256};
+use std::convert::Infallible;
 
-use crate::{
-    shared::auth_constants,
-    shared::error::AppError,
-    shared::role::Role,
-    state::AppState,
-};
+use crate::{shared::auth_constants, shared::error::AppError, shared::role::Role, state::AppState};
 
 // Re-export hash and jwt functions for convenience
 pub use crate::infra::hash::*;
@@ -145,7 +140,10 @@ where
         }
 
         // ── 2. 尝试 Bearer Token ──
-        let auth_header = <TypedHeader<Authorization<Bearer>> as FromRequestParts<S>>::from_request_parts(parts, state)
+        let auth_header =
+            <TypedHeader<Authorization<Bearer>> as FromRequestParts<S>>::from_request_parts(
+                parts, state,
+            )
             .await
             .ok();
 

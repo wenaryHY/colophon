@@ -141,10 +141,7 @@ where
     .await
 }
 
-pub async fn revoke_refresh_token<'e, E>(
-    executor: E,
-    token_hash: &str,
-) -> Result<(), sqlx::Error>
+pub async fn revoke_refresh_token<'e, E>(executor: E, token_hash: &str) -> Result<(), sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
@@ -155,10 +152,7 @@ where
     Ok(())
 }
 
-pub async fn mark_token_used<'e, E>(
-    executor: E,
-    token_hash: &str,
-) -> Result<(), sqlx::Error>
+pub async fn mark_token_used<'e, E>(executor: E, token_hash: &str) -> Result<(), sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
@@ -169,10 +163,7 @@ where
     Ok(())
 }
 
-pub async fn revoke_family<'e, E>(
-    executor: E,
-    family_id: &str,
-) -> Result<(), sqlx::Error>
+pub async fn revoke_family<'e, E>(executor: E, family_id: &str) -> Result<(), sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {

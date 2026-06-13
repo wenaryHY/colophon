@@ -17,8 +17,14 @@ struct SessionCookie {
 async fn start_server_and_wait_ready(port: u16) -> reqwest::Client {
     std::env::set_var("COLOPHON__DATABASE__URL", "sqlite::memory:");
     std::env::set_var("COLOPHON__SERVER__PORT", port.to_string());
-    std::env::set_var("COLOPHON__STORAGE__UPLOAD_DIR", "target_tmp_test_webhook_uploads");
-    std::env::set_var("COLOPHON__THEME__THEME_DIR", "target_tmp_test_webhook_themes");
+    std::env::set_var(
+        "COLOPHON__STORAGE__UPLOAD_DIR",
+        "target_tmp_test_webhook_uploads",
+    );
+    std::env::set_var(
+        "COLOPHON__THEME__THEME_DIR",
+        "target_tmp_test_webhook_themes",
+    );
     std::env::set_var("COLOPHON_TEST_MODE", "true");
 
     tokio::spawn(async {
@@ -108,7 +114,10 @@ fn extract_token_from_cookie(cookie_str: &str, prefix: &str) -> Option<String> {
 }
 
 /// 向请求添加 session cookie
-fn add_session_cookie(request: reqwest::RequestBuilder, cookie: &SessionCookie) -> reqwest::RequestBuilder {
+fn add_session_cookie(
+    request: reqwest::RequestBuilder,
+    cookie: &SessionCookie,
+) -> reqwest::RequestBuilder {
     request.header("Cookie", format!("colophon_session={}", cookie.token))
 }
 
@@ -270,7 +279,10 @@ async fn test_webhook_trigger_on_publish() {
     let mut delivery_found = false;
     for _ in 0..10 {
         let delivery_resp = add_session_cookie(
-            client.get(format!("{}/api/v1/admin/webhooks/{}/deliveries", base, webhook_id)),
+            client.get(format!(
+                "{}/api/v1/admin/webhooks/{}/deliveries",
+                base, webhook_id
+            )),
             &session,
         )
         .send()

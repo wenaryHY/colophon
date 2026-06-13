@@ -95,3 +95,8 @@ debug = true
 
 [dev-dependencies]
 serial_test = "=3.4.0"
+criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
+
+[[bench]]
+name = "api_benchmarks"
+harness = false

@@ -36,7 +36,9 @@ pub async fn restore_item(
     Path((item_type, id)): Path<(String, String)>,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
     service::restore_item(state, &item_type, &id).await?;
-    Ok(Json(ApiResponse::success(serde_json::json!({ "restored": true }))))
+    Ok(Json(ApiResponse::success(
+        serde_json::json!({ "restored": true }),
+    )))
 }
 
 /// DELETE /api/admin/trash/:type/:id
@@ -46,7 +48,9 @@ pub async fn purge_item(
     Path((item_type, id)): Path<(String, String)>,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
     service::purge_item(state, &item_type, &id).await?;
-    Ok(Json(ApiResponse::success(serde_json::json!({ "purged": true }))))
+    Ok(Json(ApiResponse::success(
+        serde_json::json!({ "purged": true }),
+    )))
 }
 
 /// POST /api/admin/trash/purge-expired
@@ -55,5 +59,7 @@ pub async fn purge_expired(
     _admin: AdminUser,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
     let count = service::purge_expired(state).await?;
-    Ok(Json(ApiResponse::success(serde_json::json!({ "purged_count": count }))))
+    Ok(Json(ApiResponse::success(
+        serde_json::json!({ "purged_count": count }),
+    )))
 }

@@ -41,8 +41,8 @@ pub fn extract_or_generate_client_request_id(headers: &HeaderMap) -> String {
 }
 
 pub async fn request_id_context(request: Request, next: Next) -> Response {
-    let request_id = extract_client_request_id(request.headers())
-        .unwrap_or_else(generate_request_id);
+    let request_id =
+        extract_client_request_id(request.headers()).unwrap_or_else(generate_request_id);
     CURRENT_REQUEST_ID
         .scope(request_id.clone(), async move {
             let mut response = next.run(request).await;

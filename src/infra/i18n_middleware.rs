@@ -133,7 +133,10 @@ mod tests {
     fn cookie_takes_priority_over_accept_language() {
         let mut h = HeaderMap::new();
         h.insert(header::COOKIE, HeaderValue::from_static("lang=en; other=x"));
-        h.insert(header::ACCEPT_LANGUAGE, HeaderValue::from_static("zh-CN,zh;q=0.9"));
+        h.insert(
+            header::ACCEPT_LANGUAGE,
+            HeaderValue::from_static("zh-CN,zh;q=0.9"),
+        );
         assert_eq!(resolve_language_from_headers(&h), "en");
     }
 

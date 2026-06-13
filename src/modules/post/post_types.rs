@@ -269,8 +269,14 @@ mod tests {
     #[test]
     fn post_status_from_str_valid() {
         assert_eq!("draft".parse::<PostStatus>().unwrap(), PostStatus::Draft);
-        assert_eq!("published".parse::<PostStatus>().unwrap(), PostStatus::Published);
-        assert_eq!("trashed".parse::<PostStatus>().unwrap(), PostStatus::Trashed);
+        assert_eq!(
+            "published".parse::<PostStatus>().unwrap(),
+            PostStatus::Published
+        );
+        assert_eq!(
+            "trashed".parse::<PostStatus>().unwrap(),
+            PostStatus::Trashed
+        );
     }
 
     #[test]
@@ -321,7 +327,10 @@ mod tests {
     #[test]
     fn visibility_from_str_valid() {
         assert_eq!("public".parse::<Visibility>().unwrap(), Visibility::Public);
-        assert_eq!("private".parse::<Visibility>().unwrap(), Visibility::Private);
+        assert_eq!(
+            "private".parse::<Visibility>().unwrap(),
+            Visibility::Private
+        );
     }
 
     #[test]

@@ -1,7 +1,9 @@
-
 use std::sync::Arc;
 
-use axum::{extract::{Path, State}, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 
 use crate::{
     shared::{auth::AdminUser, error::AppResult, response::ApiResponse},
@@ -10,8 +12,7 @@ use crate::{
 
 use super::{
     dto::{ApiKeyListItem, CreateApiKeyRequest, CreateApiKeyResponse, UpdateApiKeyRequest},
-    repository,
-    service,
+    repository, service,
 };
 
 /// GET /api/v1/admin/api-keys — 列出当前用户的所有 API Key

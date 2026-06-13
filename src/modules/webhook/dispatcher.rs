@@ -75,7 +75,14 @@ impl HookHandler for WebhookDispatcher {
 
         let config = self.config.clone();
         tokio::spawn(async move {
-            dispatch_webhooks_for_event(&pool, get_webhook_http_client(), &event, &payload, &config).await;
+            dispatch_webhooks_for_event(
+                &pool,
+                get_webhook_http_client(),
+                &event,
+                &payload,
+                &config,
+            )
+            .await;
         });
 
         Ok(())
@@ -148,13 +155,9 @@ async fn dispatch_webhooks_for_event(
                 "failed to list enabled webhooks for event"
             );
             let payload_str = payload.to_string();
-            if let Err(insert_err) = repository::insert_failed_webhook_event(
-                pool,
-                event,
-                &payload_str,
-                &e.to_string(),
-            )
-            .await
+            if let Err(insert_err) =
+                repository::insert_failed_webhook_event(pool, event, &payload_str, &e.to_string())
+                    .await
             {
                 tracing::error!(
                     module = "webhook",
@@ -218,14 +221,13 @@ async fn dispatch_webhooks_for_event(
 
             // 更新最后触发时间
             let now = Utc::now().to_rfc3339();
-            let last_error = if success { None } else { Some(response_body.as_str()) };
-            if let Err(e) = repository::update_webhook_last_trigger(
-                &pool,
-                &webhook.id,
-                &now,
-                last_error,
-            )
-            .await
+            let last_error = if success {
+                None
+            } else {
+                Some(response_body.as_str())
+            };
+            if let Err(e) =
+                repository::update_webhook_last_trigger(&pool, &webhook.id, &now, last_error).await
             {
                 tracing::error!(
                     module = "webhook",
@@ -267,9 +269,8 @@ async fn send_webhook_with_retry(
     for attempt in 0..=max_retries {
         if attempt > 0 {
             // 标准指数退避: 5 * 2^(attempt-1), 上限 60 秒
-            let delay_secs = (INITIAL_DELAY_SECONDS_FOR_WEBHOOK_RETRY
-                * 2u64.pow(attempt as u32 - 1))
-            .min(60);
+            let delay_secs =
+                (INITIAL_DELAY_SECONDS_FOR_WEBHOOK_RETRY * 2u64.pow(attempt as u32 - 1)).min(60);
             tracing::warn!(
                 module = "webhook",
                 webhook_id = %webhook.id,
@@ -316,8 +317,8 @@ async fn send_webhook_with_retry(
 
 /// 构建签名头
 fn build_hmac_signature(secret: &str, body: &str) -> String {
-    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
-        .expect("HMAC can take key of any size");
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
     mac.update(body.as_bytes());
     let result = mac.finalize();
     format!("sha256={}", hex::encode(result.into_bytes()))
@@ -392,9 +393,7 @@ async fn try_send_webhook(
 
     // 🔒 重定向安全检查：验证最终 URL 是否指向私有地址（防止通过 302 绕过初始检查）
     let final_url = response.url().as_str();
-    if is_private_or_local_url(final_url)
-        .unwrap_or_else(|_| false)
-    {
+    if is_private_or_local_url(final_url).unwrap_or_else(|_| false) {
         let error_msg = format!(
             "final request URL {} resolves to private address (potential SSRF attack via redirect)",
             final_url

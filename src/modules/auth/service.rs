@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     modules::{auth::dto::RegisterRequest, setting::repository as setting_repository},
     shared::{
-        auth::{hash_password, issue_token, verify_password, generate_refresh_token, hash_token},
+        auth::{generate_refresh_token, hash_password, hash_token, issue_token, verify_password},
         error::{AppError, AppResult},
         role::Role,
     },
@@ -60,9 +60,18 @@ pub async fn register(
     let refresh_id = uuid::Uuid::new_v4().to_string();
     let family_id = uuid::Uuid::new_v4().to_string();
     // DB expires_at 对齐 cookie Max-Age
-    let expires_at = (chrono::Utc::now() + chrono::Duration::seconds(refresh_expires_in_seconds as i64)).to_rfc3339();
-    repository::save_refresh_token(&state.pool, &refresh_id, &user_id, &token_hash, &expires_at, &family_id)
-        .await?;
+    let expires_at = (chrono::Utc::now()
+        + chrono::Duration::seconds(refresh_expires_in_seconds as i64))
+    .to_rfc3339();
+    repository::save_refresh_token(
+        &state.pool,
+        &refresh_id,
+        &user_id,
+        &token_hash,
+        &expires_at,
+        &family_id,
+    )
+    .await?;
 
     tracing::info!(
         module = "auth",
@@ -164,9 +173,18 @@ pub async fn login(
     let refresh_id = uuid::Uuid::new_v4().to_string();
     let family_id = uuid::Uuid::new_v4().to_string();
     // DB expires_at 对齐 cookie Max-Age
-    let expires_at = (chrono::Utc::now() + chrono::Duration::seconds(refresh_expires_in_seconds as i64)).to_rfc3339();
-    repository::save_refresh_token(&state.pool, &refresh_id, &user.id, &token_hash, &expires_at, &family_id)
-        .await?;
+    let expires_at = (chrono::Utc::now()
+        + chrono::Duration::seconds(refresh_expires_in_seconds as i64))
+    .to_rfc3339();
+    repository::save_refresh_token(
+        &state.pool,
+        &refresh_id,
+        &user.id,
+        &token_hash,
+        &expires_at,
+        &family_id,
+    )
+    .await?;
 
     Ok((
         LoginResponseData {

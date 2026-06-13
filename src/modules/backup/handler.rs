@@ -55,7 +55,10 @@ pub async fn restore_backup(
     }
 
     let bytes = file_bytes.ok_or_else(|| {
-        tracing::warn!(module = "backup", event = "restore_upload_missing_file_field");
+        tracing::warn!(
+            module = "backup",
+            event = "restore_upload_missing_file_field"
+        );
         AppError::BadRequest("missing backup file field".into())
     })?;
     tracing::info!(
@@ -97,12 +100,12 @@ pub async fn delete_backup(
 }
 
 pub async fn download_backup(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     _admin: AdminUser,
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
     reject_path_traversal(&id)?;
-    let backup_path = AppState::backup_root_dir()?.join(&id).join("backup.zip");
+    let backup_path = state.backup_root_dir().join(&id).join("backup.zip");
 
     if !backup_path.exists() {
         return Err(AppError::NotFound);
@@ -133,14 +136,8 @@ pub async fn merge_restore_backup(
 }
 
 fn reject_path_traversal(id: &str) -> Result<(), AppError> {
-    if id.contains("..")
-        || id.contains('/')
-        || id.contains('\\')
-        || id.contains('\0')
-    {
-        return Err(AppError::BadRequest(
-            "invalid backup id".into(),
-        ));
+    if id.contains("..") || id.contains('/') || id.contains('\\') || id.contains('\0') {
+        return Err(AppError::BadRequest("invalid backup id".into()));
     }
     Ok(())
 }

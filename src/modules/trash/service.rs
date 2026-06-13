@@ -1,12 +1,17 @@
 use std::sync::Arc;
 
-use crate::{shared::error::{AppError, AppResult}, state::AppState};
+use crate::{
+    shared::error::{AppError, AppResult},
+    state::AppState,
+};
 
 use super::{domain::TrashItem, repository};
 
 /// 获取回收站设置：保留天数（默认30天）
 async fn get_retention_days(state: &AppState) -> i64 {
-    let value = crate::modules::setting::repository::get_string(&state.pool, "trash_retention_days", "30").await;
+    let value =
+        crate::modules::setting::repository::get_string(&state.pool, "trash_retention_days", "30")
+            .await;
     match value {
         Ok(v) => v.parse::<i64>().unwrap_or(30).clamp(1, 90),
         _ => 30,
@@ -52,7 +57,14 @@ pub async fn list_trash(
 
     let types: Vec<&str> = match type_filter {
         Some(t) => vec![t],
-        None => vec!["post", "category", "tag", "media", "media_category", "comment"],
+        None => vec![
+            "post",
+            "category",
+            "tag",
+            "media",
+            "media_category",
+            "comment",
+        ],
     };
 
     for t in types {

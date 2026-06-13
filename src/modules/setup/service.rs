@@ -8,9 +8,10 @@ use crate::{
     modules::{
         setting::{
             repository as setting_repository,
-            validator::{canonical_admin_url_from_site_url, normalize_admin_url, normalize_site_url},
+            validator::{
+                canonical_admin_url_from_site_url, normalize_admin_url, normalize_site_url,
+            },
         },
-
         setup::{
             domain::SetupStage,
             dto::{SetupInitializeRequest, SetupInitializeResponse, SetupStatusResponse},
@@ -131,7 +132,6 @@ async fn build_write_model(body: SetupInitializeRequest) -> AppResult<SetupWrite
     })
 }
 
-
 fn require_text(value: &str, field: &str) -> AppResult<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -203,7 +203,6 @@ async fn load_and_reconcile_snapshot(pool: &SqlitePool) -> AppResult<SetupSnapsh
 
     Ok(snapshot)
 }
-
 
 async fn refresh_runtime_from_snapshot(state: &Arc<AppState>, snapshot: &SetupSnapshot) {
     *state.site_url.write().await = snapshot.site_url.clone();

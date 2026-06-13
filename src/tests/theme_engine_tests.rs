@@ -49,7 +49,15 @@ mod theme_engine_tests {
         let ctx = make_context();
         let cache = empty_env_cache();
         let manifest = test_asset_manifest();
-        let result = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest, None).await;
+        let result = build_template_engine(
+            &ctx,
+            &theme_dir(),
+            &plugin_manager().await,
+            &cache,
+            &manifest,
+            None,
+        )
+        .await;
         assert!(
             result.is_ok(),
             "engine should build successfully: {:?}",
@@ -62,7 +70,16 @@ mod theme_engine_tests {
         let ctx = make_context();
         let cache = empty_env_cache();
         let manifest = test_asset_manifest();
-        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest, None).await.unwrap();
+        let env = build_template_engine(
+            &ctx,
+            &theme_dir(),
+            &plugin_manager().await,
+            &cache,
+            &manifest,
+            None,
+        )
+        .await
+        .unwrap();
 
         let title = env
             .render_str("{{ site_title }}", minijinja::context!())
@@ -90,7 +107,16 @@ mod theme_engine_tests {
         let ctx = make_context();
         let cache = empty_env_cache();
         let manifest = test_asset_manifest();
-        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest, None).await.unwrap();
+        let env = build_template_engine(
+            &ctx,
+            &theme_dir(),
+            &plugin_manager().await,
+            &cache,
+            &manifest,
+            None,
+        )
+        .await
+        .unwrap();
         let template = env.get_template("index.html");
         assert!(
             template.is_ok(),
@@ -104,7 +130,16 @@ mod theme_engine_tests {
         let ctx = make_context();
         let cache = empty_env_cache();
         let manifest = test_asset_manifest();
-        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest, None).await.unwrap();
+        let env = build_template_engine(
+            &ctx,
+            &theme_dir(),
+            &plugin_manager().await,
+            &cache,
+            &manifest,
+            None,
+        )
+        .await
+        .unwrap();
         let result = env.render_str("{{ get_recent_posts() }}", minijinja::context!());
         assert!(
             result.is_ok(),
@@ -118,7 +153,16 @@ mod theme_engine_tests {
         let ctx = make_context();
         let cache = empty_env_cache();
         let manifest = test_asset_manifest();
-        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest, None).await.unwrap();
+        let env = build_template_engine(
+            &ctx,
+            &theme_dir(),
+            &plugin_manager().await,
+            &cache,
+            &manifest,
+            None,
+        )
+        .await
+        .unwrap();
         let result = env
             .render_str(
                 "{{ theme_assets_url('css/style.css') }}",
@@ -134,7 +178,16 @@ mod theme_engine_tests {
         let ctx = make_context();
         let cache = empty_env_cache();
         let manifest = test_asset_manifest();
-        let env = build_template_engine(&ctx, &theme_dir(), &plugin_manager().await, &cache, &manifest, None).await.unwrap();
+        let env = build_template_engine(
+            &ctx,
+            &theme_dir(),
+            &plugin_manager().await,
+            &cache,
+            &manifest,
+            None,
+        )
+        .await
+        .unwrap();
         let result = env.get_template("../../Cargo.toml");
         assert!(result.is_err(), "path traversal should be rejected");
     }
