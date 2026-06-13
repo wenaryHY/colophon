@@ -658,6 +658,114 @@ mod tests {
         assert!(!refresh_token.is_empty());
     }
 
+    #[tokio::test]
+    async fn test_remember_me_true_uses_long_expiry() {
+        let state = setup_test_state().await;
+        enable_registration(&state).await;
+
+        let register_req = RegisterRequest {
+            username: "longexpiry".to_string(),
+            email: "longexpiry@example.com".to_string(),
+            password: "Password123!".to_string(),
+            display_name: None,
+            turnstile_token: None,
+        };
+        service::register(state.clone(), register_req, 3600, 7 * 86400)
+            .await
+            .unwrap();
+
+        // remember_me: true → 7 天 (604800 秒)
+        let login_req = LoginRequest {
+            login: "longexpiry".to_string(),
+            password: "Password123!".to_string(),
+            remember_me: Some(true),
+            turnstile_token: None,
+        };
+        let long_expiry_seconds = 7 * 86400; // 7 天
+        let (_, refresh_token) =
+            service::login(state.clone(), login_req, 3600, long_expiry_seconds)
+                .await
+                .unwrap();
+
+        // 验证 expires_at 约为 7 天后
+        let token_hash = crate::shared::auth::hash_token(&refresh_token);
+        let (_, expires_at, _, _) =
+            crate::modules::auth::repository::find_valid_refresh_token(&state.pool, &token_hash)
+                .await
+                .unwrap()
+                .unwrap();
+
+        let expires_time =
+            chrono::DateTime::parse_from_rfc3339(&expires_at)
+                .unwrap()
+                .with_timezone(&chrono::Utc);
+        let now = chrono::Utc::now();
+        let seconds_until_expiry = (expires_time - now).num_seconds();
+
+        // 允许 ±60 秒误差（测试执行耗时）
+        assert!(
+            seconds_until_expiry >= long_expiry_seconds as i64 - 60
+                && seconds_until_expiry <= long_expiry_seconds as i64 + 60,
+            "expected ~{} seconds, got {}",
+            long_expiry_seconds,
+            seconds_until_expiry
+        );
+    }
+
+    #[tokio::test]
+    async fn test_remember_me_false_uses_short_expiry() {
+        let state = setup_test_state().await;
+        enable_registration(&state).await;
+
+        let register_req = RegisterRequest {
+            username: "shortexpiry".to_string(),
+            email: "shortexpiry@example.com".to_string(),
+            password: "Password123!".to_string(),
+            display_name: None,
+            turnstile_token: None,
+        };
+        service::register(state.clone(), register_req, 3600, 7 * 86400)
+            .await
+            .unwrap();
+
+        // remember_me: false → 15 分钟 (900 秒)
+        let login_req = LoginRequest {
+            login: "shortexpiry".to_string(),
+            password: "Password123!".to_string(),
+            remember_me: Some(false),
+            turnstile_token: None,
+        };
+        let short_expiry_seconds = 900; // 15 分钟
+        let (_, refresh_token) =
+            service::login(state.clone(), login_req, 3600, short_expiry_seconds)
+                .await
+                .unwrap();
+
+        // 验证 expires_at 约为 15 分钟后
+        let token_hash = crate::shared::auth::hash_token(&refresh_token);
+        let (_, expires_at, _, _) =
+            crate::modules::auth::repository::find_valid_refresh_token(&state.pool, &token_hash)
+                .await
+                .unwrap()
+                .unwrap();
+
+        let expires_time =
+            chrono::DateTime::parse_from_rfc3339(&expires_at)
+                .unwrap()
+                .with_timezone(&chrono::Utc);
+        let now = chrono::Utc::now();
+        let seconds_until_expiry = (expires_time - now).num_seconds();
+
+        // 允许 ±60 秒误差
+        assert!(
+            seconds_until_expiry >= short_expiry_seconds as i64 - 60
+                && seconds_until_expiry <= short_expiry_seconds as i64 + 60,
+            "expected ~{} seconds, got {}",
+            short_expiry_seconds,
+            seconds_until_expiry
+        );
+    }
+
     // ── 7. 边界条件测试 ──
 
     #[tokio::test]
