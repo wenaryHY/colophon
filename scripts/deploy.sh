@@ -21,13 +21,16 @@ echo "[3/4] Building frontend..."
 cd src/admin/ui
 npm install --silent 2>/dev/null
 npm run build 2>&1 | tail -1
-cd /mnt/d/codes/colophon
+cd /mnt/d/codes/inkforge
 
 # 4. 部署到服务器
 
 # 同步主题文件（模板 + 静态资源）
 ssh root@162.243.28.76 "rm -rf /opt/colophon/themes 2>/dev/null; mkdir -p /opt/colophon/themes"
 scp -r themes/* root@162.243.28.76:/opt/colophon/themes/
+
+# 确保活动主题也有共享模板文件
+ssh root@162.243.28.76 "for t in /opt/colophon/themes/*/; do cp -n /opt/colophon/themes/default/templates/_header.html \${t}templates/ 2>/dev/null; cp -n /opt/colophon/themes/default/templates/_footer.html \${t}templates/ 2>/dev/null; done; chown -R colophon:colophon /opt/colophon/themes"
 
 echo "[4/4] Deploying to server..."
 ssh root@162.243.28.76 "systemctl stop colophon"
