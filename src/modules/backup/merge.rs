@@ -328,7 +328,7 @@ pub async fn merge_restore_backup(
 ) -> AppResult<Vec<RestoreProgressResponse>> {
     let backup = repository::get_backup(&state.pool, &backup_id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound("备份未找到".to_string()))?;
     repository::update_backup_status(
         &state.pool,
         &backup.id,

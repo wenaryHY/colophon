@@ -197,13 +197,13 @@ pub async fn upload_media_raw(
 
     repository::get_media(&state.pool, &media_id)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound("媒体文件未找到".to_string()))
 }
 
 pub async fn delete_media(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     let media = repository::get_media(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("媒体文件 '{}' 未找到", id)))?;
 
     let absolute_path = state.upload_dir.join(&media.storage_path);
     if absolute_path.exists() {
@@ -223,7 +223,7 @@ pub async fn rename_media(
     }
     repository::get_media(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("媒体文件 '{}' 未找到", id)))?;
     repository::rename_media(&state.pool, id, new_name.trim()).await?;
     Ok(serde_json::json!({ "renamed": true }))
 }
@@ -235,7 +235,7 @@ pub async fn update_category(
 ) -> AppResult<serde_json::Value> {
     repository::get_media(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("媒体文件 '{}' 未找到", id)))?;
     repository::update_media_category(&state.pool, id, category).await?;
     Ok(serde_json::json!({ "updated": true }))
 }

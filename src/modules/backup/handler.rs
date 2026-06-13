@@ -108,7 +108,7 @@ pub async fn download_backup(
     let backup_path = state.backup_root_dir().join(&id).join("backup.zip");
 
     if !backup_path.exists() {
-        return Err(AppError::NotFound);
+        return Err(AppError::NotFound("备份文件未找到".to_string()));
     }
 
     let file: Vec<u8> = tokio::fs::read(&backup_path).await?;

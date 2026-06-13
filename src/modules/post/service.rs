@@ -133,7 +133,7 @@ pub async fn search_posts(
 pub async fn get_public_post(state: Arc<AppState>, slug: &str) -> AppResult<PublicPostResponse> {
     let post = repository::get_public_post_by_slug(&state.pool, slug)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("文章 '{}' 未找到", slug)))?;
     let tags = repository::list_post_tags(&state.pool, &post.id).await?;
     Ok(PublicPostResponse { post, tags })
 }
@@ -180,7 +180,7 @@ pub async fn list_admin_posts(
 pub async fn get_admin_post(state: Arc<AppState>, id: &str) -> AppResult<AdminPostResponse> {
     let post = repository::get_admin_post(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("文章 '{}' 未找到", id)))?;
     attach_admin_post(state.as_ref(), post).await
 }
 
@@ -290,7 +290,7 @@ pub async fn create_post(
     // =============== Hook: post.after_save (Action) ===============
     let post = repository::get_admin_post(&state.pool, &id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound("文章未找到".to_string()))?;
     let old_status = PostStatus::Draft.to_string();
     let after_save_ctx = HookContext {
         hook_name: "post.after_save".into(),
@@ -335,7 +335,7 @@ pub async fn update_post(
 ) -> AppResult<AdminPostResponse> {
     let current = repository::get_admin_post(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("文章 '{}' 未找到", id)))?;
 
     let old_status = current.status;
 
@@ -456,7 +456,7 @@ pub async fn update_post(
     // =============== Hook: post.after_save (Action) ===============
     let post = repository::get_admin_post(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound("文章未找到".to_string()))?;
     let after_save_ctx = HookContext {
         hook_name: "post.after_save".into(),
         data: HookData::PostAfterSave(PostAfterSaveData {

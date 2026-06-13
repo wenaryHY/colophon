@@ -34,13 +34,13 @@ pub async fn create_tag(state: Arc<AppState>, body: CreateTagRequest) -> AppResu
 
     repository::get_tag(&state.pool, &id)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound("标签未找到".to_string()))
 }
 
 pub async fn update_tag(state: Arc<AppState>, id: &str, body: UpdateTagRequest) -> AppResult<Tag> {
     let existing = repository::get_tag(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("标签 '{}' 未找到", id)))?;
 
     let name = body
         .name
@@ -76,7 +76,7 @@ pub async fn update_tag(state: Arc<AppState>, id: &str, body: UpdateTagRequest) 
 
     repository::get_tag(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound(format!("标签 '{}' 未找到", id)))
 }
 
 pub async fn delete_tag(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {

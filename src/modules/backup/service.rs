@@ -511,7 +511,7 @@ pub async fn list_backups(state: Arc<AppState>) -> AppResult<Vec<BackupListRespo
 pub async fn delete_backup(state: Arc<AppState>, id: String) -> AppResult<serde_json::Value> {
     let backup = repository::get_backup(&state.pool, &id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("备份 '{}' 未找到", id)))?;
 
     let backend = local_backend(&state)?;
     backend.delete(&backup.id, BACKUP_ARCHIVE_NAME).await?;
@@ -527,7 +527,7 @@ pub async fn restore_backup(
 ) -> AppResult<Vec<RestoreProgressResponse>> {
     let backup = repository::get_backup(&state.pool, &backup_id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("备份 '{}' 未找到", backup_id)))?;
 
     repository::update_backup_status(
         &state.pool,

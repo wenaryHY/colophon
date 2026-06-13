@@ -81,7 +81,7 @@ impl ThemeService {
         let manifest = themes
             .into_iter()
             .find(|t| t.slug == slug)
-            .ok_or(AppError::NotFound)?;
+            .ok_or(AppError::NotFound(format!("主题 '{}' 未找到", slug)))?;
 
         let config = repository::get_config(pool, slug)
             .await?
@@ -100,7 +100,7 @@ impl ThemeService {
         // 验证主题是否存在
         let themes = self.scan_themes()?;
         if !themes.iter().any(|t| t.slug == slug) {
-            return Err(AppError::NotFound);
+            return Err(AppError::NotFound(format!("主题 '{}' 未找到", slug)));
         }
 
         repository::save_config(pool, slug, config).await?;
@@ -112,7 +112,7 @@ impl ThemeService {
         // 验证主题是否存在
         let themes = self.scan_themes()?;
         if !themes.iter().any(|t| t.slug == slug) {
-            return Err(AppError::NotFound);
+            return Err(AppError::NotFound(format!("主题 '{}' 未找到", slug)));
         }
 
         repository::set_active_theme(pool, slug).await?;

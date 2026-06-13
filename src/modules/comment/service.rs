@@ -44,7 +44,7 @@ pub async fn list_post_comments(state: Arc<AppState>, slug: &str) -> AppResult<V
     );
     let post = post_repository::find_comment_target(&state.pool, slug)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("文章 '{}' 未找到", slug)))?;
     Ok(repository::list_approved_for_post(&state.pool, &post.id).await?)
 }
 
@@ -101,7 +101,7 @@ pub async fn create_comment(
 
     let post = post_repository::find_comment_target(&state.pool, slug)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("文章 '{}' 未找到", slug)))?;
     if post.status != PostStatus::Published
         || post.visibility != Visibility::Public
         || !post.allow_comment
@@ -257,7 +257,7 @@ pub async fn delete_own_comment(
             user_id = %auth.id,
             "own comment delete rejected"
         );
-        return Err(AppError::NotFound);
+        return Err(AppError::NotFound("评论未找到".to_string()));
     }
     tracing::info!(
         module = "comment",
@@ -288,7 +288,7 @@ pub async fn approve_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_
     // 先查数据再更新，以便 WS 事件包含完整信息
     let comment = repository::find_by_id_for_event(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("评论 '{}' 未找到", id)))?;
 
     repository::update_status(&state.pool, id, "approved").await?;
 
@@ -336,7 +336,7 @@ pub async fn delete_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_j
 pub async fn restore_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     let restored = repository::restore_deleted_admin(&state.pool, id).await?;
     if !restored {
-        return Err(AppError::NotFound);
+        return Err(AppError::NotFound(format!("评论 '{}' 未找到", id)));
     }
     action_json("restored", true)
 }
@@ -344,7 +344,7 @@ pub async fn restore_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_
 pub async fn purge_comment(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     let purged = repository::purge_admin(&state.pool, id).await?;
     if !purged {
-        return Err(AppError::NotFound);
+        return Err(AppError::NotFound(format!("评论 '{}' 未找到", id)));
     }
     action_json("purged", true)
 }

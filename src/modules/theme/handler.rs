@@ -302,17 +302,19 @@ pub async fn render_post(
 
     let post =
         crate::modules::post::repository::get_public_post_by_slug(&state.pool, &slug).await?;
-    if post.is_none() {
-        tracing::warn!(
-            module = "theme",
-            event = "render_post_not_found",
-            client_request_id = %client_request_id,
-            slug = %slug,
-            "public post not found"
-        );
-        return Ok((StatusCode::NOT_FOUND, "Not Found").into_response());
-    }
-    let p = post.unwrap();
+    let p = match post {
+        Some(p) => p,
+        None => {
+            tracing::warn!(
+                module = "theme",
+                event = "render_post_not_found",
+                client_request_id = %client_request_id,
+                slug = %slug,
+                "public post not found"
+            );
+            return Ok(render_404_page(&state, &headers).await);
+        }
+    };
 
     let ctx = TemplateContext::load(&state).await?;
 
@@ -832,7 +834,7 @@ pub async fn render_tag_archive(
     let tag = crate::modules::tag::repository::get_by_slug(&state.pool, &slug)
         .await
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("标签 '{}' 未找到", slug)))?;
 
     // 2. 分页参数（默认第 1 页，每页 20 条）
     let page = 1u32;
@@ -950,7 +952,7 @@ pub async fn render_category_archive(
     let category = crate::modules::category::repository::get_by_slug(&state.pool, &slug)
         .await
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("分类 '{}' 未找到", slug)))?;
 
     // 2. 分页参数（默认第 1 页，每页 20 条）
     let page = 1u32;
@@ -1138,4 +1140,60 @@ pub async fn preview_page(_admin: AdminUser) -> Result<Html<String>, AppError> {
 </body>
 </html>"#;
     Ok(Html(html.to_string()))
+}
+
+/// 渲染 404 错误页面
+async fn render_404_page(
+    state: &Arc<AppState>,
+    headers: &HeaderMap,
+) -> Response {
+    match try_render_error_template(state, headers, "404.html").await {
+        Ok(html) => {
+            let mut response = (StatusCode::NOT_FOUND, Html(html)).into_response();
+            crate::shared::security::mark_response_security_profile(
+                &mut response,
+                crate::shared::security::SECURITY_PROFILE_THEME_HTML,
+            );
+            response
+        }
+        Err(e) => {
+            tracing::error!(
+                module = "theme",
+                event = "render_404_template_failed",
+                error = %e,
+                "Failed to render 404.html, falling back to plain text"
+            );
+            (StatusCode::NOT_FOUND, "404 - 页面未找到").into_response()
+        }
+    }
+}
+
+/// 尝试渲染错误模板（404.html 或 500.html）
+async fn try_render_error_template(
+    state: &Arc<AppState>,
+    headers: &HeaderMap,
+    template_name: &str,
+) -> AppResult<String> {
+    let ctx = TemplateContext::load(state).await?;
+    let plugin_guard = state.plugin_manager.read().await;
+    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(headers);
+    let env = engine::build_template_engine(
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(&current_lang),
+    )
+    .await?;
+    
+    let tmpl = env
+        .get_template(template_name)
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
+    
+    let rendered = tmpl
+        .render(minijinja::context! {})
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
+    
+    Ok(rendered)
 }

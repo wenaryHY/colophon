@@ -52,7 +52,7 @@ pub async fn create_category(
 
     get_category(&state.pool, &id)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound("媒体分类未找到".to_string()))
 }
 
 pub async fn update_category(
@@ -62,7 +62,7 @@ pub async fn update_category(
 ) -> AppResult<MediaCategory> {
     let current = get_category(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("媒体分类 '{}' 未找到", id)))?;
 
     let name = body.name.unwrap_or(current.name.clone());
     let trimmed_name = name.trim().to_string();
@@ -101,13 +101,13 @@ pub async fn update_category(
 
     get_category(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound(format!("媒体分类 '{}' 未找到", id)))
 }
 
 pub async fn delete_category(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     let category = get_category(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("媒体分类 '{}' 未找到", id)))?;
     if ["image", "audio", "video", "document", "archive", "other"].contains(&category.slug.as_str())
     {
         return Err(AppError::BadRequest(

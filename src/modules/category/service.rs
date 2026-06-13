@@ -43,7 +43,7 @@ pub async fn create_category(
     .await?;
     repository::get_category(&state.pool, &id)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound("分类未找到".to_string()))
 }
 
 pub async fn update_category(
@@ -53,7 +53,7 @@ pub async fn update_category(
 ) -> AppResult<Category> {
     let current = repository::get_category(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("分类 '{}' 未找到", id)))?;
     let name = body.name.unwrap_or(current.name.clone());
     let slug = body.slug.unwrap_or(current.slug.clone());
     if repository::category_slug_or_name_exists(&state.pool, &slug, &name, Some(id)).await? {
@@ -75,7 +75,7 @@ pub async fn update_category(
     .await?;
     repository::get_category(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound(format!("分类 '{}' 未找到", id)))
 }
 
 pub async fn delete_category(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {

@@ -105,7 +105,7 @@ pub async fn list_trash(
 pub async fn restore_item(state: Arc<AppState>, item_type: &str, id: &str) -> AppResult<()> {
     let restored = repository::restore_item(&state.pool, item_type, id).await?;
     if !restored {
-        return Err(AppError::NotFound);
+        return Err(AppError::NotFound("回收站项目未找到".to_string()));
     }
     Ok(())
 }
@@ -113,7 +113,7 @@ pub async fn restore_item(state: Arc<AppState>, item_type: &str, id: &str) -> Ap
 pub async fn purge_item(state: Arc<AppState>, item_type: &str, id: &str) -> AppResult<()> {
     let purged = repository::purge_item(&state.pool, item_type, id).await?;
     if !purged {
-        return Err(AppError::NotFound);
+        return Err(AppError::NotFound("回收站项目未找到".to_string()));
     }
     Ok(())
 }

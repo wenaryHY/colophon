@@ -223,7 +223,7 @@ mod archive_tests {
                 .await
                 .unwrap();
 
-        let post1_id = insert_post(
+        let _post1_id = insert_post(
             &pool,
             crate::modules::post::post_types::NewPostParams {
                 author_id: &user_id,

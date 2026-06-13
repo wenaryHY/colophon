@@ -29,7 +29,7 @@ pub async fn list_webhooks(state: Arc<AppState>) -> AppResult<Vec<Webhook>> {
 pub async fn get_webhook(state: Arc<AppState>, id: &str) -> AppResult<Webhook> {
     repository::get_webhook_by_id(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound(format!("Webhook '{}' 未找到", id)))
 }
 
 /// 创建 webhook
@@ -74,7 +74,7 @@ pub async fn create_webhook(
 
     repository::get_webhook_by_id(&state.pool, &id)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound("Webhook未找到".to_string()))
 }
 
 /// 更新 webhook
@@ -85,7 +85,7 @@ pub async fn update_webhook(
 ) -> AppResult<Webhook> {
     let _existing = repository::get_webhook_by_id(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("Webhook '{}' 未找到", id)))?;
 
     // 校验 name / url 非空
     if let Some(ref name) = body.name {
@@ -133,7 +133,7 @@ pub async fn update_webhook(
 
     repository::get_webhook_by_id(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound(format!("Webhook '{}' 未找到", id)))
 }
 
 /// 删除 webhook
@@ -152,7 +152,7 @@ pub async fn list_deliveries(
     // 校验 webhook 存在
     repository::get_webhook_by_id(&state.pool, webhook_id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("Webhook '{}' 未找到", webhook_id)))?;
 
     let page = page.max(1);
     let page_size = page_size.min(100).max(1);

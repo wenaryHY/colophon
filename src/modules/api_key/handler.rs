@@ -71,7 +71,7 @@ pub async fn create_api_key(
 
     let created = repository::get_api_key_by_id(&state.pool, &id)
         .await?
-        .ok_or(crate::shared::error::AppError::NotFound)?;
+        .ok_or(crate::shared::error::AppError::NotFound("API密钥未找到".to_string()))?;
 
     Ok(Json(ApiResponse::success(CreateApiKeyResponse {
         id: created.id,
@@ -93,7 +93,7 @@ pub async fn update_api_key(
 ) -> AppResult<Json<ApiResponse<ApiKeyListItem>>> {
     let _existing = repository::get_api_key_by_id(&state.pool, &id)
         .await?
-        .ok_or(crate::shared::error::AppError::NotFound)?;
+        .ok_or(crate::shared::error::AppError::NotFound("API密钥未找到".to_string()))?;
 
     if let Some(name) = body.name.as_deref() {
         let name = name.trim();
@@ -107,7 +107,7 @@ pub async fn update_api_key(
 
     let updated = repository::get_api_key_by_id(&state.pool, &id)
         .await?
-        .ok_or(crate::shared::error::AppError::NotFound)?;
+        .ok_or(crate::shared::error::AppError::NotFound("API密钥未找到".to_string()))?;
 
     Ok(Json(ApiResponse::success(ApiKeyListItem {
         id: updated.id,

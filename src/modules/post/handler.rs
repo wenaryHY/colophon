@@ -310,22 +310,22 @@ pub async fn render_custom_page(
 ) -> AppResult<axum::response::Response> {
     let page = super::repository::get_page_by_slug(&state.pool, &slug)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::NotFound(format!("页面 '{}' 未找到", slug)))?;
 
     if page.content_type != ContentType::Page
         || page.status != PostStatus::Published
         || page.visibility != Visibility::Public
     {
-        return Err(AppError::NotFound);
+        return Err(AppError::NotFound("页面未找到或不可访问".to_string()));
     }
 
     match page.page_render_mode.as_str() {
         "custom_html" => {
             // Serve custom HTML file
-            let custom_html_path = page.custom_html_path.ok_or(AppError::NotFound)?;
+            let custom_html_path = page.custom_html_path.ok_or(AppError::NotFound("自定义HTML路径未设置".to_string()))?;
             let index_path = state.upload_dir.join(&custom_html_path).join("index.html");
             if !index_path.exists() {
-                return Err(AppError::NotFound);
+                return Err(AppError::NotFound("自定义HTML文件不存在".to_string()));
             }
             let content = tokio::fs::read_to_string(&index_path).await?;
             let mut response = axum::response::Html(content).into_response();
