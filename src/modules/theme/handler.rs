@@ -831,10 +831,28 @@ pub async fn render_tag_archive(
     );
 
     // 1. 获取标签信息
-    let tag = crate::modules::tag::repository::get_by_slug(&state.pool, &slug)
-        .await
-        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?
-        .ok_or(AppError::NotFound(format!("标签 '{}' 未找到", slug)))?;
+    let tag = match crate::modules::tag::repository::get_by_slug(&state.pool, &slug).await {
+        Ok(Some(t)) => t,
+        Ok(None) => {
+            tracing::warn!(
+                module = "theme",
+                event = "render_tag_archive_not_found",
+                slug = %slug,
+                "tag not found"
+            );
+            return Ok(render_404_page(&state, &headers).await);
+        }
+        Err(e) => {
+            tracing::error!(
+                module = "theme",
+                event = "tag_query_error",
+                slug = %slug,
+                error = %e,
+                "database error when querying tag"
+            );
+            return Ok(render_404_page(&state, &headers).await);
+        }
+    };
 
     // 2. 分页参数（默认第 1 页，每页 20 条）
     let page = 1u32;
@@ -858,7 +876,19 @@ pub async fn render_tag_archive(
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
 
     // 5. 加载模板上下文
-    let ctx = super::context::TemplateContext::load(&state).await?;
+    let ctx = match super::context::TemplateContext::load(&state).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::error!(
+                module = "theme",
+                event = "tag_archive_template_context_load_failed",
+                slug = %slug,
+                error = %e,
+                "failed to load template context"
+            );
+            return Ok(render_404_page(&state, &headers).await);
+        }
+    };
 
     // 6. 兜底：如果数据库 site_url 为空，从 Host header 推断
     let fallback_site_url = crate::modules::seo::infer_site_url_from_host_header(&headers);
@@ -900,6 +930,12 @@ pub async fn render_tag_archive(
     let template_name = if env.get_template("tag.html").is_ok() {
         "tag.html"
     } else {
+        tracing::warn!(
+            module = "theme",
+            event = "tag_template_not_found",
+            slug = %slug,
+            "tag.html not found, falling back to index.html"
+        );
         "index.html"
     };
 
@@ -949,10 +985,28 @@ pub async fn render_category_archive(
     );
 
     // 1. 获取分类信息
-    let category = crate::modules::category::repository::get_by_slug(&state.pool, &slug)
-        .await
-        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?
-        .ok_or(AppError::NotFound(format!("分类 '{}' 未找到", slug)))?;
+    let category = match crate::modules::category::repository::get_by_slug(&state.pool, &slug).await {
+        Ok(Some(c)) => c,
+        Ok(None) => {
+            tracing::warn!(
+                module = "theme",
+                event = "render_category_archive_not_found",
+                slug = %slug,
+                "category not found"
+            );
+            return Ok(render_404_page(&state, &headers).await);
+        }
+        Err(e) => {
+            tracing::error!(
+                module = "theme",
+                event = "category_query_error",
+                slug = %slug,
+                error = %e,
+                "database error when querying category"
+            );
+            return Ok(render_404_page(&state, &headers).await);
+        }
+    };
 
     // 2. 分页参数（默认第 1 页，每页 20 条）
     let page = 1u32;
@@ -976,7 +1030,19 @@ pub async fn render_category_archive(
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
 
     // 5. 加载模板上下文
-    let ctx = super::context::TemplateContext::load(&state).await?;
+    let ctx = match super::context::TemplateContext::load(&state).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::error!(
+                module = "theme",
+                event = "category_archive_template_context_load_failed",
+                slug = %slug,
+                error = %e,
+                "failed to load template context"
+            );
+            return Ok(render_404_page(&state, &headers).await);
+        }
+    };
 
     // 6. 兜底：如果数据库 site_url 为空，从 Host header 推断
     let fallback_site_url = crate::modules::seo::infer_site_url_from_host_header(&headers);
@@ -1022,6 +1088,12 @@ pub async fn render_category_archive(
     let template_name = if env.get_template("category.html").is_ok() {
         "category.html"
     } else {
+        tracing::warn!(
+            module = "theme",
+            event = "category_template_not_found",
+            slug = %slug,
+            "category.html not found, falling back to index.html"
+        );
         "index.html"
     };
 
@@ -1196,4 +1268,12 @@ async fn try_render_error_template(
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
     
     Ok(rendered)
+}
+
+/// catch-all 回退路由：未匹配到任何路径时渲染 404 页面
+pub async fn fallback_404(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Response {
+    render_404_page(&state, &headers).await
 }

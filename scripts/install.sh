@@ -155,6 +155,7 @@ Environment=COLOPHON__SERVER__HOST=0.0.0.0
 Environment=COLOPHON__SERVER__PORT=${LISTEN_PORT}
 Environment=COLOPHON__DATABASE__URL=sqlite://${DATA_DIR}/colophon.db?mode=rwc
 Environment=COLOPHON__STORAGE__UPLOAD_DIR=${DATA_DIR}/uploads
+Environment=COLOPHON__STORAGE__STATIC_DIR=${DATA_DIR}/static
 Environment=COLOPHON__PATHS__ADMIN_DIST_DIR=${INSTALL_DIR}/src/admin/dist
 
 EnvironmentFile=-${ENV_FILE}

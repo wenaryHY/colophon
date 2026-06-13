@@ -33,7 +33,7 @@ pub async fn start_backup_scheduler(state: Arc<AppState>) -> Result<(), AppError
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("create scheduler failed: {e}")))?;
 
     let cloned = state.clone();
-    let job = Job::new_async(cron.as_str(), move |_id, _lock| {
+    let job = match Job::new_async(cron.as_str(), move |_id, _lock| {
         let state = cloned.clone();
         Box::pin(async move {
             match service::create_backup(state.clone(), provider).await {
@@ -52,8 +52,19 @@ pub async fn start_backup_scheduler(state: Arc<AppState>) -> Result<(), AppError
                 }
             }
         })
-    })
-    .map_err(|e| AppError::Anyhow(anyhow::anyhow!("create backup job failed: {e}")))?;
+    }) {
+        Ok(j) => j,
+        Err(e) => {
+            tracing::warn!(
+                module = "backup",
+                event = "backup_job_create_failed",
+                error = %e,
+                cron = %cron,
+                "failed to create backup job, scheduler disabled"
+            );
+            return Ok(());
+        }
+    };
 
     scheduler
         .add(job)

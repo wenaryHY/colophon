@@ -182,6 +182,11 @@ ssh_cmd "
 
 log_success "全部文件上传完成"
 
+# 4e. 更新 systemd 服务文件
+log_info "更新 systemd 服务文件..."
+scp_upload "${PROJECT_DIR}/deploy/colophon.service" "${SERVER_USER}@${SERVER_IP}:/etc/systemd/system/colophon.service"
+log_success "systemd 服务文件已更新"
+
 # ── 步骤 5: 服务器切换部署 ────────────────────────────────────
 log_step "5" "服务器切换部署"
 
@@ -217,6 +222,12 @@ echo "[server] 替换二进制..."
 mv /opt/colophon/colophon.new /opt/colophon/colophon
 chown colophon:colophon /opt/colophon/colophon
 chmod +x /opt/colophon/colophon
+
+# 5e2. 确保 static 目录存在并重载 systemd（服务文件可能已更新）
+echo "[server] 重载 systemd 配置..."
+mkdir -p /var/lib/colophon/static
+chown colophon:colophon /var/lib/colophon/static
+systemctl daemon-reload
 
 # 5f. 启动服务
 echo "[server] 启动 colophon 服务..."

@@ -617,5 +617,6 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             state.clone(),
             crate::infra::i18n_middleware::inject_language,
         ))
+        .fallback(get(modules::theme::handler::fallback_404))
         .with_state(state)
 }

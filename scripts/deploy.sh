@@ -31,6 +31,9 @@ scp -r themes/* root@162.243.28.76:/opt/colophon/themes/
 
 echo "[4/4] Deploying to server..."
 ssh root@162.243.28.76 "systemctl stop colophon"
+# 更新 systemd 服务文件
+scp deploy/colophon.service root@162.243.28.76:/etc/systemd/system/colophon.service
+ssh root@162.243.28.76 "mkdir -p /var/lib/colophon/static && chown colophon:colophon /var/lib/colophon/static && systemctl daemon-reload"
 scp target/release/colophon root@162.243.28.76:/opt/colophon/colophon
 # 打包前端文件（admin.html 暂存进 dist 目录），单文件 SCP 上传再解压
 cp src/admin/admin.html src/admin/dist/admin.html
