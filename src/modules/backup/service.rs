@@ -317,68 +317,35 @@ async fn restore_database_logically(state: &AppState, restore_path: &Path) -> Ap
         .await?;
 
     let restore_result = async {
-        sqlx::query("BEGIN IMMEDIATE").execute(&mut *conn).await?;
-
-        // Prefer pragma_table_list so we can skip virtual/shadow tables safely (e.g. FTS shadow tables).
-        let table_rows = match sqlx::query(
+        // 直接使用 sqlite_master，因为 pragma_table_list 在某些 SQLite 版本中可能不可靠
+        let table_rows = sqlx::query(
             "SELECT name
-             FROM pragma_table_list('main')
-             WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+             FROM main.sqlite_master
+             WHERE type='table'
+               AND name NOT LIKE 'sqlite_%'
+               AND sql IS NOT NULL
+               AND sql NOT LIKE 'CREATE VIRTUAL TABLE%'",
         )
         .fetch_all(&mut *conn)
-        .await
-        {
-            Ok(rows) => rows,
-            Err(err) => {
-                tracing::warn!(
-                    error = ?err,
-                    "pragma_table_list unavailable, fallback to sqlite_master for logical restore"
-                );
-                sqlx::query(
-                    "SELECT name
-                     FROM main.sqlite_master
-                     WHERE type='table'
-                       AND name NOT LIKE 'sqlite_%'
-                       AND sql IS NOT NULL
-                       AND sql NOT LIKE 'CREATE VIRTUAL TABLE%'",
-                )
-                .fetch_all(&mut *conn)
-                .await?
-            }
-        };
+        .await?;
+
+        sqlx::query("BEGIN IMMEDIATE").execute(&mut *conn).await?;
 
         for row in table_rows {
             let table_name: String = row.try_get("name")?;
 
-            let exists: i64 = match sqlx::query_scalar(
+            // 直接使用 sqlite_master 检查 restore_db 中的表
+            let exists: i64 = sqlx::query_scalar(
                 "SELECT COUNT(1)
-                 FROM pragma_table_list('restore_db')
-                 WHERE type = 'table' AND name = ?",
+                 FROM restore_db.sqlite_master
+                 WHERE type='table'
+                   AND name = ?
+                   AND sql IS NOT NULL
+                   AND sql NOT LIKE 'CREATE VIRTUAL TABLE%'",
             )
             .bind(&table_name)
             .fetch_one(&mut *conn)
-            .await
-            {
-                Ok(v) => v,
-                Err(err) => {
-                    tracing::warn!(
-                        error = ?err,
-                        table = %table_name,
-                        "pragma_table_list(restore_db) unavailable, fallback to sqlite_master"
-                    );
-                    sqlx::query_scalar(
-                        "SELECT COUNT(1)
-                         FROM restore_db.sqlite_master
-                         WHERE type='table'
-                           AND name = ?
-                           AND sql IS NOT NULL
-                           AND sql NOT LIKE 'CREATE VIRTUAL TABLE%'",
-                    )
-                    .bind(&table_name)
-                    .fetch_one(&mut *conn)
-                    .await?
-                }
-            };
+            .await?;
 
             if exists == 0 {
                 continue;
@@ -633,6 +600,7 @@ pub async fn restore_backup(
         None,
     )
     .await?;
+
     Ok(progress)
 }
 
