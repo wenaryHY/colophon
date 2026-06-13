@@ -54,6 +54,16 @@ target-codex*
 
 # Dev artifacts
 test-*.js
+
+# 主题开发文件(不应随主题发布)
+themes/*/static/js/package.json
+themes/*/static/js/package-lock.json
+themes/*/static/js/*.ts
+themes/*/static/js/*.test.js
+themes/*/static/js/*.test.html
+themes/*/static/js/LOGIN_TEST_CHECKLIST.md
+themes/*/static/css/README.md
+themes/*/static/css/design-system-demo.html
 target_tmp_verify/
 cargo_check_output.txt
 docs/private/

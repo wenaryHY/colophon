@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
-import { apiData, API_PREFIX, getQueryClient } from '../lib/api';
+import { apiData, API_PREFIX, getQueryClient, uploadTheme } from '../lib/api';
 import type { ThemeConfigField, ThemeSummary } from '../types';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
@@ -26,6 +26,8 @@ export default function Themes() {
   const toast = useToast();
   const { t, format } = useI18n();
   const [activatingSlug, setActivatingSlug] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: themes = [], isLoading } = useQuery({
     queryKey: ['themes'],
@@ -51,17 +53,59 @@ export default function Themes() {
     activateMutation.mutate(slug);
   };
 
+  const FILE_SIZE_MAX_BYTES = 100 * 1024 * 1024;
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > FILE_SIZE_MAX_BYTES) {
+      toast(t('uploadThemeFileTooLarge'), 'error');
+      event.target.value = '';
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      await uploadTheme(file);
+      toast(t('uploadThemeSuccess'), 'success');
+      getQueryClient().invalidateQueries({ queryKey: ['themes'] });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('uploadThemeFailed');
+      toast(message, 'error');
+    } finally {
+      setIsUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const activeTheme = useMemo(() => themes.find((item) => item.active), [themes]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".zip"
+        style={{ display: 'none' }}
+        onChange={(e) => { void handleFileChange(e); }}
+      />
       <PageHeader
         title={t('themesTitle')}
         subtitle={t('themesSubtitle')}
         actions={
-          <Button onClick={() => getQueryClient().invalidateQueries({ queryKey: ['themes'] })} disabled={isLoading} loading={isLoading}>
-            {t('refreshThemes')}
-          </Button>
+          <>
+            <Button onClick={handleUploadClick} loading={isUploading}>
+              {isUploading ? t('uploading') : t('uploadThemeButton')}
+            </Button>
+            <Button onClick={() => getQueryClient().invalidateQueries({ queryKey: ['themes'] })} disabled={isLoading || isUploading} loading={isLoading}>
+              {t('refreshThemes')}
+            </Button>
+          </>
         }
       />
 

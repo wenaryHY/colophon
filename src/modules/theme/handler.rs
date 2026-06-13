@@ -182,6 +182,21 @@ pub async fn upload_theme_archive(
         return Err(err);
     }
 
+    // 校验必要模板文件
+    let templates_dir = theme_dir.join("templates");
+    if !templates_dir.join("index.html").exists() {
+        let _ = std::fs::remove_dir_all(&theme_dir);
+        return Err(AppError::BadRequest(
+            "主题缺少必要文件: templates/index.html 不存在".into(),
+        ));
+    }
+    if !templates_dir.join("post.html").exists() {
+        let _ = std::fs::remove_dir_all(&theme_dir);
+        return Err(AppError::BadRequest(
+            "主题缺少必要文件: templates/post.html 不存在".into(),
+        ));
+    }
+
     Ok(Json(ApiResponse::success(
         super::dto::ThemeUploadResponse {
             slug: manifest.slug.clone(),
