@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){var t=localStorage.getItem('colophon-theme');
+if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
+document.documentElement.setAttribute('data-theme','dark');})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="content-language" content="{{ current_lang }}">
+<link rel="icon" type="image/svg+xml" href="/static/logo-icon.svg">
+<link rel="apple-touch-icon" href="/static/logo-icon.svg">
+<title>{{ category.name }} - 分类归档 | {{ site_title }}</title>
+<meta name="description" content="{% if category.description %}{{ category.description }}{% else %}浏览「{{ category.name }}」分类下的所有文章，共 {{ total }} 篇。{% endif %}">
+<link rel="canonical" href="{{ request.url }}">
+<meta property="og:title" content="{{ category.name }} - 分类归档">
+<meta property="og:description" content="{% if category.description %}{{ category.description }}{% else %}浏览「{{ category.name }}」分类下的所有文章，共 {{ total }} 篇。{% endif %}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site_title }}">
+<link rel="stylesheet" href="{{ theme_assets_url('css/theme.css') }}">
+<link rel="stylesheet" href="{{ theme_assets_url('css/archive.css') }}">
+{{ plugin_head|safe }}
+</head>
+<body>
+<div class="wrap">
+  {% include "_header.html" %}
+
+  <main class="archive-page">
+    <header class="archive-header">
+      <div class="archive-breadcrumb">
+        <a href="/" class="breadcrumb-link">首页</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">分类</span>
+      </div>
+      <h1 class="archive-title">
+        <span class="archive-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        {{ category.name }}
+      </h1>
+      {% if category.description %}
+      <p class="archive-description">{{ category.description }}</p>
+      {% endif %}
+      <p class="archive-meta">共 {{ total }} 篇文章</p>
+    </header>
+
+    {% if posts %}
+      <ul class="post-list">
+        {% for post in posts %}
+        <li class="post-item">
+          <a href="/{{ 'pages' if post.content_type == 'page' else 'posts' }}/{{ post.slug }}" class="post-link">
+            <time class="post-date" datetime="{{ post.published_at or post.created_at }}">
+              {{ (post.published_at or post.created_at)[:10] }}
+            </time>
+            <div class="post-content">
+              <h2 class="post-title">{{ post.title }}</h2>
+              {% if post.excerpt %}
+              <p class="post-excerpt">{{ post.excerpt }}</p>
+              {% endif %}
+              {% if post.tags %}
+              <div class="post-meta-tags">
+                {% for tag in post.tags[:3] %}
+                <span class="meta-tag tag-badge">{{ tag.name }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+            <span class="post-arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+
+      {% if total_pages > 1 %}
+        {% include "_pagination.html" %}
+      {% endif %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3 class="empty-title">该分类下暂无文章</h3>
+        <p class="empty-desc">回到<a href="/" class="empty-link">首页</a>浏览更多内容</p>
+      </div>
+    {% endif %}
+  </main>
+
+  {% include "_footer.html" %}
+</div>
+
+<script src="{{ theme_assets_url('js/theme.js') }}"></script>
+{{ plugin_body|safe }}
+</body>
+</html>

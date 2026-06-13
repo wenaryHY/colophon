@@ -772,3 +772,152 @@ where
     .fetch_optional(executor)
     .await
 }
+
+/// 按标签 slug 查询已发布文章（分页）
+pub async fn list_posts_by_tag_slug<'e, E>(
+    executor: E,
+    tag_slug: &str,
+    page: u32,
+    page_size: u32,
+) -> Result<Vec<PublicPostSummary>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    let offset = (page.saturating_sub(1)).saturating_mul(page_size);
+    
+    sqlx::query_as!(
+        PublicPostSummary,
+        r#"
+        SELECT DISTINCT
+            p.id,
+            p.title,
+            p.slug,
+            p.excerpt,
+            p.content_type as "content_type: ContentType",
+            p.published_at,
+            p.created_at,
+            p.updated_at,
+            u.display_name AS author_display_name,
+            c.name AS category_name,
+            c.id AS category_id
+        FROM posts p
+        JOIN users u ON u.id = p.author_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        INNER JOIN post_tags pt ON p.id = pt.post_id
+        INNER JOIN tags t ON pt.tag_id = t.id
+        WHERE t.slug = ?
+          AND p.status = 'published'
+          AND p.visibility = 'public'
+          AND p.deleted_at IS NULL
+          AND p.content_type = 'post'
+        ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
+        LIMIT ? OFFSET ?
+        "#,
+        tag_slug,
+        page_size,
+        offset
+    )
+    .fetch_all(executor)
+    .await
+}
+
+/// 统计标签下的文章总数
+pub async fn count_posts_by_tag_slug<'e, E>(
+    executor: E,
+    tag_slug: &str,
+) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    let count = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(DISTINCT p.id) as "count!"
+        FROM posts p
+        INNER JOIN post_tags pt ON p.id = pt.post_id
+        INNER JOIN tags t ON pt.tag_id = t.id
+        WHERE t.slug = ?
+          AND p.status = 'published'
+          AND p.visibility = 'public'
+          AND p.deleted_at IS NULL
+          AND p.content_type = 'post'
+        "#,
+        tag_slug
+    )
+    .fetch_one(executor)
+    .await?;
+    
+    Ok(count as i64)
+}
+
+/// 按分类 slug 查询已发布文章（分页）
+pub async fn list_posts_by_category_slug<'e, E>(
+    executor: E,
+    category_slug: &str,
+    page: u32,
+    page_size: u32,
+) -> Result<Vec<PublicPostSummary>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    let offset = (page.saturating_sub(1)).saturating_mul(page_size);
+    
+    sqlx::query_as!(
+        PublicPostSummary,
+        r#"
+        SELECT
+            p.id,
+            p.title,
+            p.slug,
+            p.excerpt,
+            p.content_type as "content_type: ContentType",
+            p.published_at,
+            p.created_at,
+            p.updated_at,
+            u.display_name AS author_display_name,
+            c.name AS category_name,
+            c.id AS category_id
+        FROM posts p
+        JOIN users u ON u.id = p.author_id
+        INNER JOIN categories c ON p.category_id = c.id
+        WHERE c.slug = ?
+          AND p.status = 'published'
+          AND p.visibility = 'public'
+          AND p.deleted_at IS NULL
+          AND p.content_type = 'post'
+        ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
+        LIMIT ? OFFSET ?
+        "#,
+        category_slug,
+        page_size,
+        offset
+    )
+    .fetch_all(executor)
+    .await
+}
+
+/// 统计分类下的文章总数
+pub async fn count_posts_by_category_slug<'e, E>(
+    executor: E,
+    category_slug: &str,
+) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    let count = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*) as "count!"
+        FROM posts p
+        INNER JOIN categories c ON p.category_id = c.id
+        WHERE c.slug = ?
+          AND p.status = 'published'
+          AND p.visibility = 'public'
+          AND p.deleted_at IS NULL
+          AND p.content_type = 'post'
+        "#,
+        category_slug
+    )
+    .fetch_one(executor)
+    .await?;
+    
+    Ok(count as i64)
+}

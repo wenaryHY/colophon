@@ -7,6 +7,9 @@ pub mod repository;
 pub mod service;
 
 #[cfg(test)]
+mod archive_tests;
+
+#[cfg(test)]
 mod search_tests;
 
 #[cfg(test)]

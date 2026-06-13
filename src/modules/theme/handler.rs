@@ -810,6 +810,246 @@ fn validateThemeSlugIsInstalledAndSafeForPreviewRendering(
     Ok(())
 }
 
+/// 标签归档页：/tags/{slug}
+pub async fn render_tag_archive(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    auth: Option<crate::shared::auth::AuthUser>,
+    Path(slug): Path<String>,
+) -> AppResult<Response> {
+    let client_request_id =
+        crate::shared::request_id::extract_or_generate_client_request_id(&headers);
+    tracing::info!(
+        module = "theme",
+        event = "render_tag_archive",
+        client_request_id = %client_request_id,
+        slug = %slug,
+        authenticated = auth.is_some(),
+        "rendering tag archive page"
+    );
+
+    // 1. 获取标签信息
+    let tag = crate::modules::tag::repository::get_by_slug(&state.pool, &slug)
+        .await
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?
+        .ok_or(AppError::NotFound)?;
+
+    // 2. 分页参数（默认第 1 页，每页 20 条）
+    let page = 1u32;
+    let page_size = 20u32;
+
+    // 3. 查询该标签下的文章列表
+    let posts = crate::modules::post::repository::list_posts_by_tag_slug(
+        &state.pool,
+        &slug,
+        page,
+        page_size,
+    )
+    .await
+    .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
+
+    // 4. 统计总数
+    let total = crate::modules::post::repository::count_posts_by_tag_slug(&state.pool, &slug)
+        .await
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
+
+    let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
+
+    // 5. 加载模板上下文
+    let ctx = super::context::TemplateContext::load(&state).await?;
+
+    // 6. 兜底：如果数据库 site_url 为空，从 Host header 推断
+    let fallback_site_url = crate::modules::seo::infer_site_url_from_host_header(&headers);
+    let effective_site_url = if ctx.site_url.trim().is_empty() {
+        &fallback_site_url
+    } else {
+        &ctx.site_url
+    };
+
+    // 7. SEO meta
+    let page_title = format!("{} - {}", tag.name, ctx.site_title);
+    let seo_meta = crate::modules::seo::meta::build_home_meta(
+        &page_title,
+        &format!("标签 {} 下的所有文章", tag.name),
+        effective_site_url,
+        "",
+        "",
+    );
+    let json_ld = crate::modules::seo::meta::build_home_json_ld(
+        &page_title,
+        &format!("标签 {} 下的所有文章", tag.name),
+        effective_site_url,
+    );
+
+    // 8. 构建模板引擎
+    let plugin_guard = state.plugin_manager.read().await;
+    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
+    let env = engine::build_template_engine(
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(&current_lang),
+    )
+    .await?;
+
+    // 9. 选择模板：优先 tag.html，回退到 index.html
+    let template_name = if env.get_template("tag.html").is_ok() {
+        "tag.html"
+    } else {
+        "index.html"
+    };
+
+    let tmpl = env
+        .get_template(template_name)
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
+
+    // 10. 渲染模板
+    let rendered = tmpl
+        .render(minijinja::context! {
+            tag => tag,
+            posts => posts,
+            page => page,
+            page_size => page_size,
+            total => total,
+            total_pages => total_pages,
+            seo_meta => seo_meta,
+            json_ld => json_ld,
+            current_user => auth,
+        })
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
+
+    let mut response = Html(rendered).into_response();
+    crate::shared::security::mark_response_security_profile(
+        &mut response,
+        crate::shared::security::SECURITY_PROFILE_THEME_HTML,
+    );
+    Ok(response)
+}
+
+/// 分类归档页：/categories/{slug}
+pub async fn render_category_archive(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    auth: Option<crate::shared::auth::AuthUser>,
+    Path(slug): Path<String>,
+) -> AppResult<Response> {
+    let client_request_id =
+        crate::shared::request_id::extract_or_generate_client_request_id(&headers);
+    tracing::info!(
+        module = "theme",
+        event = "render_category_archive",
+        client_request_id = %client_request_id,
+        slug = %slug,
+        authenticated = auth.is_some(),
+        "rendering category archive page"
+    );
+
+    // 1. 获取分类信息
+    let category = crate::modules::category::repository::get_by_slug(&state.pool, &slug)
+        .await
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?
+        .ok_or(AppError::NotFound)?;
+
+    // 2. 分页参数（默认第 1 页，每页 20 条）
+    let page = 1u32;
+    let page_size = 20u32;
+
+    // 3. 查询该分类下的文章列表
+    let posts = crate::modules::post::repository::list_posts_by_category_slug(
+        &state.pool,
+        &slug,
+        page,
+        page_size,
+    )
+    .await
+    .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
+
+    // 4. 统计总数
+    let total = crate::modules::post::repository::count_posts_by_category_slug(&state.pool, &slug)
+        .await
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
+
+    let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
+
+    // 5. 加载模板上下文
+    let ctx = super::context::TemplateContext::load(&state).await?;
+
+    // 6. 兜底：如果数据库 site_url 为空，从 Host header 推断
+    let fallback_site_url = crate::modules::seo::infer_site_url_from_host_header(&headers);
+    let effective_site_url = if ctx.site_url.trim().is_empty() {
+        &fallback_site_url
+    } else {
+        &ctx.site_url
+    };
+
+    // 7. SEO meta
+    let page_title = format!("{} - {}", category.name, ctx.site_title);
+    let page_description = category
+        .description
+        .clone()
+        .unwrap_or_else(|| format!("分类 {} 下的所有文章", category.name));
+    let seo_meta = crate::modules::seo::meta::build_home_meta(
+        &page_title,
+        &page_description,
+        effective_site_url,
+        "",
+        "",
+    );
+    let json_ld = crate::modules::seo::meta::build_home_json_ld(
+        &page_title,
+        &page_description,
+        effective_site_url,
+    );
+
+    // 8. 构建模板引擎
+    let plugin_guard = state.plugin_manager.read().await;
+    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
+    let env = engine::build_template_engine(
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(&current_lang),
+    )
+    .await?;
+
+    // 9. 选择模板：优先 category.html，回退到 index.html
+    let template_name = if env.get_template("category.html").is_ok() {
+        "category.html"
+    } else {
+        "index.html"
+    };
+
+    let tmpl = env
+        .get_template(template_name)
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
+
+    // 10. 渲染模板
+    let rendered = tmpl
+        .render(minijinja::context! {
+            category => category,
+            posts => posts,
+            page => page,
+            page_size => page_size,
+            total => total,
+            total_pages => total_pages,
+            seo_meta => seo_meta,
+            json_ld => json_ld,
+            current_user => auth,
+        })
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
+
+    let mut response = Html(rendered).into_response();
+    crate::shared::security::mark_response_security_profile(
+        &mut response,
+        crate::shared::security::SECURITY_PROFILE_THEME_HTML,
+    );
+    Ok(response)
+}
+
 /// 新标签页预览页面（空壳 HTML + 内嵌 JS）
 pub async fn preview_page(_admin: AdminUser) -> Result<Html<String>, AppError> {
     let html = r#"<!DOCTYPE html>

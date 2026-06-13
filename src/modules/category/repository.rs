@@ -157,3 +157,31 @@ where
     .await?;
     Ok(())
 }
+
+/// 根据 slug 获取分类
+pub async fn get_by_slug<'e, E>(executor: E, slug: &str) -> Result<Option<Category>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    sqlx::query_as!(
+        Category,
+        r#"
+        SELECT
+            id,
+            name,
+            slug,
+            description,
+            parent_id,
+            sort_order,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM categories
+        WHERE slug = ? AND deleted_at IS NULL
+        LIMIT 1
+        "#,
+        slug
+    )
+    .fetch_optional(executor)
+    .await
+}

@@ -1,6 +1,16 @@
+use serde::Serialize;
 use uuid::Uuid;
 
 use super::domain::Tag;
+
+/// 标签及其文章数量（用于标签云）
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct TagWithCount {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+    pub post_count: i64,
+}
 
 pub async fn list_tags<'e, E>(executor: E) -> Result<Vec<Tag>, sqlx::Error>
 where
@@ -139,6 +149,66 @@ where
     .execute(executor)
     .await?;
     Ok(())
+}
+
+/// 根据 slug 获取标签
+pub async fn get_by_slug<'e, E>(executor: E, slug: &str) -> Result<Option<Tag>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    sqlx::query_as!(
+        Tag,
+        r#"
+        SELECT
+            id,
+            name,
+            slug,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM tags
+        WHERE slug = ? AND deleted_at IS NULL
+        LIMIT 1
+        "#,
+        slug
+    )
+    .fetch_optional(executor)
+    .await
+}
+
+/// 获取所有标签及其文章数量（用于标签云）
+/// 只返回至少有一篇已发布文章的标签
+pub async fn get_all_tags_with_count<'e, E>(
+    executor: E,
+) -> Result<Vec<TagWithCount>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    sqlx::query_as!(
+        TagWithCount,
+        r#"
+        SELECT 
+            t.id,
+            t.name,
+            t.slug,
+            COUNT(DISTINCT CASE 
+                WHEN p.status = 'published' 
+                     AND p.visibility = 'public' 
+                     AND p.deleted_at IS NULL 
+                THEN pt.post_id 
+                ELSE NULL 
+            END) as post_count
+        FROM tags t
+        LEFT JOIN post_tags pt ON t.id = pt.tag_id
+        LEFT JOIN posts p ON pt.post_id = p.id
+        WHERE t.deleted_at IS NULL
+        GROUP BY t.id, t.name, t.slug
+        HAVING post_count > 0
+        ORDER BY post_count DESC, t.name ASC
+        "#
+    )
+    .fetch_all(executor)
+    .await
 }
 
 #[allow(dead_code)]

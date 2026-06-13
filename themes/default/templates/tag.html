@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){var t=localStorage.getItem('colophon-theme');
+if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
+document.documentElement.setAttribute('data-theme','dark');})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="content-language" content="{{ current_lang }}">
+<link rel="icon" type="image/svg+xml" href="/static/logo-icon.svg">
+<link rel="apple-touch-icon" href="/static/logo-icon.svg">
+<title>{{ tag.name }} - 标签归档 | {{ site_title }}</title>
+<meta name="description" content="浏览所有标记为「{{ tag.name }}」的文章，共 {{ total }} 篇。">
+<link rel="canonical" href="{{ request.url }}">
+<meta property="og:title" content="{{ tag.name }} - 标签归档">
+<meta property="og:description" content="浏览所有标记为「{{ tag.name }}」的文章，共 {{ total }} 篇。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site_title }}">
+<link rel="stylesheet" href="{{ theme_assets_url('css/theme.css') }}">
+<link rel="stylesheet" href="{{ theme_assets_url('css/archive.css') }}">
+{{ plugin_head|safe }}
+</head>
+<body>
+<div class="wrap">
+  {% include "_header.html" %}
+
+  <main class="archive-page">
+    <header class="archive-header">
+      <div class="archive-breadcrumb">
+        <a href="/" class="breadcrumb-link">首页</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">标签</span>
+      </div>
+      <h1 class="archive-title">
+        <span class="archive-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        </span>
+        {{ tag.name }}
+      </h1>
+      <p class="archive-meta">共 {{ total }} 篇文章</p>
+    </header>
+
+    {% if posts %}
+      <ul class="post-list">
+        {% for post in posts %}
+        <li class="post-item">
+          <a href="/{{ 'pages' if post.content_type == 'page' else 'posts' }}/{{ post.slug }}" class="post-link">
+            <time class="post-date" datetime="{{ post.published_at or post.created_at }}">
+              {{ (post.published_at or post.created_at)[:10] }}
+            </time>
+            <div class="post-content">
+              <h2 class="post-title">{{ post.title }}</h2>
+              {% if post.excerpt %}
+              <p class="post-excerpt">{{ post.excerpt }}</p>
+              {% endif %}
+              {% if post.category_name %}
+              <div class="post-meta-tags">
+                <span class="meta-tag category-tag">{{ post.category_name }}</span>
+              </div>
+              {% endif %}
+            </div>
+            <span class="post-arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+
+      {% if total_pages > 1 %}
+        {% include "_pagination.html" %}
+      {% endif %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        </div>
+        <h3 class="empty-title">该标签下暂无文章</h3>
+        <p class="empty-desc">回到<a href="/" class="empty-link">首页</a>浏览更多内容</p>
+      </div>
+    {% endif %}
+  </main>
+
+  {% include "_footer.html" %}
+</div>
+
+<script src="{{ theme_assets_url('js/theme.js') }}"></script>
+{{ plugin_body|safe }}
+</body>
+</html>
