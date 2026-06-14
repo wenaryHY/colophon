@@ -50,3 +50,14 @@ pub struct PreviewThemeRequest {
     #[serde(default)]
     pub theme_config: Option<String>,
 }
+
+/// 前台搜索页查询参数
+#[derive(Debug, Deserialize)]
+pub struct SearchPageQuery {
+    #[serde(default)]
+    pub keyword: String,
+    #[serde(default = "default_search_page")]
+    pub page: u32,
+}
+
+fn default_search_page() -> u32 { 1 }
