@@ -6,6 +6,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     Json,
 };
+use serde::Deserialize;
 
 use crate::{
     modules::post::post_types::ContentType,
@@ -274,6 +275,164 @@ pub async fn render_home(
             current_user => auth,
             posts => recent_posts
         ))
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
+
+    let mut response = Html(rendered).into_response();
+    crate::shared::security::mark_response_security_profile(
+        &mut response,
+        crate::shared::security::SECURITY_PROFILE_THEME_HTML,
+    );
+    Ok(response)
+}
+
+/// 搜索页：/search?keyword=xxx&page=1&page_size=20
+///
+/// 复用 `search_posts()` / `count_search_posts()` 仓库函数实现 FTS5 全文搜索，
+/// 支持关键词搜索和分页。模板优先选择 search.html，不存在时回退 index.html。
+pub async fn render_search(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    auth: Option<crate::shared::auth::AuthUser>,
+    Query(query): Query<SearchPageQuery>,
+) -> AppResult<Response> {
+    let client_request_id =
+        crate::shared::request_id::extract_or_generate_client_request_id(&headers);
+    tracing::info!(
+        module = "theme",
+        event = "render_search",
+        client_request_id = %client_request_id,
+        keyword = ?query.keyword,
+        authenticated = auth.is_some(),
+        "rendering search page"
+    );
+
+    let keyword = query.keyword.trim().to_string();
+    let pagination = crate::shared::pagination::PaginationQuery {
+        page: query.page,
+        page_size: query.page_size,
+    };
+    let (page_i64, page_size_i64, offset) = pagination.normalized(20, 100);
+    let page = page_i64 as u32;
+    let page_size = page_size_i64 as u32;
+
+    let (posts, total) = if !keyword.is_empty() {
+        let posts = crate::modules::post::repository::search_posts(
+            &state.pool,
+            &keyword,
+            None,
+            None,
+            page_size_i64,
+            offset,
+        )
+        .await
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
+        let total = crate::modules::post::repository::count_search_posts(
+            &state.pool,
+            &keyword,
+            None,
+            None,
+        )
+        .await
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
+        (posts, total)
+    } else {
+        (Vec::new(), 0i64)
+    };
+
+    let total_u32 = if total > 0 { total as u32 } else { 0u32 };
+    let total_pages = if total > 0 {
+        ((total as f64) / (page_size_i64 as f64)).ceil() as u32
+    } else {
+        0u32
+    };
+
+    // 加载模板上下文，失败时降级返回 404 HTML（与标签/分类归档保持一致）
+    let ctx = match TemplateContext::load(&state).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::error!(
+                module = "theme",
+                event = "search_template_context_load_failed",
+                error = %e,
+                "failed to load template context, falling back to 404"
+            );
+            return Ok(render_404_page(&state, &headers).await);
+        }
+    };
+
+    // 兜底：如果数据库 site_url 为空，从 Host header 推断
+    let fallback_site_url = crate::modules::seo::infer_site_url_from_host_header(&headers);
+    let effective_site_url = if ctx.site_url.trim().is_empty() {
+        &fallback_site_url
+    } else {
+        &ctx.site_url
+    };
+
+    // 构建搜索页 SEO meta
+    let page_title = if keyword.is_empty() {
+        format!("搜索 - {}", ctx.site_title)
+    } else {
+        format!("搜索: {} - {}", keyword, ctx.site_title)
+    };
+    let seo_description = if keyword.is_empty() {
+        format!("在 {} 中搜索文章", ctx.site_title)
+    } else {
+        format!("搜索「{}」的结果，共 {} 篇", keyword, total)
+    };
+    let seo_meta = crate::modules::seo::meta::build_home_meta(
+        &page_title,
+        &seo_description,
+        effective_site_url,
+        "",
+        "",
+    );
+    let json_ld = crate::modules::seo::meta::build_home_json_ld(
+        &page_title,
+        &seo_description,
+        effective_site_url,
+    );
+
+    // 构建模板引擎
+    let plugin_guard = state.plugin_manager.read().await;
+    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
+    let env = engine::build_template_engine(
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(&current_lang),
+    )
+    .await?;
+
+    // 模板优先 search.html，不存在时回退 index.html（加 warn 日志）
+    let template_name = if env.get_template("search.html").is_ok() {
+        "search.html"
+    } else {
+        tracing::warn!(
+            module = "theme",
+            event = "search_template_not_found",
+            "search.html not found, falling back to index.html"
+        );
+        "index.html"
+    };
+
+    let tmpl = env
+        .get_template(template_name)
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
+
+    let rendered = tmpl
+        .render(minijinja::context! {
+            keyword => keyword,
+            posts => posts,
+            page => page,
+            page_size => page_size,
+            total => total_u32,
+            total_pages => total_pages,
+            seo_meta => seo_meta,
+            json_ld => json_ld,
+            current_user => auth,
+        })
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
 
     let mut response = Html(rendered).into_response();
@@ -1291,4 +1450,13 @@ pub async fn fallback_404(
     headers: HeaderMap,
 ) -> Response {
     render_404_page(&state, &headers).await
+}
+
+/// 搜索页查询参数
+#[derive(Debug, Deserialize)]
+pub struct SearchPageQuery {
+    #[serde(default)]
+    pub keyword: String,
+    pub page: Option<i64>,
+    pub page_size: Option<i64>,
 }

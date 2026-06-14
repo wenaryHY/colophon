@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){var t=localStorage.getItem('colophon-theme');
+if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
+document.documentElement.setAttribute('data-theme','dark');})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="content-language" content="{{ current_lang }}">
+<link rel="icon" type="image/svg+xml" href="/static/logo-icon.svg">
+<link rel="apple-touch-icon" href="/static/logo-icon.svg">
+<title>{{ seo_meta.title }}</title>
+<meta name="description" content="{{ seo_meta.description }}">
+{% if seo_meta.keywords %}<meta name="keywords" content="{{ seo_meta.keywords }}">{% endif %}
+<link rel="canonical" href="{{ seo_meta.canonical_url }}">
+<meta property="og:title" content="{{ seo_meta.og_title }}">
+<meta property="og:description" content="{{ seo_meta.og_description }}">
+<meta property="og:url" content="{{ seo_meta.og_url }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site_title }}">
+{% if seo_meta.og_image %}<meta property="og:image" content="{{ seo_meta.og_image }}">{% endif %}
+<meta name="twitter:card" content="{{ seo_meta.twitter_card }}">
+<meta name="twitter:title" content="{{ seo_meta.twitter_title }}">
+<meta name="twitter:description" content="{{ seo_meta.twitter_description }}">
+{% if seo_meta.twitter_image %}<meta name="twitter:image" content="{{ seo_meta.twitter_image }}">{% endif %}
+<script type="application/ld+json">{{ json_ld | safe }}</script>
+<link rel="stylesheet" href="{{ theme_assets_url('css/theme.css') }}">
+<link rel="stylesheet" href="{{ theme_assets_url('css/archive.css') }}">
+<style>
+/* ===== 搜索页特有样式 ===== */
+.search-form {
+  display: flex;
+  gap: 0.625rem;
+  margin-bottom: 2.5rem;
+  flex-wrap: wrap;
+}
+.search-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.75rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--card);
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255,107,53,0.1);
+}
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.search-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.search-btn:hover {
+  background: var(--accent-dark);
+}
+.search-summary {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.search-summary strong {
+  color: var(--text);
+  font-weight: 600;
+}
+mark {
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+}
+
+@media (max-width: 640px) {
+  .search-form {
+    gap: 0.5rem;
+  }
+  .search-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+</style>
+{{ plugin_head|safe }}
+</head>
+<body>
+<div class="wrap">
+  {% include "_header.html" %}
+
+  <main class="archive-page">
+    <header class="archive-header">
+      <div class="archive-breadcrumb">
+        <a href="/" class="breadcrumb-link">首页</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">搜索</span>
+      </div>
+      <h1 class="archive-title">
+        <span class="archive-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </span>
+        {% if keyword %}
+        搜索: {{ keyword }}
+        {% else %}
+        搜索文章
+        {% endif %}
+      </h1>
+    </header>
+
+    <form class="search-form" action="/search" method="get">
+      <div class="search-input-wrap">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" name="keyword" class="search-input" placeholder="搜索文章标题和内容..." value="{{ keyword }}" autofocus>
+      </div>
+      <button type="submit" class="search-btn">搜索</button>
+    </form>
+
+    {% if keyword %}
+      <p class="search-summary">
+        找到 <strong>{{ total }}</strong> 篇与「{{ keyword }}」相关的文章
+      </p>
+
+      {% if posts %}
+        <ul class="post-list">
+          {% for post in posts %}
+          <li class="post-item">
+            <a href="/{{ 'pages' if post.content_type == 'page' else 'posts' }}/{{ post.slug }}" class="post-link">
+              <time class="post-date" datetime="{{ post.published_at or post.created_at }}">
+                {{ (post.published_at or post.created_at)[:10] }}
+              </time>
+              <div class="post-content">
+                <h2 class="post-title">{{ post.title }}</h2>
+                {% if post.excerpt %}
+                <p class="post-excerpt">{{ post.excerpt }}</p>
+                {% endif %}
+                {% if post.category_name %}
+                <div class="post-meta-tags">
+                  <span class="meta-tag category-tag">{{ post.category_name }}</span>
+                </div>
+                {% endif %}
+              </div>
+              <span class="post-arrow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+
+        {% if total_pages > 1 %}
+          {% with pagination_base_query = "keyword=" ~ (keyword | urlencode) %}
+            {% include "_pagination.html" %}
+          {% endwith %}
+        {% endif %}
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+          <h3 class="empty-title">未找到相关文章</h3>
+          <p class="empty-desc">尝试使用不同的关键词，或回到<a href="/" class="empty-link">首页</a>浏览更多内容</p>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <h3 class="empty-title">输入关键词开始搜索</h3>
+        <p class="empty-desc">输入文章标题或内容关键词，查找你感兴趣的内容</p>
+      </div>
+    {% endif %}
+  </main>
+
+  {% include "_footer.html" %}
+</div>
+
+<script src="{{ theme_assets_url('js/theme.js') }}"></script>
+{{ plugin_body|safe }}
+</body>
+</html>
