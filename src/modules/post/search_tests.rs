@@ -351,4 +351,136 @@ mod fts5_search_tests {
         assert_eq!(new_search.len(), 1);
         assert_eq!(new_search[0].title, "Updated Title");
     }
+
+    // ── Task 7: 搜索页测试 ──
+
+    /// 创建 2 篇已发布文章（含不同内容），搜索关键词，验证返回匹配文章
+    #[tokio::test]
+    async fn test_search_keyword() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "author").await;
+
+        insert_published_post(
+            &pool,
+            &author_id,
+            "Learning Rust",
+            "A comprehensive guide to Rust programming language",
+        )
+        .await;
+        insert_published_post(
+            &pool,
+            &author_id,
+            "Learning Python",
+            "A comprehensive guide to Python programming",
+        )
+        .await;
+
+        // 搜索 "Rust"，应只匹配第一篇
+        let results = repository::search_posts(&pool, "Rust", None, None, 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Learning Rust");
+
+        // 搜索 "Python"，应只匹配第二篇
+        let results = repository::search_posts(&pool, "Python", None, None, 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Learning Python");
+    }
+
+    /// 空关键词搜索（keyword=""），验证不崩溃
+    #[tokio::test]
+    async fn test_search_empty() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "author").await;
+
+        insert_published_post(&pool, &author_id, "Test Post", "Some content").await;
+
+        // 空关键词可能导致 FTS5 语法错误，但不应该 panic
+        let result = repository::search_posts(&pool, "", None, None, 10, 0).await;
+        match result {
+            Ok(results) => {
+                let _ = results.len();
+            }
+            Err(_) => {
+                // 返回错误是可以接受的，不 crash 即通过
+            }
+        }
+    }
+
+    /// 搜索不存在的关键词，验证返回空列表
+    #[tokio::test]
+    async fn test_search_no_results() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "author").await;
+
+        insert_published_post(&pool, &author_id, "Rust Guide", "Learn Rust programming").await;
+
+        let results = repository::search_posts(&pool, "nonexistent_keyword_xyz", None, None, 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 0);
+
+        let count =
+            repository::count_search_posts(&pool, "nonexistent_keyword_xyz", None, None)
+                .await
+                .unwrap();
+        assert_eq!(count, 0);
+    }
+
+    /// 创建 25 篇文章含相同关键词，搜索 page=2（page_size=10），验证分页正确
+    #[tokio::test]
+    async fn test_search_pagination() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "author").await;
+
+        // 创建 25 篇含统一关键词的文章
+        for i in 1..=25 {
+            insert_published_post(
+                &pool,
+                &author_id,
+                &format!("Rust Tutorial {}", i),
+                "Learn Rust programming",
+            )
+            .await;
+        }
+
+        // page_size=10, page 1 (offset=0)
+        let page1 = repository::search_posts(&pool, "Rust", None, None, 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(page1.len(), 10);
+
+        // page_size=10, page 2 (offset=10)
+        let page2 = repository::search_posts(&pool, "Rust", None, None, 10, 10)
+            .await
+            .unwrap();
+        assert_eq!(page2.len(), 10);
+
+        // page_size=10, page 3 (offset=20)
+        let page3 = repository::search_posts(&pool, "Rust", None, None, 10, 20)
+            .await
+            .unwrap();
+        assert_eq!(page3.len(), 5);
+
+        // 验证各页不重叠
+        let page1_ids: Vec<&str> = page1.iter().map(|p| p.id.as_str()).collect();
+        let page2_ids: Vec<&str> = page2.iter().map(|p| p.id.as_str()).collect();
+        let page3_ids: Vec<&str> = page3.iter().map(|p| p.id.as_str()).collect();
+        for id in &page2_ids {
+            assert!(!page1_ids.contains(id));
+        }
+        for id in &page3_ids {
+            assert!(!page1_ids.contains(id));
+            assert!(!page2_ids.contains(id));
+        }
+
+        // 验证总数
+        let total = repository::count_search_posts(&pool, "Rust", None, None)
+            .await
+            .unwrap();
+        assert_eq!(total, 25);
+    }
 }

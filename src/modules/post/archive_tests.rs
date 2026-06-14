@@ -278,6 +278,151 @@ mod archive_tests {
         assert_eq!(count, 2);
     }
 
+    // ── Task 7: 作者页测试 ──
+
+    #[tokio::test]
+    async fn list_posts_by_author_username_returns_matching_posts() {
+        let pool = setup_test_db().await;
+
+        // 创建用户
+        let user_id = create_test_user(&pool, "john_doe").await;
+
+        // 创建 2 篇作者文章
+        let _post1_id = insert_post(
+            &pool,
+            crate::modules::post::post_types::NewPostParams {
+                author_id: &user_id,
+                title: "Author Post 1",
+                slug: "author-post-1",
+                excerpt: Some("Excerpt 1"),
+                content_md: "Content 1",
+                content_html: "<p>Content 1</p>",
+                cover_media_id: None,
+                status: crate::modules::post::post_types::PostStatus::Published,
+                visibility: crate::modules::post::post_types::Visibility::Public,
+                category_id: None,
+                allow_comment: true,
+                pinned: false,
+                content_type: crate::modules::post::post_types::ContentType::Post,
+                custom_html_path: None,
+                page_render_mode: "editor",
+            },
+        )
+        .await
+        .unwrap();
+
+        let _post2_id = insert_post(
+            &pool,
+            crate::modules::post::post_types::NewPostParams {
+                author_id: &user_id,
+                title: "Author Post 2",
+                slug: "author-post-2",
+                excerpt: Some("Excerpt 2"),
+                content_md: "Content 2",
+                content_html: "<p>Content 2</p>",
+                cover_media_id: None,
+                status: crate::modules::post::post_types::PostStatus::Published,
+                visibility: crate::modules::post::post_types::Visibility::Public,
+                category_id: None,
+                allow_comment: true,
+                pinned: false,
+                content_type: crate::modules::post::post_types::ContentType::Post,
+                custom_html_path: None,
+                page_render_mode: "editor",
+            },
+        )
+        .await
+        .unwrap();
+
+        // 查询作者文章
+        let posts = list_posts_by_author_username(&pool, "john_doe", 1, 10)
+            .await
+            .unwrap();
+        assert_eq!(posts.len(), 2);
+
+        let count = count_posts_by_author_username(&pool, "john_doe")
+            .await
+            .unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[tokio::test]
+    async fn list_posts_by_author_username_returns_empty_for_nonexistent_user() {
+        let pool = setup_test_db().await;
+
+        // 不创建任何用户，查询不存在的用户名
+        let posts = list_posts_by_author_username(&pool, "nonexistent_user", 1, 10)
+            .await
+            .unwrap();
+        assert_eq!(posts.len(), 0);
+
+        let count = count_posts_by_author_username(&pool, "nonexistent_user")
+            .await
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+
+    #[tokio::test]
+    async fn list_posts_by_author_username_excludes_draft_posts() {
+        let pool = setup_test_db().await;
+
+        let user_id = create_test_user(&pool, "draft_author").await;
+
+        // 创建草稿
+        let _draft_id = insert_post(
+            &pool,
+            crate::modules::post::post_types::NewPostParams {
+                author_id: &user_id,
+                title: "Draft Post",
+                slug: "draft-post",
+                excerpt: Some("Draft"),
+                content_md: "Draft content",
+                content_html: "<p>Draft</p>",
+                cover_media_id: None,
+                status: crate::modules::post::post_types::PostStatus::Draft,
+                visibility: crate::modules::post::post_types::Visibility::Public,
+                category_id: None,
+                allow_comment: true,
+                pinned: false,
+                content_type: crate::modules::post::post_types::ContentType::Post,
+                custom_html_path: None,
+                page_render_mode: "editor",
+            },
+        )
+        .await
+        .unwrap();
+
+        // 创建已发布文章
+        let _published_id = insert_post(
+            &pool,
+            crate::modules::post::post_types::NewPostParams {
+                author_id: &user_id,
+                title: "Published Post",
+                slug: "published-post",
+                excerpt: Some("Published"),
+                content_md: "Published content",
+                content_html: "<p>Published</p>",
+                cover_media_id: None,
+                status: crate::modules::post::post_types::PostStatus::Published,
+                visibility: crate::modules::post::post_types::Visibility::Public,
+                category_id: None,
+                allow_comment: true,
+                pinned: false,
+                content_type: crate::modules::post::post_types::ContentType::Post,
+                custom_html_path: None,
+                page_render_mode: "editor",
+            },
+        )
+        .await
+        .unwrap();
+
+        let posts = list_posts_by_author_username(&pool, "draft_author", 1, 10)
+            .await
+            .unwrap();
+        assert_eq!(posts.len(), 1);
+        assert_eq!(posts[0].title, "Published Post");
+    }
+
     #[tokio::test]
     async fn list_posts_by_category_slug_excludes_pages() {
         let pool = setup_test_db().await;

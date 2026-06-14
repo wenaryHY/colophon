@@ -194,6 +194,8 @@ default = 10
 | `post.html` | 强制 | `/posts/{slug}` | 文章详情页 |
 | `tag.html` | 可选 | `/tags/{slug}` | 标签归档页。缺失时回退到 `index.html` |
 | `category.html` | 可选 | `/categories/{slug}` | 分类归档页。缺失时回退到 `index.html` |
+| `search.html` | 可选 | `/search` | 搜索页。缺失时回退到 `index.html` |
+| `author.html` | 可选 | `/author/{username}` | 作者归档页。缺失时回退到 `index.html` |
 | `page.html` | 可选 | `/pages/{slug}` | 页面详情页。缺失时回退到 `post.html` |
 | `404.html` | 推荐 | 任何未匹配的路径 | 404 错误页。缺失时显示纯文本 "404 - 页面未找到" |
 | `500.html` | 推荐 | 服务器错误时 | 500 错误页。缺失时显示默认错误信息 |
@@ -476,6 +478,8 @@ themes/my-theme/
 │   ├── post.html           ← 文章详情页（强制）
 │   ├── tag.html            ← 标签归档（可选）
 │   ├── category.html       ← 分类归档（可选）
+│   ├── search.html         ← 搜索页（可选）
+│   ├── author.html         ← 作者归档（可选）
 │   ├── page.html           ← 页面详情（可选）
 │   ├── 404.html            ← 404 错误页（推荐）
 │   ├── 500.html            ← 500 错误页（推荐）
