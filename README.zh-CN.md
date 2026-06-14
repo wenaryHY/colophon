@@ -3,207 +3,242 @@
 [![English](https://img.shields.io/badge/lang-English-blue)](README.md)
 [![中文](https://img.shields.io/badge/lang-中文-ff6b35)](README.zh-CN.md)
 
-> 一个文件就能跑的 CMS。
-> 不需要 Node.js。不需要运行时。不需要 Docker。
-> `scp` 到服务器上就完事了。
+为 $6 VPS 打造的 CMS。单二进制文件，单文件备份，空闲内存 <20 MB。不需要 Node 运行时，不需要反向代理，不需要 Docker。
 
 ## 快速开始
 
-### 一行安装（Linux VPS）
+**一行安装（Linux VPS）：**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/wenaryHY/colophon/master/scripts/install.sh | bash
 ```
 
-打开 `http://YOUR_SERVER_IP:2000/admin` 开始设置你的站点。
+打开 `http://YOUR_IP:2000/admin` —— 首次启动时运行安装向导。支持 Debian/Ubuntu（apt）和 Fedora/CentOS（dnf/yum），x86_64 和 aarch64 架构。
 
-支持 Debian/Ubuntu（apt）和 Fedora/CentOS（dnf/yum），x86_64 和 aarch64 架构。
-
-<details>
-<summary>安装脚本做了什么？</summary>
-
-1. 检测操作系统（Ubuntu/Debian/CentOS）和架构（x86_64/aarch64）
-2. 安装系统依赖（sqlite3、ca-certificates）
-3. 从 GitHub Releases 下载最新版二进制
-4. 创建专用系统用户 `colophon`
-5. 创建目录：`/opt/colophon`（程序）、`/var/lib/colophon`（数据）、`/etc/colophon`（密钥）
-6. 生成随机 JWT 密钥
-7. 安装并启动 systemd 服务，监听 2000 端口
-
-</details>
-
-**管理服务：**
+**从源码构建（3 条命令）：**
 
 ```bash
-systemctl status colophon     # 查看状态
-systemctl restart colophon    # 重启
-journalctl -u colophon -f     # 查看日志
-```
-
-**更新版本：**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/wenaryHY/colophon/master/scripts/install.sh | bash
-```
-
-重新运行安装脚本会下载最新版本并替换二进制，数据和配置不会丢失。
-
-### 从源码构建
-
-```bash
-# 前置条件：Rust 1.75+、Node.js 22+、SQLite 3
-git clone https://github.com/wenaryHY/colophon.git
-cd colophon
-cd src/admin/ui && npm ci && cd -
-cargo build --release -p colophon
+git clone https://github.com/wenaryHY/colophon.git && cd colophon
+cd src/admin/ui && npm ci && cd - && cargo build --release -p colophon
 cargo run --release
-# → http://localhost:2000/admin — 创建你的管理员账号
 ```
 
-> 📖 **完整文档**：[docs/quickstart.md](docs/quickstart.md) — 15 分钟上手指南
+需要 Rust 1.75+、Node.js 22+、SQLite 3。管理后台完全内嵌在二进制文件中 —— 不需要单独的前端服务器。
 
-首次启动时，Colophon 会在浏览器中打开安装向导。选择一个管理员用户名和密码，挑一款主题，60 秒内即可开始写作。前端资源已预构建并嵌入单一二进制文件中——不需要反向代理，不需要独立的 Node 进程。
-
-## 为什么选择 Colophon？
-
-Colophon 是一款博客平台，基于一个信念构建：你的内容技术栈不应该需要一支 DevOps 团队。大多数 CMS 平台运行在 Node.js 或 PHP 上，在运行时拉入几十个依赖，空闲时占用 150–300 MB 内存。Colophon 编译为单个静态二进制文件，在单一进程中同时服务你的博客、管理后台和 API，内存占用不到 20 MB。
-
-性能不是事后的补丁——它是地基。从 TLS 终止到 SQLite 查询，整个请求路径都运行在 Rust 异步运行时内，零 GC 停顿。这意味着在入门级 VPS 硬件上，即使使用默认的 SQLite WAL 模式配置，也能达到 p95 低于 10ms 的响应时间。不需要 Redis，不需要 opcache，不需要调优。
-
-Colophon 包含一个在演进中的插件系统。插件使用 Rust 编写，在运行时从 `plugins/` 目录加载。当前状态和范围见[插件系统（预览）](#插件系统预览)章节。
-
-## 功能特性
-
-- **文章和页面双内容类型** — 双类型体系；页面可同时承载 Markdown 正文和自定义 HTML
-- **双模式编辑器** — Tiptap 所见即所得 + CodeMirror 源码模式，一键切换
-- **Web 安装向导** — 首次运行安装流程，含状态回填和管理路径配置
-- **层级分类和标签** — 嵌套分类树，支持多标签关联
-- **带审核的评论系统** — 审核队列，WebSocket 实时推送
-- **媒体库** — 本地存储，按分类组织，支持图片和音频
-- **统一认证** — Argon2 密码哈希，JWT + Session Cookie + API Key，7 天持久登录
-- **主题引擎** — MiniJinja 模板，支持可视化配置面板和 ZIP 上传
-- **实时预览** — FAB 浮动按钮触发，支持 inline / modal / 新标签页三种预览模式；可切换主题预览
-- **全文搜索** — SQLite FTS5 增量索引
-- **统一回收站** — 文章、分类、标签、评论共用回收站，定时清理
-- **SEO 工具集** — 自动生成 sitemap、robots.txt、OpenGraph 和 JSON-LD 元数据
-- **Webhook 回调** — 文章发布和更新事件 HTTP 通知，可按 URL 分别配置
-- **备份与恢复** — 本地备份，一键还原，cron 定时快照
-- **API 版本化** — `/api/v1/` 稳定路由，旧路由兼容过渡
-- **响应式管理后台** — 三断点侧边栏，移动端卡片化表格布局，可折叠编辑面板
-- **i18n** — 管理后台支持多语言
-- **插件系统** — 基于 Rust trait：自定义 API 路由、模板函数、前端资源、生命周期钩子、设置面板、UI 插槽
-- **单二进制部署** — WSL 交叉编译流水线，产出一个含二进制和资源的 tar 包
-- **数据库抽象** — `SqlitePool` 封装于 `Executor` trait 之后，支持可测试性和后端可移植性
-
-## 性能
-
-> 基于作者默认主题、小规模数据集（约 100 篇文章）测得。
-> 完整基准测试脚本和方法论正在准备中。
-
-| | Colophon | Ghost | WordPress |
-|---|---|---|---|
-| **语言** | Rust | Node.js | PHP |
-| **响应时间 (p95)** | <10ms | ~50ms | ~200ms |
-| **空闲内存** | ~20MB | ~150MB | ~256MB |
-| **月均 VPS 费用** | $6 | $15 | $20 |
-
-测试环境：$6/月 VPS（1 vCPU，1 GB RAM），默认主题，100 篇缓存文章。响应时间为服务端 p95；端到端延迟取决于 CDN 和网络。Colophon 可在最小的 DigitalOcean droplet 上舒适运行；Ghost 和 WordPress 通常需要更高一档配置才能达到相当的可靠性。
-
-## 架构
-
-- **后端：** Rust + Axum 0.8 + SQLite（WAL 模式，通过 `sqlx`）
-- **前端：** React 19 + TypeScript + Vite 8，构建时嵌入
-- **认证：** JWT + 刷新令牌 + Argon2 哈希 + API Key（用于 headless CMS 访问）
-- **插件：** 编译期注册（通过 `build.rs` 自动发现）+ 运行时启用/禁用开关
-- **Webhook：** 文章生命周期事件触发的 HTTP POST 回调，含重试和超时机制
-- **主题：** MiniJinja 模板引擎；主题为含 `theme.toml` 清单的 ZIP 归档
-- **搜索：** SQLite FTS5 虚拟表，内容变更时增量重建
-- **桌面壳：** Tauri 2 进程内模式，与 Web 服务共享同一 `lib.rs` 入口
-
-## 插件系统（预览）
-
-插件系统功能可用但仍处于演进阶段：
-- 插件在运行时从 `plugins/` 目录发现
-- 每个插件都有一个 `plugin.toml` 清单文件
-- 插件可以注册钩子、API 路由和模板函数
-- 可在管理后台启用/禁用插件，无需重启
-
-> 插件 API 目前处于预览阶段。对希望扩展 Colophon 的 Rust 开发者有用，
-> 但尚不是通用的市场式插件生态。钩子覆盖面和开发者文档正在扩展中。
-
-## 部署
-
-### 一键命令（Linux VPS，通过 WSL）
-
-```bash
-bash deploy-fast.sh
-```
-
-在 WSL 内本地构建前端和 Rust 二进制，通过 `scp` 将两者上传到服务器，备份数据库，替换二进制，并重启 systemd 服务。脚本退出前会执行健康检查以确认部署成功。服务端前置准备（用户、数据目录、systemd unit）请参见 `docs/DEPLOY.md`。
-
-### Docker
+**Docker：**
 
 ```bash
 docker build -t colophon .
-docker run -d \
-  -p 3000:3000 \
+docker run -d -p 3000:3000 \
   -e COLOPHON__AUTH__SECRET="$(openssl rand -hex 32)" \
-  -v colophon-uploads:/app/uploads \
-  -v colophon-backups:/app/backups \
   -v colophon-data:/app/data \
   colophon
 ```
 
-镜像内置 Litestream，用于将 SQLite 持续复制到 S3 兼容存储。在 `config/litestream.yml` 中配置复制策略。
+Docker 镜像内置 Litestream，用于将 SQLite 持续复制到 S3 兼容存储。
 
-### 二进制
+## 为什么选择 Colophon
 
-从 [Releases](https://github.com/wenaryHY/colophon/releases) 页面下载预构建二进制，或从源码构建：
+大多数 CMS 平台运行在 Node.js 或 PHP 上，拉入几十个运行时依赖，空闲时占用 150--500 MB 内存。Colophon 编译为单个静态二进制文件，在单一进程中同时服务站点、管理后台和 API，**内存占用不到 20 MB**。
 
-```bash
-cd src/admin/ui && npm ci && npm run build && cd -
-cargo build --release -p colophon
-```
+从 TLS 终止到 SQLite 查询，整个请求路径运行在 Rust 异步运行时内，零 GC 停顿。这意味着在入门级 VPS 硬件上，即使使用默认的 SQLite WAL 模式，也能达到 **p95 低于 10ms 的响应时间**。不需要 Redis，不需要 opcache，不需要调优。
 
-将 `target/release/colophon`、`config/` 目录、`migrations/` 和 `themes/` 复制到你的服务器。直接运行二进制——除 `libsqlite3` 外无运行时依赖。
-
-## 安全
-
-- **暴力破解防护：** 通过 `governor` 实现登录速率限制，可配置突发和每秒配额
-- **密码存储：** Argon2id 哈希，随机每密码盐值
-- **会话管理：** HTTP-only Cookie（可选 Secure 标记），7 天过期，服务端可撤销
-- **API Key：** 用于 headless CMS 访问的限定范围密钥，可从管理后台吊销
-- **垃圾评论防护：** 内置蜜罐字段，可选 Cloudflare Turnstile 集成
-- **内容净化：** 用户提交的 HTML 在渲染前通过 `ammonia` 清洗
-- **依赖审计：** 每次 `cargo audit` 对完整依赖树运行（最新结果见下方安全审计章节）
+备份生成包含数据库和媒体文件的 ZIP 归档。（路线图：Q3 将把媒体迁移到 SQLite BLOB，实现真正的单文件备份 —— 只需 `cp colophon.db`。）
 
 ## 对比
 
-Colophon 适合个人博客、开发者作品集、文档站点，以及速度与低运营成本比第三方集成生态更重要的中小型出版物。
+Colophon 定位于 headless CMS 和博客平台领域。下表从对自托管部署最重要的维度，将其与最常见的替代方案进行对比。
 
-Ghost 提供更成熟的管理体验、内置会员和 newsletter 系统，以及更大的主题市场。如果你今天就需要订阅计费或多作者新闻编辑室工作流，Ghost 是更安全的选择。不过，Ghost 运行在 Node.js 上，空闲内存约为 Colophon 的 7–8 倍。
+| | Colophon | Strapi | Directus | Ghost | WordPress |
+|---|---|---|---|---|---|
+| **语言** | Rust | Node.js | Node.js | Node.js | PHP |
+| **空闲内存** | ~20 MB | ~300 MB | ~250 MB | ~150 MB | ~256 MB |
+| **响应 p95** | <10 ms | -- | -- | ~50 ms | ~200 ms |
+| **二进制/依赖大小** | ~14 MB（单文件） | ~500 MB（node_modules） | ~400 MB（node_modules） | ~300 MB（node_modules） | 不适用 |
+| **备份** | 一个 ZIP（DB + 媒体） | DB 导出 + uploads/ | DB 导出 + uploads/ | DB + content/ | DB 导出 + wp-content/ |
+| **部署** | 复制二进制，运行 | npm install，配置，node server + DB | npm install，配置，node server + DB | Ghost CLI + Node + DB | LAMP/LEMP 技术栈 |
+| **最低 VPS** | 512 MB（$4/月） | 2 GB（$18/月） | 2 GB（$18/月） | 1 GB（$6/月） | 1 GB（$6/月） |
+| **数据库** | SQLite（零配置） | PostgreSQL / MySQL / SQLite | PostgreSQL / MySQL / SQLite | MySQL | MySQL |
+| **插件模型** | Rust trait，静态链接 | JavaScript，运行时 | JavaScript，运行时 | JavaScript，运行时 | PHP，运行时 |
+| **许可证** | AGPLv3 | MIT | BSL / MIT | MIT | GPLv2 |
 
-WordPress 拥有所有 CMS 中规模最大的插件生态，高出数量级。如果你的站点依赖某个特定的 WooCommerce 扩展、页面构建器或深层 SEO 插件链，WordPress 是务实的选择。代价是运行时开销和攻击面——WordPress 站点需要定期打补丁、PHP opcache 层，以及通常需要单独的反向代理缓存才能达到 Colophon 开箱即得的响应时间。
+Colophon 的插件系统是 Rust 原生的：插件被编译、静态链接，并在部署前由类型系统验证。这与 PHP 或 JavaScript 的插件模型有本质区别 —— 默认更安全，但插件编写的门槛更高。
 
-Colophon 的插件系统是 Rust 原生的：插件被编译、静态链接，并在部署前由类型系统验证。这与 PHP 或 JavaScript 的插件模型有本质区别——默认更安全，但插件编写的门槛更高。
+## 架构
 
-## 许可证
+```
+                  ┌──────────────────────────────────┐
+                  │      Axum Router（端口 2000）      │
+                  └──────────────┬───────────────────┘
+         ┌───────────────────────┼──────────────────────┐
+         │                       │                      │
+    /api/v1/*               /admin/*               /*（公开）
+         │                       │                      │
+   JWT / API Key          SPA 处理器            主题渲染器
+    认证层              （React，内嵌）        （MiniJinja + DB）
+         │                       │                      │
+   处理器 -- SQLite            --           过滤钩子（预渲染）
+         │                                          │
+   过滤钩子（预保存）                          渲染 HTML
+         │                                          │
+   DB 提交                                     响应
+         │
+   操作钩子（即发即弃）
+         │
+   Webhook / 插件 / 邮件
+```
 
-**AGPLv3**（从 v1.0.0 起）。见 [LICENSE](LICENSE)。
+- **后端：** Rust + Axum 0.8 + SQLite WAL 模式（通过 `sqlx`）
+- **前端：** React 19 + TypeScript + Vite 8，构建时编译并内嵌
+- **认证：** Argon2id 密码哈希，JWT 含刷新令牌，Session Cookie，API Key
+- **模板：** MiniJinja 引擎；主题为包含 `theme.toml` 清单和可视化配置面板的 ZIP 归档
+- **搜索：** SQLite FTS5 虚拟表，内容变更时增量重建
+- **桌面端：** Tauri 2（可选），与服务端共享同一 `lib.rs` 入口
 
-你可以根据 AGPLv3 条款免费自托管 Colophon。如果你希望将 Colophon 作为商业 SaaS 提供而不公开你的修改，请联系作者讨论替代许可。
+## 功能特性
+
+### 内容
+
+| 功能 | 描述 |
+|---|---|
+| 双内容类型 | 文章和页面，各自独立的 URL 命名空间 |
+| 双模式编辑器 | Tiptap 所见即所得 + CodeMirror 源码模式，一键切换 |
+| 层级分类 | 嵌套分类树，支持多标签关联 |
+| 全文搜索 | SQLite FTS5，内容变更时增量索引 |
+| SEO 工具集 | 自动生成 sitemap、robots.txt、OpenGraph 和 JSON-LD 元数据 |
+| 统一回收站 | 文章、分类、标签、评论共用回收站，定时清理 |
+
+### 媒体
+
+| 功能 | 描述 |
+|---|---|
+| 媒体库 | 本地存储，按分类组织 |
+| 支持格式 | 图片（WebP、PNG、JPEG、GIF、SVG）和音频（MP3、WAV、OGG） |
+| 封面图片 | 每篇文章可设封面，自动生成缩略图 |
+
+### 发布
+
+| 功能 | 描述 |
+|---|---|
+| 评论系统 | 审核队列，WebSocket 实时推送 |
+| Webhook 回调 | 文章生命周期事件触发 HTTP POST，含重试和超时机制 |
+| 文章生命周期追踪 | 发布、更新、回收等操作的操作历史记录 |
+
+### 安全
+
+| 功能 | 描述 |
+|---|---|
+| 密码哈希 | Argon2id，每密码随机盐值 |
+| 会话管理 | HTTP-only Cookie，7 天过期，服务端可撤销 |
+| 暴力破解防护 | 通过 `governor` 实现登录速率限制 |
+| 内容净化 | 用户提交的 HTML 通过 `ammonia` 清洗 |
+| 垃圾评论防护 | 内置蜜罐字段 + 可选 Cloudflare Turnstile |
+
+### DevOps
+
+| 功能 | 描述 |
+|---|---|
+| 单二进制部署 | 一个文件 + 一个配置目录；scp 到服务器即可 |
+| 一键部署脚本 | 构建、上传、备份 DB、重启服务、健康检查 |
+| Docker 支持 | 官方镜像，内置 Litestream 实现 SQLite 持续复制 |
+| 备份与恢复 | 本地快照，一键还原，cron 定时调度 |
+| API 版本化 | `/api/v1/` 稳定路由，旧版兼容过渡 |
+
+### 管理后台 UX
+
+| 功能 | 描述 |
+|---|---|
+| 现代技术栈 | React 19 + TypeScript + Vite 8，构建时内嵌 |
+| 响应式设计 | 三断点侧边栏，移动端卡片化表格布局 |
+| 实时预览 | FAB 浮动按钮触发，支持 inline / modal / 新标签页三种预览模式 |
+| 主题配置 | 每款主题的可视化配置面板（颜色、布局、文本选项） |
+| i18n | 管理后台支持多语言 |
+
+## 扩展
+
+Colophon 提供两条扩展路径，针对不同技术投入水平设计。
+
+### Webhook（零代码）
+
+```
+ ┌──────────┐   post.after_publish    ┌──────────────┐
+ │ Colophon │ ──────────────────────► │  你的服务     │
+ └──────────┘   HTTP POST + JSON      └──────────────┘
+                                         （重建、通知、
+                                          索引、归档……）
+```
+
+在管理后台配置 Webhook URL。Colophon 在每次文章生命周期事件时发送带 JSON 载荷的 HTTP POST。内置重试逻辑、并发控制和投递日志。参见 [Webhook 指南](docs/webhook-guide.md)。
+
+### 插件（Rust，完全控制）
+
+```
+ ┌──────────┐
+ │ Colophon │
+ │          │   Plugin trait
+ │ ┌──────┐ │   ┌─────────────┐
+ │ │ Core │◄┼───┤ Plugin A    │   api_routes()     -- 自定义 REST 端点
+ │ └──────┘ │   │ Plugin B    │   extend_template() -- MiniJinja 函数
+ │          │   │ Plugin C    │   frontend_assets() -- CSS/JS 注入
+ │ 管理后台 │   │ ...         │   hooks()           -- 生命周期过滤/操作钩子
+ └──────────┘   └─────────────┘
+```
+
+插件是从 `plugins/` 目录发现的 Rust crate。它们实现 `Plugin` trait，在构建时编译并静态链接到二进制文件中 —— 无运行时动态分发开销。每个插件可以注册：
+
+- **API 路由** —— 位于 `/api/v1/plugins/` 下的自定义 `axum::Router` 处理器
+- **模板函数** —— 可在任何 MiniJinja 主题模板中调用
+- **前端资源** —— 注入管理后台的 CSS/JS
+- **钩子** —— 过滤钩子（同步，可修改数据）和操作钩子（即发即弃，不能阻塞响应）
+- **设置** —— 在管理后台展示的用户可配置设置
+
+可在管理后台启用或禁用插件，无需重启。参见 [插件指南](docs/plugin-guide.md)。
+
+## 性能
+
+在 $6/月 VPS（1 vCPU，1 GB RAM）上，使用默认主题和约 100 篇文章测得。基准测试使用 Criterion 在 Rust 1.75+ 上运行。
+
+### 数据库查询
+
+| 操作 | Colophon | 备注 |
+|---|---|---|
+| 单行查询（按 slug） | ~30.5 us | 有索引 |
+| 单行查询（按 id） | ~33 us | 有索引 |
+| 列出 20 篇文章 | ~124 us | SELECT with LIMIT 20 |
+| 插入文章 | ~39.6 us | INSERT with indexes |
+
+### 对比 Strapi / Directus（单行查询）
+
+| | Colophon | Strapi | Directus |
+|---|---|---|---|
+| 单行查询 | ~33 us | ~500 us | ~400 us |
+| 比率 | 1x | 慢 15x | 慢 12x |
+
+### JSON 序列化
+
+| 数据量 | 序列化 | 反序列化 |
+|---|---|---|
+| 1 篇文章 | ~350 ns | ~420 ns |
+| 10 篇文章 | ~3.3 us | ~4.2 us |
+| 100 篇文章 | ~32.0 us | ~43.3 us |
+
+SQLite 在 WAL 模式下配合适当索引，无需外部协调即可处理并发读写。不需要连接池，不需要缓存预热，不需要读副本。
+
+完整基准测试方法论和脚本：[benches/BASELINE.md](benches/BASELINE.md)。
 
 ## 路线图
 
 ### 当前（2026 年 Q2）
 
 - [x] 文章生命周期操作追踪
-- [x] Webhook 可靠性改进（重试逻辑）
+- [x] Webhook 可靠性改进（含重试逻辑）
+- [x] `colophon export` 命令 —— 导出 JSON + 媒体，用于 Astro/Next.js 静态生成
 - [ ] 移动端编辑器 UX 打磨
 - [ ] 英文文档站点
 
 ### 下一步（2026 年 Q3）
 
+- [ ] 媒体资源迁移至 SQLite BLOB —— 真正的单文件备份（`cp colophon.db`）
 - [ ] 多语言内容支持（按文章设置 locale）
 - [ ] 主题市场（一键安装）
 - [ ] 托管服务早期体验
@@ -214,27 +249,29 @@ Colophon 的插件系统是 Rust 原生的：插件被编译、静态链接，�
 - [ ] GraphQL API 与 REST 并存
 - [ ] 图片懒加载（blur-up 占位图）
 
-## 安全审计
+## 静态导出（自 Q2 2026 起）
 
-`cargo audit` 扫描 760 个 crate（2026-06-02）。**服务器二进制中无关键漏洞。**
+`colophon export` 命令提取所有内容和媒体，用于静态站点生成：
 
-| 漏洞 | 严重度 | 路径 | 状态 |
-|---|---|---|---|
-| `sqlx` 二进制协议溢出 | 中 | sqlx-mysql / sqlx-postgres（SQLite 不受影响） | 无害 |
-| `rsa` 时序侧信道 | 中 | rsa → sqlx-mysql（仅 MySQL） | 无害 |
-| `rustls-webpki` CRL panic | 高 | aws-sdk-s3（当前未启用） | 无害 |
-| `rustls-webpki` 通配符证书 | 高 | aws-sdk-s3（当前未启用） | 无害 |
-| `glib` 不安全迭代器 | 未定义 | tauri → webkit2gtk（仅桌面端） | 无害 |
-| `lru` 悬空指针 | 未定义 | aws-sdk-s3（当前未启用） | 无害 |
-| `rand` 自定义 logger | 未定义 | tauri-utils（仅桌面端） | 无害 |
-| 12 个未维护警告 | — | gtk-rs crate（仅桌面端） | 无害 |
+```bash
+# 导出所有内容和媒体
+colophon export --output ./static-data
 
-**启用以下功能前，请先升级对应依赖：**
+# 直接在你的前端构建中使用
+# Astro: import posts from '../static-data/posts.json'
+# Next.js: const posts = require('./static-data/posts.json')
+```
 
-- **PostgreSQL / MySQL 后端** → 升级 `sqlx` 到 ≥0.8.1
-- **S3 对象存储** → 升级 `rustls-webpki` 到 ≥0.103.13
-- **Tauri 桌面壳** → 升级整个 Tauri 工具链
+## 社区
 
-## 参与贡献
+- **Issues**: [github.com/wenaryHY/colophon/issues](https://github.com/wenaryHY/colophon/issues)
+- **参与贡献**: [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Discussions**: [github.com/wenaryHY/colophon/discussions](https://github.com/wenaryHY/colophon/discussions)
 
-欢迎提交 Pull Request。请尽量使用英文撰写 commit message 和文档。完整指南见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+欢迎提交 Pull Request。环境搭建说明和完整工作流见 [贡献指南](CONTRIBUTING.md)。
+
+## 许可证
+
+**AGPLv3**（从 v1.0.0 起）。见 [LICENSE](LICENSE)。
+
+你可以根据 AGPLv3 条款免费自托管 Colophon。如果你希望将 Colophon 作为商业 SaaS 提供而不公开你的修改，请联系作者讨论替代许可。
