@@ -1,39 +1,233 @@
-<header class="page-header">
-  <div class="wrap">
-    <a href="/" class="header-logo">
+<style>
+/* ===== Colophon Header (self-contained, no external CSS dependency) ===== */
+.colophon-header {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.colophon-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+/* Brand: logo + site name */
+.colophon-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.colophon-header-brand:hover {
+  opacity: 0.75;
+}
+.colophon-header-brand:focus-visible {
+  outline: 2px solid var(--accent, #ff6b35);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.colophon-header-brand img {
+  width: 28px;
+  height: 28px;
+}
+
+/* Right section: nav + user actions */
+.colophon-header-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+/* Nav links */
+.colophon-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  list-style: none;
+}
+.colophon-header-nav a {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 0;
+  transition: color 0.15s ease;
+}
+.colophon-header-nav a:hover {
+  color: var(--text);
+}
+.colophon-header-nav a:focus-visible {
+  outline: 2px solid var(--accent, #ff6b35);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* User section */
+.colophon-header-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.colophon-header-user a {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 0;
+  transition: color 0.15s ease;
+}
+.colophon-header-user a:hover {
+  color: var(--text);
+}
+.colophon-header-user a:focus-visible {
+  outline: 2px solid var(--accent, #ff6b35);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.colophon-header-admin-link {
+  color: var(--accent, #ff6b35) !important;
+}
+
+/* Theme toggle button */
+.colophon-header-theme-btn {
+  font-size: 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+.colophon-header-theme-btn:hover {
+  color: var(--text);
+}
+.colophon-header-theme-btn:focus-visible {
+  outline: 2px solid var(--accent, #ff6b35);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Language switch */
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+}
+.lang-switch__btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--muted);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  font-weight: 400;
+}
+.lang-switch__btn:hover {
+  color: var(--text);
+  background: var(--border);
+}
+.lang-switch__btn:focus-visible {
+  outline: 2px solid var(--accent, #ff6b35);
+  outline-offset: 1px;
+}
+.lang-switch__btn.active {
+  color: var(--accent, #ff6b35);
+  font-weight: 600;
+  pointer-events: none;
+}
+.lang-switch__divider {
+  color: var(--border);
+  font-weight: 300;
+  user-select: none;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .colophon-header-inner {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .colophon-header-right {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .colophon-header-right {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .colophon-header-nav {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+</style>
+
+<header class="colophon-header">
+  <div class="colophon-header-inner">
+    <a href="/" class="colophon-header-brand">
       <img src="/static/logo-icon.svg" alt="{{ site_title }}" width="28" height="28">
-      {{ site_title }}
+      <span>{{ site_title }}</span>
     </a>
-    <nav class="header-links">
-      {% if current_user %}
-      <a href="/profile">个人中心</a>
-      {% if current_user.role == "admin" %}
-      <a href="/admin" class="header-link-admin">管理后台</a>
-      {% endif %}
-      <div class="lang-switch" role="group" aria-label="语言选择">
-        <button type="button" data-lang="zh" lang="zh-CN" class="lang-switch__btn active" aria-label="切换到中文">中</button>
-        <span class="lang-switch__divider">/</span>
-        <button type="button" data-lang="en" lang="en" class="lang-switch__btn" aria-label="Switch to English">EN</button>
+
+    <div class="colophon-header-right">
+      <nav class="colophon-header-nav" aria-label="主导航">
+        <a href="/">首页</a>
+        <a href="/tags">标签</a>
+        <a href="/categories">分类</a>
+        <a href="/search">搜索</a>
+      </nav>
+
+      <div class="colophon-header-user">
+        {% if current_user %}
+        <a href="/profile">个人中心</a>
+        {% if current_user.role == "admin" %}
+        <a href="/admin" class="colophon-header-admin-link">管理后台</a>
+        {% endif %}
+        <div class="lang-switch" role="group" aria-label="语言选择">
+          <button type="button" data-lang="zh" lang="zh-CN" class="lang-switch__btn active" aria-label="切换到中文">中</button>
+          <span class="lang-switch__divider" aria-hidden="true">/</span>
+          <button type="button" data-lang="en" lang="en" class="lang-switch__btn" aria-label="Switch to English">EN</button>
+        </div>
+        <button type="button" data-theme-toggle onclick="toggleTheme()" class="colophon-header-theme-btn" aria-label="切换暗色模式">☀</button>
+        <a href="#" onclick="fetch('/api/v1/auth/logout',{method:'POST'}).then(function(){location.href='/'});return false">退出</a>
+        {% else %}
+        <a href="/admin">登录</a>
+        <div class="lang-switch" role="group" aria-label="语言选择">
+          <button type="button" data-lang="zh" lang="zh-CN" class="lang-switch__btn active" aria-label="切换到中文">中</button>
+          <span class="lang-switch__divider" aria-hidden="true">/</span>
+          <button type="button" data-lang="en" lang="en" class="lang-switch__btn" aria-label="Switch to English">EN</button>
+        </div>
+        <button type="button" data-theme-toggle onclick="toggleTheme()" class="colophon-header-theme-btn" aria-label="切换暗色模式">☀</button>
+        {% endif %}
       </div>
-      <button data-theme-toggle onclick="toggleTheme()" aria-label="切换暗色模式" style="font-size:16px;border:none;background:none;cursor:pointer;color:var(--muted);padding:4px">☀</button>
-      <a href="#" onclick="fetch('/api/v1/auth/logout',{method:'POST'}).then(function(){location.href='/'});return false">退出</a>
-      {% else %}
-      <a href="/admin">登录</a>
-      <div class="lang-switch" role="group" aria-label="语言选择">
-        <button type="button" data-lang="zh" lang="zh-CN" class="lang-switch__btn active" aria-label="切换到中文">中</button>
-        <span class="lang-switch__divider">/</span>
-        <button type="button" data-lang="en" lang="en" class="lang-switch__btn" aria-label="Switch to English">EN</button>
-      </div>
-      <button data-theme-toggle onclick="toggleTheme()" aria-label="切换暗色模式" style="font-size:16px;border:none;background:none;cursor:pointer;color:var(--muted);padding:4px">☀</button>
-      {% endif %}
-    </nav>
+    </div>
   </div>
 </header>
+
 <script>
 (function(){
-  if(window.location.pathname==='/profile'){
-    var link = document.querySelector('.header-links a[href="/profile"]');
-    if(link){ link.textContent='返回首页'; link.href='/'; }
+  if (window.location.pathname === '/profile') {
+    var link = document.querySelector('.colophon-header-user a[href="/profile"]');
+    if (link) {
+      link.textContent = '返回首页';
+      link.href = '/';
+    }
   }
 })();
 </script>

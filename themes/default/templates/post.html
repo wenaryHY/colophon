@@ -190,23 +190,7 @@ a{color:var(--accent);text-decoration:none}
 </head>
 <body>
 <div class="wrap">
-  <!-- Header -->
-  <header class="page-header">
-    <div class="wrap">
-      <a href="/" class="header-logo">
-        <img src="/static/logo-icon.svg" alt="{{ site_title }}" width="28" height="28">
-        {{ site_title }}
-      </a>
-      <nav style="display:flex;align-items:center;gap:20px;">
-        <a href="/" style="font-size:14px;font-weight:500;color:var(--muted)">返回首页</a>
-        <div class="lang-switch" role="group" aria-label="语言选择">
-          <button type="button" data-lang="zh" lang="zh-CN" class="lang-switch__btn active" aria-label="切换到中文">中</button>
-          <span class="lang-switch__divider">/</span>
-          <button type="button" data-lang="en" lang="en" class="lang-switch__btn" aria-label="Switch to English">EN</button>
-        </div>
-      </nav>
-    </div>
-  </header>
+  {% include "_header.html" %}
 
   <!-- Article -->
   <article class="article-card">
