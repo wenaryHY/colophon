@@ -53,6 +53,7 @@ rand = "=0.8.5"
 uuid = { version = "=1.23.0", features = ["v4", "serde"] }
 chrono = { version = "=0.4.44", features = ["serde"] }
 anyhow = "=1.0.102"
+clap = { version = "=4.6.1", features = ["derive"] }
 thiserror = "=1.0.69"
 tracing = "=0.1.44"
 tracing-subscriber = { version = "=0.3.23", features = ["env-filter", "fmt"] }

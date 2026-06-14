@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod bootstrap;
+pub mod cli;
 pub mod infra;
 pub mod modules;
 pub mod shared;

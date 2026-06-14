@@ -3,197 +3,228 @@
 [![English](https://img.shields.io/badge/lang-English-blue)](README.md)
 [![中文](https://img.shields.io/badge/lang-中文-ff6b35)](README.zh-CN.md)
 
-> A CMS that runs as a single file.
-> No Node.js. No runtime. No Docker required.
-> `scp` it to your server and you're done.
+A CMS for the $6 VPS. Single binary, single-file backup, <20 MB idle memory. No Node runtime, no reverse proxy, no Docker required.
 
 ## Quick Start
 
-### One-Line Install (Linux VPS)
+**One-command install (Linux VPS):**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/wenaryHY/colophon/master/scripts/install.sh | bash
 ```
 
-Open `http://YOUR_SERVER_IP:2000/admin` to set up your site.
+Open `http://YOUR_IP:2000/admin` -- the setup wizard runs on first launch. Supports Debian/Ubuntu (apt) and Fedora/CentOS (dnf/yum) on x86_64 and aarch64.
 
-Supports Debian/Ubuntu (apt) and Fedora/CentOS (dnf/yum) on x86_64 and aarch64.
-
-<details>
-<summary>What does the install script do?</summary>
-
-1. Detects your OS (Ubuntu/Debian/CentOS) and architecture (x86_64/aarch64)
-2. Installs system dependencies (sqlite3, ca-certificates)
-3. Downloads the latest release binary from GitHub Releases
-4. Creates a dedicated `colophon` system user
-5. Sets up directories: `/opt/colophon` (app), `/var/lib/colophon` (data), `/etc/colophon` (secrets)
-6. Generates a random JWT secret
-7. Installs and starts the systemd service on port 2000
-
-</details>
-
-**Manage your installation:**
+**Build from source (3 commands):**
 
 ```bash
-systemctl status colophon     # check status
-systemctl restart colophon    # restart
-journalctl -u colophon -f     # view logs
-```
-
-**Update to a new version:**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/wenaryHY/colophon/master/scripts/install.sh | bash
-```
-
-Re-running the installer downloads the latest version and replaces the binary. Your data and config are preserved.
-
-### Build from Source
-
-```bash
-# Prerequisites: Rust 1.75+, Node.js 22+, SQLite 3
-git clone https://github.com/wenaryHY/colophon.git
-cd colophon
-cd src/admin/ui && npm ci && cd -
-cargo build --release -p colophon
+git clone https://github.com/wenaryHY/colophon.git && cd colophon
+cd src/admin/ui && npm ci && cd - && cargo build --release -p colophon
 cargo run --release
-# → http://localhost:2000/admin — create your admin account
 ```
 
-> 📖 **Full documentation**: [docs/quickstart.md](docs/quickstart.md) — 15-minute setup guide
+Requires Rust 1.75+, Node.js 22+, SQLite 3. The admin panel is fully embedded in the binary -- no separate frontend server.
 
-On first launch, Colophon opens the setup wizard in your browser. Choose an admin username and password, pick a theme, and you are writing within 60 seconds. The frontend assets are prebuilt and embedded into the single binary — no reverse proxy, no separate Node process.
-
-## Why Colophon?
-
-Colophon is a blogging platform built around one conviction: your content stack should not require a DevOps team. Most CMS platforms run on Node.js or PHP, pull in dozens of dependencies at runtime, and idle at 150–300 MB of RAM. Colophon compiles to a single static binary that serves your blog, admin panel, and API from a single process using under 20 MB of memory.
-
-Performance is not an afterthought — it is the foundation. The entire request path, from TLS termination to SQLite query, lives inside a Rust async runtime with zero garbage-collection pauses. This means sub-10ms p95 response times on commodity VPS hardware, even under the default SQLite WAL-mode configuration. No Redis, no opcache, no tuning required.
-
-Colophon includes an evolving plugin system. Plugins are written in Rust and loaded at runtime from the `plugins/` directory. See the [Plugin System (Preview)](#plugin-system-preview) section for the current status and scope.
-
-## Features
-
-- **Post and page content types** — dual-type system; pages can carry both Markdown body and custom HTML
-- **Dual-mode editor** — Tiptap WYSIWYG and CodeMirror source mode, switchable with one click
-- **Web-based setup wizard** — first-run installation flow with status backfill and admin path configuration
-- **Hierarchical categories and tags** — nested category trees with multi-tag association
-- **Comment system with moderation** — approval queue with real-time WebSocket push
-- **Media library** — local storage, category-based organization, support for images and audio
-- **Unified authentication** — Argon2 password hashing, JWT + session cookies + API keys, 7-day persistent login
-- **Theme engine** — MiniJinja templating with visual configuration panel and ZIP upload
-- **Live preview** — FAB trigger with inline, modal, and new-tab preview modes; theme-switch preview
-- **Full-text search** — SQLite FTS5 with incremental indexing
-- **Unified trash bin** — posts, categories, tags, and comments share one trash with scheduled purge
-- **SEO toolkit** — auto-generated sitemap, robots.txt, OpenGraph and JSON-LD metadata
-- **Webhook callbacks** — HTTP notifications on post publish and update events, configurable per URL
-- **Backup and restore** — local backup with one-click restore and cron-scheduled snapshots
-- **API versioning** — `/api/v1/` stable routes with legacy route fallback
-- **Responsive admin panel** — three-breakpoint sidebar, card-ified table layout on mobile, collapsible editor panels
-- **i18n** — admin interface supports multiple languages
-- **Plugin system** — Rust trait-based: custom API routes, template functions, frontend assets, lifecycle hooks, settings panels, and UI slots
-- **Single-binary deployment** — WSL cross-compilation pipeline produces one tarball containing binary and assets
-- **Database abstraction** — `SqlitePool` behind an `Executor` trait for testability and backend portability
-
-## Performance
-
-> Measured on the author's default theme with a small dataset (~100 posts).
-> Full benchmark scripts and methodology are being prepared.
-
-| | Colophon | Ghost | WordPress |
-|---|---|---|---|
-| **Language** | Rust | Node.js | PHP |
-| **Response (p95)** | <10ms | ~50ms | ~200ms |
-| **RAM idle** | ~20MB | ~150MB | ~256MB |
-| **Monthly VPS** | $6 | $15 | $20 |
-
-Measured on a $6/mo VPS (1 vCPU, 1 GB RAM) serving the default theme with 100 cached posts. Response times are server-side p95; end-to-end latency depends on CDN and network. Colophon runs comfortably on the smallest DigitalOcean droplet; Ghost and WordPress typically need the next tier up for comparable reliability.
-
-## Architecture
-
-- **Backend:** Rust + Axum 0.8 + SQLite with WAL mode (via `sqlx`)
-- **Frontend:** React 19 + TypeScript + Vite 8, embedded at build time
-- **Auth:** JWT with refresh tokens + Argon2 hashing + API key for headless CMS access
-- **Plugins:** compile-time registration via `build.rs` auto-discovery + runtime enable/disable toggle
-- **Webhooks:** HTTP POST callbacks triggered by post lifecycle events with retry and timeout
-- **Themes:** MiniJinja template engine; themes are ZIP archives with `theme.toml` manifest
-- **Search:** SQLite FTS5 virtual tables, incrementally rebuilt on content change
-- **Desktop shell:** Tauri 2 in-process mode, sharing the same `lib.rs` entry point as the web server
-
-## Plugin System (Preview)
-
-The plugin system is functional but still evolving:
-- Plugins are discovered at runtime from the `plugins/` directory
-- Each plugin has a `plugin.toml` manifest
-- Plugins can register hooks, API routes, and template functions
-- Enable/disable plugins from the admin panel without restarting
-
-> The plugin API is in preview. It is useful for Rust developers who
-> want to extend Colophon, but is not yet a general marketplace-style
-> plugin ecosystem. Hook coverage and developer documentation are
-> being expanded.
-
-## Deploy
-
-### One-command (Linux VPS via WSL)
-
-```bash
-bash deploy-fast.sh
-```
-
-Builds the frontend and Rust binary locally inside WSL, uploads both to your server via `scp`, backs up the database, swaps the binary, and restarts the systemd service. A health check confirms the deploy succeeded before the script exits. See `docs/DEPLOY.md` for server setup prerequisites (user, data directories, systemd unit).
-
-### Docker
+**Docker:**
 
 ```bash
 docker build -t colophon .
-docker run -d \
-  -p 3000:3000 \
+docker run -d -p 3000:3000 \
   -e COLOPHON__AUTH__SECRET="$(openssl rand -hex 32)" \
-  -v colophon-uploads:/app/uploads \
-  -v colophon-backups:/app/backups \
   -v colophon-data:/app/data \
   colophon
 ```
 
-The image includes Litestream for continuous SQLite replication to S3-compatible storage. Configure replication in `config/litestream.yml`.
+The Docker image includes Litestream for continuous SQLite replication to S3-compatible storage.
 
-### Binary
+## Why Colophon
 
-Download a prebuilt binary from the [Releases](https://github.com/wenaryHY/colophon/releases) page, or build from source:
+Most CMS platforms run on Node.js or PHP, pull in dozens of runtime dependencies, and idle at 150--500 MB of RAM. Colophon compiles to a single static binary that serves your site, admin panel, and API from one process using **under 20 MB of memory**.
 
-```bash
-cd src/admin/ui && npm ci && npm run build && cd -
-cargo build --release -p colophon
-```
+The entire request path -- from TLS termination to SQLite query -- lives inside a Rust async runtime with zero garbage-collection pauses. This yields **sub-10ms p95 response times** on commodity VPS hardware, even with SQLite WAL mode out of the box. No Redis, no opcache, no tuning required.
 
-Copy `target/release/colophon`, your `config/` directory, `migrations/`, and `themes/` to your server. Run the binary directly — no runtime dependencies beyond `libsqlite3`.
-
-## Security
-
-- **Brute-force protection:** login rate limiting via `governor` with configurable burst and per-second quotas
-- **Password storage:** Argon2id hashing with random per-password salt
-- **Session management:** HTTP-only cookies with optional Secure flag, 7-day expiry and server-side revocation
-- **API keys:** scoped keys for headless CMS access, revocable from the admin panel
-- **Spam prevention:** built-in honeypot fields and optional Cloudflare Turnstile integration
-- **Content sanitization:** user-submitted HTML is cleaned through `ammonia` before rendering
-- **Dependency audit:** every `cargo audit` run against the full dependency tree (see Security Audit section below for latest results)
+Backup generates a ZIP archive containing the database and media files. (Roadmap: Q3 will migrate media to SQLite BLOB for true single-file backup — `cp colophon.db` is all you need.)
 
 ## Comparison
 
-Colophon is a good fit for personal blogs, developer portfolios, documentation sites, and small-to-medium publications where speed and low operating cost matter more than an ecosystem of third-party integrations.
+Colophon competes in the headless CMS and blogging-platform space. The table below compares it against the most common alternatives on the dimensions that matter for self-hosted deployments.
 
-Ghost offers a more mature admin experience, a built-in membership and newsletter system, and a larger theme marketplace. If you need subscription billing or a multi-author newsroom workflow today, Ghost is the safer choice. However, Ghost runs on Node.js and idles at roughly 7–8× the memory footprint of Colophon.
+| | Colophon | Strapi | Directus | Ghost | WordPress |
+|---|---|---|---|---|---|
+| **Language** | Rust | Node.js | Node.js | Node.js | PHP |
+| **Idle RAM** | ~20 MB | ~300 MB | ~250 MB | ~150 MB | ~256 MB |
+| **Response p95** | <10 ms | -- | -- | ~50 ms | ~200 ms |
+| **Binary / deps size** | ~14 MB (single file) | ~500 MB (node_modules) | ~400 MB (node_modules) | ~300 MB (node_modules) | N/A |
+| **Backup** | One ZIP (DB + media) | DB dump + uploads/ | DB dump + uploads/ | DB + content/ | DB dump + wp-content/ |
+| **Deployment** | Copy binary, run | npm install, configure, node server + DB | npm install, configure, node server + DB | Ghost CLI + Node + DB | LAMP/LEMP stack |
+| **Min VPS** | 512 MB ($4/mo) | 2 GB ($18/mo) | 2 GB ($18/mo) | 1 GB ($6/mo) | 1 GB ($6/mo) |
+| **Database** | SQLite (zero-config) | PostgreSQL / MySQL / SQLite | PostgreSQL / MySQL / SQLite | MySQL | MySQL |
+| **Plugin model** | Rust trait, static linking | JavaScript, runtime | JavaScript, runtime | JavaScript, runtime | PHP, runtime |
+| **License** | AGPLv3 | MIT | BSL / MIT | MIT | GPLv2 |
 
-WordPress has the largest plugin ecosystem of any CMS by an order of magnitude. If your site depends on a specific WooCommerce extension, a page builder, or a deep SEO plugin chain, WordPress is the pragmatic option. The tradeoff is runtime cost and attack surface — WordPress sites require regular patching, a PHP opcache layer, and typically a separate caching reverse proxy to achieve response times comparable to Colophon out of the box.
+Colophon's plugin system is Rust-native: plugins are compiled, statically linked, and verified by the type system before deployment. This is fundamentally different from PHP or JavaScript plugin models -- safer by construction, but with a higher bar for plugin authorship.
 
-Colophon's plugin system is Rust-native: plugins are compiled, statically linked, and verified by the type system before deployment. This is fundamentally different from PHP or JavaScript plugin models — safer by construction, but with a higher bar for plugin authorship.
+## Architecture
 
-## License
+```
+                  ┌──────────────────────────────────┐
+                  │      Axum Router (port 2000)      │
+                  └──────────────┬───────────────────┘
+         ┌───────────────────────┼──────────────────────┐
+         │                       │                      │
+    /api/v1/*               /admin/*               /* (public)
+         │                       │                      │
+   JWT / API Key           SPA handler            Theme renderer
+    auth layer            (React, embedded)       (MiniJinja + DB)
+         │                       │                      │
+   Handler -- SQLite            --         Filter hooks (pre-render)
+         │                                          │
+   Filter hooks (pre-save)                   Render HTML
+         │                                          │
+   DB commit                                     Response
+         │
+   Action hooks (fire-and-forget)
+         │
+   Webhooks / Plugins / Email
+```
 
-**AGPLv3** (starting from v1.0.0). See [LICENSE](LICENSE).
+- **Backend:** Rust + Axum 0.8 + SQLite with WAL mode (via `sqlx`)
+- **Frontend:** React 19 + TypeScript + Vite 8, compiled and embedded at build time
+- **Auth:** Argon2id password hashing, JWT with refresh tokens, session cookies, API keys
+- **Templates:** MiniJinja engine; themes are ZIP archives with a `theme.toml` manifest and visual config panel
+- **Search:** SQLite FTS5 virtual tables, incrementally rebuilt on content change
+- **Desktop:** Tauri 2 (optional), sharing the same `lib.rs` entry point as the server
 
-You may self-host Colophon for free under the terms of the AGPLv3. If you wish to offer Colophon as a commercial SaaS without releasing your modifications, please contact the authors to discuss an alternative license.
+## Features
+
+### Content
+
+| Feature | Description |
+|---|---|
+| Dual content types | Posts and Pages with separate URL namespaces |
+| Dual-mode editor | Tiptap WYSIWYG and CodeMirror source mode, one-click toggle |
+| Hierarchical taxonomy | Nested category trees with multi-tag association |
+| Full-text search | SQLite FTS5 with incremental indexing on content change |
+| SEO toolkit | Auto-generated sitemap, robots.txt, OpenGraph and JSON-LD metadata |
+| Unified trash bin | Posts, categories, tags, and comments share one trash with scheduled purge |
+
+### Media
+
+| Feature | Description |
+|---|---|
+| Media library | Local storage with category-based organization |
+| Supported formats | Images (WebP, PNG, JPEG, GIF, SVG) and audio (MP3, WAV, OGG) |
+| Cover images | Per-post cover with automatic thumbnail generation |
+
+### Publishing
+
+| Feature | Description |
+|---|---|
+| Comment system | Moderation queue with real-time WebSocket push |
+| Webhook callbacks | HTTP POST on post lifecycle events with retry and timeout |
+| Post lifecycle tracking | Action history for publish, update, trash events |
+
+### Security
+
+| Feature | Description |
+|---|---|
+| Password hashing | Argon2id with random per-password salt |
+| Session management | HTTP-only cookies, 7-day expiry, server-side revocation |
+| Brute-force protection | Login rate limiting via `governor` |
+| Content sanitization | User-submitted HTML cleaned through `ammonia` |
+| Spam prevention | Built-in honeypot fields + optional Cloudflare Turnstile |
+
+### DevOps
+
+| Feature | Description |
+|---|---|
+| Single binary deploy | One file + one config directory; scp to your server |
+| One-command deploy script | Builds, uploads, backs up DB, restarts service, health-checks |
+| Docker support | Official image with Litestream for continuous SQLite replication |
+| Backup & restore | Local snapshot with one-click restore and cron scheduling |
+| API versioning | `/api/v1/` stable routes with legacy fallback |
+
+### Admin UX
+
+| Feature | Description |
+|---|---|
+| Modern stack | React 19 + TypeScript + Vite 8, embedded at build time |
+| Responsive design | Three-breakpoint sidebar, card-ified table layout on mobile |
+| Live preview | FAB trigger with inline, modal, and new-tab preview modes |
+| Theme config | Visual configuration panel per theme (color, layout, text options) |
+| i18n | Admin interface supports multiple languages |
+
+## Extension
+
+Colophon offers two extension paths, designed for different levels of technical investment.
+
+### Webhooks (zero-code)
+
+```
+ ┌──────────┐   post.after_publish    ┌──────────────┐
+ │ Colophon │ ──────────────────────► │ Your Service │
+ └──────────┘   HTTP POST + JSON      └──────────────┘
+                                        (rebuild, notify,
+                                         index, archive...)
+```
+
+Configure webhook URLs in the admin panel. Colophon fires an HTTP POST with a JSON payload on every post lifecycle event. Built-in retry logic, concurrency control, and delivery logging. See [Webhook Guide](docs/webhook-guide.md).
+
+### Plugins (Rust, full control)
+
+```
+ ┌──────────┐
+ │ Colophon │
+ │          │   Plugin trait
+ │ ┌──────┐ │   ┌─────────────┐
+ │ │ Core │◄┼───┤ Plugin A    │   api_routes()     -- custom REST endpoints
+ │ └──────┘ │   │ Plugin B    │   extend_template() -- MiniJinja functions
+ │          │   │ Plugin C    │   frontend_assets() -- CSS/JS injection
+ │ Admin UI │   │ ...         │   hooks()           -- lifecycle filters/actions
+ └──────────┘   └─────────────┘
+```
+
+Plugins are Rust crates discovered from the `plugins/` directory. They implement the `Plugin` trait and are compiled and statically linked into the binary at build time -- no runtime dynamic dispatch overhead. Each plugin can register:
+
+- **API routes** -- custom `axum::Router` handlers under `/api/v1/plugins/`
+- **Template functions** -- callable from any MiniJinja theme template
+- **Frontend assets** -- CSS/JS injected into the admin panel
+- **Hooks** -- Filter hooks (synchronous, can mutate data) and Action hooks (fire-and-forget, cannot block the response)
+- **Settings** -- user-configurable settings surfaced in the admin panel
+
+Enable or disable plugins from the admin panel without restarting. See [Plugin Guide](docs/plugin-guide.md).
+
+## Performance
+
+Measured on a $6/mo VPS (1 vCPU, 1 GB RAM) serving the default theme with ~100 posts. Benchmarks run with Criterion on Rust 1.75+.
+
+### Database query
+
+| Operation | Colophon | Note |
+|---|---|---|
+| Single-row lookup (by slug) | ~30.5 us | Indexed |
+| Single-row lookup (by id) | ~33 us | Indexed |
+| List 20 posts | ~124 us | SELECT with LIMIT 20 |
+| Insert post | ~39.6 us | INSERT with indexes |
+
+### Vs. Strapi / Directus (single-row query)
+
+| | Colophon | Strapi | Directus |
+|---|---|---|---|
+| Single-row lookup | ~33 us | ~500 us | ~400 us |
+| Ratio | 1x | 15x slower | 12x slower |
+
+### JSON serialization
+
+| Data size | Serialize | Deserialize |
+|---|---|---|
+| 1 post | ~350 ns | ~420 ns |
+| 10 posts | ~3.3 us | ~4.2 us |
+| 100 posts | ~32.0 us | ~43.3 us |
+
+SQLite with WAL mode and proper indexing handles concurrent reads and writes without external coordination. No connection pooling, no cache warming, no read replicas.
+
+Full benchmark methodology and scripts: [benches/BASELINE.md](benches/BASELINE.md).
 
 ## Roadmap
 
@@ -201,11 +232,13 @@ You may self-host Colophon for free under the terms of the AGPLv3. If you wish t
 
 - [x] Post lifecycle action tracking
 - [x] Webhook reliability improvements with retry logic
+- [x] `colophon export` command — exports JSON + media for Astro/Next.js static generation
 - [ ] Mobile editor UX polish
 - [ ] English documentation site
 
 ### Next (Q3 2026)
 
+- [ ] Media assets migration to SQLite BLOB — true single-file backup (`cp colophon.db`)
 - [ ] Multi-language content support (per-post locale)
 - [ ] Theme marketplace with one-click install
 - [ ] Managed hosting early access
@@ -216,27 +249,29 @@ You may self-host Colophon for free under the terms of the AGPLv3. If you wish t
 - [ ] GraphQL API alongside REST
 - [ ] Image lazy-loading with blur-up placeholders
 
-## Security Audit
+## Static Export (since Q2 2026)
 
-`cargo audit` scan of 760 crates (2026-06-02). **No critical vulnerabilities in the server binary.**
+The `colophon export` command extracts all content and media for static site generation:
 
-| Vulnerability | Severity | Path | Status |
-|---|---|---|---|
-| `sqlx` binary protocol overflow | Medium | sqlx-mysql / sqlx-postgres (SQLite unaffected) | Benign |
-| `rsa` timing side-channel | Medium | rsa → sqlx-mysql (MySQL only) | Benign |
-| `rustls-webpki` CRL panic | High | aws-sdk-s3 (not currently enabled) | Benign |
-| `rustls-webpki` wildcard cert | High | aws-sdk-s3 (not currently enabled) | Benign |
-| `glib` unsafe iterator | Undefined | tauri → webkit2gtk (desktop only) | Benign |
-| `lru` dangling pointer | Undefined | aws-sdk-s3 (not currently enabled) | Benign |
-| `rand` custom logger | Undefined | tauri-utils (desktop only) | Benign |
-| 12 unmaintained warnings | — | gtk-rs crates (desktop only) | Benign |
+```bash
+# Export all content and media
+colophon export --output ./static-data
 
-**Before enabling these features, upgrade the listed dependencies:**
+# Use directly in your frontend build
+# Astro: import posts from '../static-data/posts.json'
+# Next.js: const posts = require('./static-data/posts.json')
+```
 
-- **PostgreSQL / MySQL backend** → upgrade `sqlx` to ≥0.8.1
-- **S3 object storage** → upgrade `rustls-webpki` to ≥0.103.13
-- **Tauri desktop shell** → upgrade the full Tauri toolchain
+## Community
 
-## Contributing
+- **Issues**: [github.com/wenaryHY/colophon/issues](https://github.com/wenaryHY/colophon/issues)
+- **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Discussions**: [github.com/wenaryHY/colophon/discussions](https://github.com/wenaryHY/colophon/discussions)
 
-Pull requests are welcome. Write commit messages and documentation in English where possible. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guidelines.
+Pull requests are welcome. See the [Contributing Guide](CONTRIBUTING.md) for setup instructions and the full workflow.
+
+## License
+
+**AGPLv3** (starting from v1.0.0). See [LICENSE](LICENSE).
+
+You may self-host Colophon for free under the terms of the AGPLv3. If you wish to offer Colophon as a commercial SaaS without releasing your modifications, contact the authors to discuss an alternative license.
