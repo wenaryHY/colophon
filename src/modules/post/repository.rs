@@ -921,3 +921,76 @@ where
     
     Ok(count as i64)
 }
+
+/// 按作者 username 查询已发布文章（分页）
+pub async fn list_posts_by_author_username<'e, E>(
+    executor: E,
+    username: &str,
+    page: u32,
+    page_size: u32,
+) -> Result<Vec<PublicPostSummary>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    let offset = (page.saturating_sub(1)).saturating_mul(page_size);
+
+    sqlx::query_as!(
+        PublicPostSummary,
+        r#"
+        SELECT
+            p.id,
+            p.title,
+            p.slug,
+            p.excerpt,
+            p.content_type as "content_type: ContentType",
+            p.published_at,
+            p.created_at,
+            p.updated_at,
+            u.display_name AS author_display_name,
+            c.name AS category_name,
+            c.id AS category_id
+        FROM posts p
+        JOIN users u ON u.id = p.author_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE u.username = ?
+          AND p.status = 'published'
+          AND p.visibility = 'public'
+          AND p.deleted_at IS NULL
+          AND p.content_type = 'post'
+        ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC
+        LIMIT ? OFFSET ?
+        "#,
+        username,
+        page_size,
+        offset
+    )
+    .fetch_all(executor)
+    .await
+}
+
+/// 统计作者的文章总数
+pub async fn count_posts_by_author_username<'e, E>(
+    executor: E,
+    username: &str,
+) -> Result<i64, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    let count = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*) as "count!"
+        FROM posts p
+        INNER JOIN users u ON p.author_id = u.id
+        WHERE u.username = ?
+          AND p.status = 'published'
+          AND p.visibility = 'public'
+          AND p.deleted_at IS NULL
+          AND p.content_type = 'post'
+        "#,
+        username
+    )
+    .fetch_one(executor)
+    .await?;
+
+    Ok(count as i64)
+}

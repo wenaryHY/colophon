@@ -17,3 +17,12 @@ pub struct CurrentUser {
     pub updated_at: String,
     pub deleted_at: Option<String>,
 }
+
+/// 公开可见的作者简档（不含 email、role 等敏感字段）
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct AuthorProfile {
+    pub username: String,
+    pub display_name: String,
+    pub bio: Option<String>,
+    pub avatar_media_id: Option<String>,
+}

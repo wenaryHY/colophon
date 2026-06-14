@@ -542,6 +542,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .route("/", get(render_home_entry))
         .route("/preview", get(modules::theme::handler::preview_page))
         .route("/posts/{slug}", get(modules::theme::handler::render_post))
+        .route("/author/{username}", get(modules::theme::handler::render_author_archive))
         .route("/tags/{slug}", get(modules::theme::handler::render_tag_archive))
         .route("/search", get(modules::theme::handler::render_search))
         .route(

@@ -1,4 +1,4 @@
-use super::domain::CurrentUser;
+use super::domain::{AuthorProfile, CurrentUser};
 
 pub async fn find_current<'e, E>(
     executor: E,
@@ -89,4 +89,24 @@ where
         .execute(executor)
         .await?;
     Ok(())
+}
+
+pub async fn find_public_by_username<'e, E>(
+    executor: E,
+    username: &str,
+) -> Result<Option<AuthorProfile>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    sqlx::query_as!(
+        AuthorProfile,
+        r#"
+        SELECT username, display_name, bio, avatar_media_id
+        FROM users
+        WHERE username = ? AND deleted_at IS NULL
+        "#,
+        username
+    )
+    .fetch_optional(executor)
+    .await
 }
