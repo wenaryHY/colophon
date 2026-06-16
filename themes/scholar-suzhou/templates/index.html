@@ -2,6 +2,11 @@
 <html lang="{{ current_lang }}">
 <head>
 <meta charset="UTF-8">
+<script>
+(function(){var t=localStorage.getItem('colophon-theme');
+if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
+document.documentElement.setAttribute('data-theme','dark');})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="content-language" content="{{ current_lang }}">
 <link rel="icon" type="image/svg+xml" href="/static/logo-icon.svg">
@@ -11,7 +16,7 @@
 {% if seo_meta.keywords %}<meta name="keywords" content="{{ seo_meta.keywords }}">{% endif %}
 <link rel="sitemap" type="application/xml" href="/sitemap.xml">
 <link rel="canonical" href="{{ seo_meta.canonical_url }}">
-<!-- 多语言 SEO：告诉搜索引擎此页面支持多语言（通过 cookie 切换） -->
+<!-- 多语言 SEO -->
 <link rel="alternate" hreflang="zh" href="{{ seo_meta.canonical_url }}">
 <link rel="alternate" hreflang="en" href="{{ seo_meta.canonical_url }}">
 <link rel="alternate" hreflang="x-default" href="{{ seo_meta.canonical_url }}">
@@ -27,10 +32,8 @@
 <meta name="twitter:title" content="{{ seo_meta.twitter_title }}">
 <meta name="twitter:description" content="{{ seo_meta.twitter_description }}">
 {% if seo_meta.twitter_image %}<meta name="twitter:image" content="{{ seo_meta.twitter_image }}">{% endif %}
-<!-- noinspection JsonStandardCompliance -->
 <script type="application/ld+json">{{ json_ld | safe }}</script>
 
-<!-- Preload critical fonts -->
 <link rel="preload" href="{{ theme_assets_url('fonts/source-sans-3-400.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{{ theme_assets_url('fonts/eb-garamond-600.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ theme_assets_url('css/fonts.css') }}">
@@ -39,52 +42,7 @@
 </head>
 <body>
 
-<!-- 顶部导航 -->
-<header class="site-nav" id="siteNav">
-  <nav class="site-nav__inner" aria-label="主导航">
-    <a href="/" class="site-nav__logo" aria-label="Colophon 首页">Colophon</a>
-    <div class="site-nav__links">
-      <a href="/" class="site-nav__link is-active"><span data-i18n="navHome">Home</span></a>
-      <a href="/#articles" class="site-nav__link"><span data-i18n="navArticles">Articles</span></a>
-      <a href="/#about" class="site-nav__link"><span data-i18n="navAbout">About</span></a>
-      {% if current_user %}
-        <a href="/profile" class="site-nav__action"><span data-i18n="buttonProfile">个人中心</span></a>
-      {% else %}
-        <a href="/login?redirect=/" class="site-nav__action"><span data-i18n="buttonLogin">登录</span></a>
-      {% endif %}
-      
-      <!-- 语言切换器 -->
-      <div class="lang-switch" role="group" aria-label="语言选择">
-        <button 
-          type="button"
-          data-lang="zh-CN" 
-          lang="zh-CN"
-          class="lang-switch__btn"
-          aria-label="切换到中文"
-        >
-          中
-        </button>
-        <span class="lang-switch__divider" aria-hidden="true">/</span>
-        <button 
-          type="button"
-          data-lang="en" 
-          lang="en"
-          class="lang-switch__btn"
-          aria-label="Switch to English"
-        >
-          EN
-        </button>
-      </div>
-    </div>
-    <button class="site-nav__menu-toggle" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="siteNavLinks">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <line x1="3" y1="6" x2="21" y2="6"/>
-        <line x1="3" y1="12" x2="21" y2="12"/>
-        <line x1="3" y1="18" x2="21" y2="18"/>
-      </svg>
-    </button>
-  </nav>
-</header>
+{% include "_header.html" %}
 
 <!-- 主内容 -->
 <main class="site-main">
@@ -115,7 +73,7 @@
       <div id="searchInfo" style="display:none; margin-bottom: var(--space-stack-md); font-size: var(--font-size-caption); color: var(--on-surface-variant);"></div>
     </section>
 
-    <!-- 文章列表（服务端渲染，SEO 友好） -->
+    <!-- 文章列表（服务端渲染） -->
     <section id="articles" aria-label="文章列表">
       <main class="post-grid" id="postsGrid">
         {% if posts | length > 0 %}
@@ -136,7 +94,7 @@
                 <p class="post-card__excerpt">{{ post.excerpt }}</p>
                 {% endif %}
                 <span class="post-card__link">
-                  Read full story
+                  {% if current_lang == "zh" %}阅读全文{% else %}Read full story{% endif %}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
                   </svg>
@@ -163,20 +121,9 @@
   </div>
 </main>
 
-<!-- 页脚 -->
-<footer class="site-footer">
-  <div class="site-footer__inner">
-    <div class="site-footer__brand">
-      <span class="site-footer__name">Colophon</span>
-      <span class="site-footer__copy">© {{ site_title }} · Powered by <a href="{{ admin_url or '/admin' }}" style="color: var(--primary); font-weight:500;">Colophon</a></span>
-    </div>
-    <nav class="site-footer__links" aria-label="次级链接">
-      <a href="#" class="site-footer__link"><span data-i18n="footerPrivacy">Privacy Policy</span></a>
-      <a href="#" class="site-footer__link"><span data-i18n="footerTerms">Terms of Service</span></a>
-    </nav>
-  </div>
-</footer>
+{% include "_footer.html" %}
 
+<script src="{{ theme_assets_url('js/theme.js') }}"></script>
 <script>
 function esc(s) {
   return String(s ?? '')
@@ -184,97 +131,61 @@ function esc(s) {
 }
 function highlightText(text, keyword) {
   if (!keyword || !text) return esc(text || '');
-  const escaped = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return escaped.replace(new RegExp(`(${escapedKeyword})`, 'gi'), '<mark>$1</mark>');
+  var escaped = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  var escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(new RegExp('(' + escapedKeyword + ')', 'gi'), '<mark>$1</mark>');
 }
 
-const _posts = {{ get_recent_posts(100) | tojson_script | safe }};
-let _currentKeyword = '';
-let _currentCategory = '';
+var _posts = {{ get_recent_posts(100) | tojson_script | safe }};
+var _currentKeyword = '';
+var _currentCategory = '';
+var _currentLang = "{{ current_lang }}";
 
 function renderPosts(posts) {
-  const grid = document.getElementById('postsGrid');
+  var grid = document.getElementById('postsGrid');
   if (!posts || posts.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state" style="grid-column: 1 / -1;">
-        <div class="empty-state__icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-          </svg>
-        </div>
-        <h3 class="empty-state__title">暂无文章</h3>
-        <p class="empty-state__desc">前往管理后台发布你的第一篇文章吧</p>
-      </div>`;
+    grid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><div class="empty-state__icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><h3 class="empty-state__title">暂无文章</h3><p class="empty-state__desc">前往管理后台发布你的第一篇文章吧</p></div>';
     return;
   }
 
-  grid.innerHTML = posts.map((p, i) => {
-    const href = `/${p.content_type === 'page' ? 'pages' : 'posts'}/${esc(p.slug)}`;
-    const date = (p.published_at || p.created_at || '').slice(0, 10);
-    const tagPalette = ['tag', 'tag tag--secondary', 'tag tag--neutral'];
-    const tagsHtml = p.category_name
-      ? `<div class="post-card__tags"><span class="${tagPalette[0]}">${esc(p.category_name)}</span></div>`
+  grid.innerHTML = posts.map(function(p, i) {
+    var href = '/' + (p.content_type === 'page' ? 'pages' : 'posts') + '/' + esc(p.slug);
+    var date = (p.published_at || p.created_at || '').slice(0, 10);
+    var tagPalette = ['tag', 'tag tag--secondary', 'tag tag--neutral'];
+    var tagsHtml = p.category_name
+      ? '<div class="post-card__tags"><span class="' + tagPalette[0] + '">' + esc(p.category_name) + '</span></div>'
       : '';
-    const staggerClass = `stagger-${(i % 5) + 1}`;
-    return `
-      <article class="post-card animate-fade-up ${staggerClass}">
-        <a href="${href}" style="display:flex; flex-direction:column; height:100%;">
-          <div class="post-card__body">
-            ${tagsHtml}
-            <h2 class="post-card__title">${highlightText(p.title, _currentKeyword)}</h2>
-            <div class="post-card__meta">
-              <span>${esc(p.author_display_name || '')}</span>
-              ${date ? `<span class="post-card__meta-dot"></span><span>${esc(date)}</span>` : ''}
-            </div>
-            ${p.excerpt ? `<p class="post-card__excerpt">${highlightText(p.excerpt, _currentKeyword)}</p>` : ''}
-            <span class="post-card__link">
-              Read full story
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
-              </svg>
-            </span>
-          </div>
-        </a>
-      </article>`;
+    var readMoreText = _currentLang === 'zh' ? '阅读全文' : 'Read full story';
+    return '<article class="post-card animate-fade-up ' + staggerClass + '"><a href="' + href + '" style="display:flex; flex-direction:column; height:100%;"><div class="post-card__body">' + tagsHtml + '<h2 class="post-card__title">' + highlightText(p.title, _currentKeyword) + '</h2><div class="post-card__meta"><span>' + esc(p.author_display_name || '') + '</span>' + (date ? '<span class="post-card__meta-dot"></span><span>' + esc(date) + '</span>' : '') + '</div>' + (p.excerpt ? '<p class="post-card__excerpt">' + highlightText(p.excerpt, _currentKeyword) + '</p>' : '') + '<span class="post-card__link">' + readMoreText + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span></div></a></article>';
   }).join('');
 }
 
 async function doSearch() {
-  const keyword = document.getElementById('searchInput').value.trim();
+  var keyword = document.getElementById('searchInput').value.trim();
   _currentKeyword = keyword;
-  const grid = document.getElementById('postsGrid');
-  const info = document.getElementById('searchInfo');
+  var grid = document.getElementById('postsGrid');
+  var info = document.getElementById('searchInfo');
 
-  grid.innerHTML = `
-    <div class="empty-state" style="grid-column: 1 / -1;">
-      <div class="empty-state__icon">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-      </div>
-      <h3 class="empty-state__title">搜索中…</h3>
-    </div>`;
+  grid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><div class="empty-state__icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div><h3 class="empty-state__title">搜索中…</h3></div>';
   info.style.display = 'none';
 
   if (!keyword) {
-    const filtered = _currentCategory ? _posts.filter(p => p.category_id === _currentCategory) : _posts;
+    var filtered = _currentCategory ? _posts.filter(function(p) { return p.category_id === _currentCategory; }) : _posts;
     renderPosts(filtered);
     return;
   }
 
   try {
-    const params = new URLSearchParams({ keyword });
+    var params = new URLSearchParams({ keyword: keyword });
     if (_currentCategory) params.set('category_id', _currentCategory);
-    const res = await fetch('/api/v1/search?' + params.toString());
-    const json = await res.json();
-    const items = json.data?.items || [];
-    const total = json.data?.pagination?.total ?? items.length;
+    var res = await fetch('/api/v1/search?' + params.toString());
+    var json = await res.json();
+    var items = json.data?.items || [];
+    var total = json.data?.pagination?.total ?? items.length;
     info.style.display = 'block';
     info.textContent = total > items.length
-      ? `找到 ${total} 篇相关文章，当前显示前 ${items.length} 篇`
-      : `找到 ${total} 篇相关文章`;
+      ? '找到 ' + total + ' 篇相关文章，当前显示前 ' + items.length + ' 篇'
+      : '找到 ' + total + ' 篇相关文章';
     renderPosts(items);
   } catch {
     renderPosts([]);
@@ -283,141 +194,29 @@ async function doSearch() {
 
 function filterByCategory(catId) {
   _currentCategory = catId;
-  document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('is-active', c.dataset.category === catId));
+  document.querySelectorAll('.filter-chip').forEach(function(c) { c.classList.toggle('is-active', c.dataset.category === catId); });
   doSearch();
 }
 
 (async function loadCategories() {
   try {
-    const res = await fetch('/api/v1/categories');
-    const json = await res.json();
-    const cats = json.data || [];
-    const container = document.getElementById('filterChips');
-    cats.forEach(cat => {
-      const btn = document.createElement('span');
+    var res = await fetch('/api/v1/categories');
+    var json = await res.json();
+    var cats = json.data || [];
+    var container = document.getElementById('filterChips');
+    cats.forEach(function(cat) {
+      var btn = document.createElement('span');
       btn.className = 'filter-chip';
       btn.dataset.category = cat.id;
       btn.textContent = cat.name;
-      btn.onclick = () => filterByCategory(cat.id);
+      btn.onclick = function() { filterByCategory(cat.id); };
       container.appendChild(btn);
     });
   } catch {}
 })();
 
-document.getElementById('searchInput').addEventListener('keydown', e => {
+document.getElementById('searchInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') doSearch();
-});
-
-// 首页已通过服务端渲染卡片，JS 仅负责搜索/筛选时更新 DOM
-
-// 移动端汉堡菜单切换
-document.addEventListener('DOMContentLoaded', function() {
-  const menuToggle = document.querySelector('.site-nav__menu-toggle');
-  const navLinks = document.querySelector('.site-nav__links');
-  
-  if (menuToggle && navLinks) {
-    // 确保初始状态
-    menuToggle.setAttribute('aria-expanded', 'false');
-    navLinks.classList.remove('is-open');
-    
-    menuToggle.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      const isExpanded = this.getAttribute('aria-expanded') === 'true';
-      
-      if (isExpanded) {
-        // 关闭菜单
-        navLinks.classList.remove('is-open');
-        this.setAttribute('aria-expanded', 'false');
-        document.body.classList.remove('menu-open');
-      } else {
-        // 打开菜单 - 强制重排确保动画触发
-        navLinks.offsetHeight;
-        navLinks.classList.add('is-open');
-        this.setAttribute('aria-expanded', 'true');
-        document.body.classList.add('menu-open');
-      }
-    });
-    
-    // 点击菜单外部关闭菜单（仅移动端）
-    document.addEventListener('click', function(e) {
-      if (window.innerWidth > 767) return;
-      if (!menuToggle.contains(e.target) && !navLinks.contains(e.target)) {
-        menuToggle.setAttribute('aria-expanded', 'false');
-        navLinks.classList.remove('is-open');
-        document.body.classList.remove('menu-open');
-      }
-    });
-  }
-  
-  // 语言切换器
-  const langButtons = document.querySelectorAll('.lang-switch__btn');
-  
-  // 从 localStorage 读取保存的语言偏好
-  let currentLang = localStorage.getItem('preferred_language') || 'zh-CN';
-  
-  // 设置初始激活状态
-  langButtons.forEach(btn => {
-    const lang = btn.getAttribute('data-lang');
-    if (lang === currentLang) {
-      btn.classList.add('active');
-      btn.setAttribute('aria-current', 'true');
-    }
-  });
-  
-  // 语言切换事件
-  langButtons.forEach(btn => {
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      const targetLang = this.getAttribute('data-lang');
-      
-      // 保存到 localStorage
-      localStorage.setItem('preferred_language', targetLang);
-      currentLang = targetLang;
-      
-      // 更新按钮激活状态
-      langButtons.forEach(b => {
-        if (b.getAttribute('data-lang') === targetLang) {
-          b.classList.add('active');
-          b.setAttribute('aria-current', 'true');
-        } else {
-          b.classList.remove('active');
-          b.removeAttribute('aria-current');
-        }
-      });
-      
-      // 调用 i18n.js 切换文案
-      if (window.I18n) {
-        const i18nLang = targetLang === 'zh-CN' ? 'zh' : 'en';
-        window.I18n.init(i18nLang);
-      }
-      
-      // 如果在 profile 页面，调用 API 更新用户语言偏好
-      if (window.location.pathname.includes('/profile') && window.ColophonAPI) {
-        window.ColophonAPI.updateProfile({ language: targetLang })
-          .catch(err => console.error('Failed to update language preference:', err));
-      }
-    });
-  });
-});
-
-// 滚动时给导航栏加阴影
-const nav = document.getElementById('siteNav');
-window.addEventListener('scroll', () => {
-  nav.classList.toggle('is-scrolled', window.scrollY > 20);
-}, { passive: true });
-</script>
-<script src="{{ theme_assets_url('js/i18n.js') }}"></script>
-<script>
-// 初始化 i18n
-document.addEventListener('DOMContentLoaded', function() {
-  const savedLang = localStorage.getItem('preferred_language') || 'zh-CN';
-  // 将 zh-CN 转为 zh，en 保持不变
-  const i18nLang = savedLang === 'zh-CN' ? 'zh' : 'en';
-  if (window.I18n) {
-    window.I18n.init(i18nLang);
-  }
 });
 </script>
 {{ plugin_body|safe }}

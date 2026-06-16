@@ -1,0 +1,17 @@
+<aside class="tag-cloud">
+  <h3 class="widget-title">标签云</h3>
+  {% if all_tags and all_tags | length > 0 %}
+  <ul class="tag-list">
+    {% for tag in all_tags %}
+    <li class="tag-item">
+      <a href="/tags/{{ tag.slug }}" class="tag-link" title="{{ tag.name }}（{{ tag.post_count }} 篇文章）">
+        <span class="tag-name">{{ tag.name }}</span>
+        <span class="tag-count">{{ tag.post_count }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="widget-empty">暂无标签</p>
+  {% endif %}
+</aside>

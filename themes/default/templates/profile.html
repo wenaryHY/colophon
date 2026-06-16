@@ -82,61 +82,6 @@ body{
 }
 
 /* ============================================
-   Profile Toolbar — 语言切换 + 退出登录
-   ============================================ */
-.profile-toolbar{
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  gap:12px;
-  padding:12px 0 20px;
-}
-.lang-switch{
-  display:flex;
-  gap:4px;
-  background:var(--md-sys-color-surface-variant);
-  padding:4px;
-  border-radius:12px;
-}
-.lang-btn{
-  padding:8px 16px;
-  border:none;
-  border-radius:8px;
-  background:transparent;
-  cursor:pointer;
-  font-size:13px;
-  font-weight:600;
-  color:var(--md-sys-color-on-surface-variant);
-  transition:all 0.2s ease;
-  font-family:var(--font-display);
-}
-.lang-btn.active{
-  background:var(--md-sys-color-primary);
-  color:var(--md-sys-color-on-primary);
-  box-shadow:0 4px 12px rgba(255,107,53,0.28);
-}
-.lang-btn:hover:not(.active){
-  background:var(--md-sys-color-outline-variant);
-}
-
-.btn-logout{
-  padding:10px 20px;
-  border:none;
-  border-radius:var(--radius-full);
-  background:var(--md-sys-color-surface-variant);
-  color:var(--md-sys-color-on-surface-variant);
-  font-family:var(--font-display);
-  font-size:14px;
-  font-weight:600;
-  cursor:pointer;
-  transition:all 0.2s ease;
-}
-.btn-logout:hover{
-  background:var(--md-sys-color-error);
-  color:#fff;
-}
-
-/* ============================================
    Hero Card — 头像 + 用户信息 + 统计
    ============================================ */
 .hero-card{
@@ -468,13 +413,8 @@ body{
 </style>
 </head>
 <body>
+{% include "_header.html" %}
 <div class="profile-wrap">
-  {% include "_header.html" %}
-  <!-- Profile 专属工具栏 -->
-  <div class="profile-toolbar">
-    <button id="logoutBtn" class="btn-logout" type="button">退出登录</button>
-  </div>
-
   <!-- 英雄卡片 — 头像 + 用户信息 + 统计 -->
   <section class="hero-card">
     <div class="hero-main">
@@ -701,14 +641,6 @@ document.getElementById('passwordForm').addEventListener('submit', async (event)
     showAlert('passwordAlert', error.message || 'Unable to update password.', 'error');
   } finally {
     button.disabled = false;
-  }
-});
-
-document.getElementById('logoutBtn').addEventListener('click', async () => {
-  try {
-    await window.ColophonApi.logout();
-  } finally {
-    window.location.href = '/login';
   }
 });
 

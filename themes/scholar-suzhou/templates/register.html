@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>注册 - {{ site_title | default("Colophon") }}</title>
+<title>{% if current_lang == "zh" %}注册{% else %}Register{% endif %} - {{ site_title | default("Colophon") }}</title>
 <link rel="preload" href="{{ theme_assets_url('fonts/source-sans-3-400.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{{ theme_assets_url('fonts/eb-garamond-600.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ theme_assets_url('css/fonts.css') }}">
@@ -21,47 +21,47 @@
 <body class="account-page">
 
 <section class="form-card" aria-labelledby="registerTitle">
-  <a href="/" class="site-nav__logo" style="display:block; font-size: 24px; margin-bottom: var(--space-stack-md);">Colophon</a>
+  <a href="/" class="site-nav__logo" style="display:block; font-size: 24px; margin-bottom: var(--space-stack-md);">{{ site_title }}</a>
 
-  <h1 id="registerTitle" class="form-card__title">创建你的账号</h1>
-  <p class="form-card__subtitle">登录状态自动同步，为每一次落笔留下印记。</p>
+  <h1 id="registerTitle" class="form-card__title">{% if current_lang == "zh" %}创建你的账号{% else %}Create your account{% endif %}</h1>
+  <p class="form-card__subtitle">{% if current_lang == "zh" %}登录状态自动同步，为每一次落笔留下印记。{% else %}Unified auth — your login state syncs automatically.{% endif %}</p>
 
   <div id="errorAlert" class="alert" role="alert"></div>
 
   <form id="registerForm" class="form-stack">
     <div class="form-field">
-      <label for="username" class="form-field__label">用户名</label>
-      <input id="username" name="username" type="text" class="form-field__input" placeholder="设置用户名" autocomplete="username" required>
+      <label for="username" class="form-field__label">{% if current_lang == "zh" %}用户名{% else %}Username{% endif %}</label>
+      <input id="username" name="username" type="text" class="form-field__input" placeholder="{% if current_lang == 'zh' %}设置用户名{% else %}Choose a username{% endif %}" autocomplete="username" required>
     </div>
     <div class="form-field">
-      <label for="email" class="form-field__label">邮箱</label>
+      <label for="email" class="form-field__label">{% if current_lang == "zh" %}邮箱{% else %}Email{% endif %}</label>
       <input id="email" name="email" type="email" class="form-field__input" placeholder="name@example.com" autocomplete="email" required>
     </div>
     <div class="form-field">
-      <label for="displayName" class="form-field__label">显示名称</label>
-      <input id="displayName" name="display_name" type="text" class="form-field__input" placeholder="对外显示的名称（可选）">
+      <label for="displayName" class="form-field__label">{% if current_lang == "zh" %}显示名称{% else %}Display Name{% endif %}</label>
+      <input id="displayName" name="display_name" type="text" class="form-field__input" placeholder="{% if current_lang == 'zh' %}对外显示的名称（可选）{% else %}Public display name (optional){% endif %}">
     </div>
     <div class="form-field">
-      <label for="password" class="form-field__label">密码</label>
-      <input id="password" name="password" type="password" class="form-field__input" placeholder="至少 6 位" autocomplete="new-password" required>
+      <label for="password" class="form-field__label">{% if current_lang == "zh" %}密码{% else %}Password{% endif %}</label>
+      <input id="password" name="password" type="password" class="form-field__input" placeholder="{% if current_lang == 'zh' %}至少 6 位{% else %}At least 6 characters{% endif %}" autocomplete="new-password" required>
     </div>
-    <button id="submitBtn" type="submit" class="btn btn-primary" style="margin-top: 8px; padding: 14px 24px;">注册账号</button>
+    <button id="submitBtn" type="submit" class="btn btn-primary" style="margin-top: 8px; padding: 14px 24px;">{% if current_lang == "zh" %}注册账号{% else %}Register{% endif %}</button>
   </form>
 
   <div class="form-card__footer">
-    <a href="/login?redirect={{ redirect_to }}">已有账号？去登录</a>
-    <a class="muted" href="/">返回首页</a>
+    <a href="/login?redirect={{ redirect_to }}">{% if current_lang == "zh" %}已有账号？去登录{% else %}Already have an account? Log in{% endif %}</a>
+    <a class="muted" href="/">{% if current_lang == "zh" %}返回首页{% else %}Back to home{% endif %}</a>
   </div>
 </section>
 
 <script src="{{ theme_assets_url('js/site-api.js') }}"></script>
 <script>
-const redirectTo = {{ redirect_to | tojson_script | safe }};
-const alertEl = document.getElementById('errorAlert');
+var redirectTo = {{ redirect_to | tojson_script | safe }};
+var alertEl = document.getElementById('errorAlert');
 
-document.getElementById('registerForm').addEventListener('submit', async (event) => {
+document.getElementById('registerForm').addEventListener('submit', async function(event) {
   event.preventDefault();
-  const button = document.getElementById('submitBtn');
+  var button = document.getElementById('submitBtn');
   button.disabled = true;
   alertEl.style.display = 'none';
 
@@ -72,13 +72,13 @@ document.getElementById('registerForm').addEventListener('submit', async (event)
       display_name: document.getElementById('displayName').value.trim() || null,
       password: document.getElementById('password').value,
     });
-    const user = await window.ColophonApi.checkLoginStatus();
+    var user = await window.ColophonApi.checkLoginStatus();
     if (!user) {
-      throw new Error('注册成功但登录会话建立失败，请手动登录。');
+      throw new Error('{{ current_lang }}' === 'zh' ? '注册成功但登录会话建立失败，请手动登录。' : 'Registration succeeded but session could not be established. Please log in manually.');
     }
     window.location.href = redirectTo;
   } catch (error) {
-    alertEl.textContent = error.message || '注册失败，请稍后重试。';
+    alertEl.textContent = error.message || ('{{ current_lang }}' === 'zh' ? '注册失败，请稍后重试。' : 'Registration failed. Please try again.');
     alertEl.className = 'alert is-error';
     alertEl.style.display = 'block';
   } finally {
