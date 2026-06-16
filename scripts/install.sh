@@ -87,7 +87,7 @@ fi
 
 # ── 6. Create directory structure ──
 mkdir -p "$INSTALL_DIR" "$DATA_DIR/uploads" "$DATA_DIR/pages" \
-         "$CONF_DIR" "$BACKUP_DIR" \
+         "$CONF_DIR" "$BACKUP_DIR" "$DATA_DIR/static" \
          "$INSTALL_DIR/themes" "$INSTALL_DIR/src/admin" "$INSTALL_DIR/src/admin/dist" "$INSTALL_DIR/plugins"
 
 # ── 7. Install files ──
@@ -106,6 +106,17 @@ if [ -d "${TMPDIR}/admin-dist" ]; then
     if [ -f "${TMPDIR}/admin-dist/admin.html" ]; then
         cp "${TMPDIR}/admin-dist/admin.html" "${INSTALL_DIR}/src/admin/admin.html" 2>/dev/null || true
     fi
+fi
+
+# Static assets (logo-icon.svg, logo-full.svg)
+if [ -d "${TMPDIR}/static" ]; then
+    cp -r "${TMPDIR}/static/"* "${DATA_DIR}/static/" 2>/dev/null || true
+fi
+
+# Config template (only copy if user doesn't already have one)
+if [ -f "${TMPDIR}/config/default.toml.example" ] && [ ! -f "${CONF_DIR}/default.toml" ]; then
+    cp "${TMPDIR}/config/default.toml.example" "${CONF_DIR}/default.toml"
+    info "Config template installed -> ${CONF_DIR}/default.toml"
 fi
 
 # Migrations (needed if using sqlx::migrate! at runtime with file-based path)
