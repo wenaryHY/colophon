@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){var t=localStorage.getItem('colophon-theme');
+if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
+document.documentElement.setAttribute('data-theme','dark');})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="content-language" content="{{ current_lang }}">
+<link rel="icon" type="image/svg+xml" href="/static/logo-icon.svg">
+<link rel="apple-touch-icon" href="/static/logo-icon.svg">
+<title>{{ seo_meta.title }}</title>
+<meta name="description" content="{{ seo_meta.description }}">
+{% if seo_meta.keywords %}<meta name="keywords" content="{{ seo_meta.keywords }}">{% endif %}
+<link rel="canonical" href="{{ seo_meta.canonical_url }}">
+<meta property="og:title" content="{{ seo_meta.og_title }}">
+<meta property="og:description" content="{{ seo_meta.og_description }}">
+<meta property="og:url" content="{{ seo_meta.og_url }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site_title }}">
+{% if seo_meta.og_image %}<meta property="og:image" content="{{ seo_meta.og_image }}">{% endif %}
+<meta name="twitter:card" content="{{ seo_meta.twitter_card }}">
+<meta name="twitter:title" content="{{ seo_meta.twitter_title }}">
+<meta name="twitter:description" content="{{ seo_meta.twitter_description }}">
+{% if seo_meta.twitter_image %}<meta name="twitter:image" content="{{ seo_meta.twitter_image }}">{% endif %}
+<script type="application/ld+json">{{ json_ld | safe }}</script>
+<link rel="stylesheet" href="{{ theme_assets_url('css/theme.css') }}">
+<link rel="stylesheet" href="{{ theme_assets_url('css/archive.css') }}">
+<style>
+/* ===== 分类列表页特有样式 ===== */
+.category-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 640px) {
+  .category-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.category-card {
+  display: block;
+  padding: 1.5rem;
+  background: var(--card);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+.category-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.category-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.625rem;
+}
+
+.category-card__name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+  font-family: 'Noto Sans SC', serif;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+.category-card:hover .category-card__name {
+  color: var(--accent);
+}
+
+.category-card__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.category-card__description {
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>
+{{ plugin_head|safe }}
+</head>
+<body>
+{% include "_header.html" %}
+<div class="wrap">
+
+  <main class="archive-page">
+    <header class="archive-header">
+      <div class="archive-breadcrumb">
+        <a href="/" class="breadcrumb-link">首页</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">分类</span>
+      </div>
+      <h1 class="archive-title">
+        <span class="archive-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        分类
+      </h1>
+      <p class="archive-meta">共 {{ categories | length }} 个分类</p>
+    </header>
+
+    {% if categories and categories | length > 0 %}
+    <div class="category-grid">
+      {% for cat in categories %}
+      <a href="/categories/{{ cat.slug }}" class="category-card">
+        <div class="category-card__head">
+          <h2 class="category-card__name">{{ cat.name }}</h2>
+          <span class="category-card__count">{{ cat.post_count }}</span>
+        </div>
+        {% if cat.description %}
+        <p class="category-card__description">{{ cat.description }}</p>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <h3 class="empty-title">暂无分类</h3>
+      <p class="empty-desc">回到<a href="/" class="empty-link">首页</a>浏览更多内容</p>
+    </div>
+    {% endif %}
+  </main>
+
+  {% include "_footer.html" %}
+</div>
+
+<script src="{{ theme_assets_url('js/theme.js') }}"></script>
+{{ plugin_body|safe }}
+</body>
+</html>

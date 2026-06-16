@@ -1,6 +1,17 @@
+use serde::Serialize;
 use uuid::Uuid;
 
 use super::domain::Category;
+
+/// 分类及其文章数量（用于分类列表页）
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct CategoryWithCount {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+    pub description: Option<String>,
+    pub post_count: i64,
+}
 
 pub async fn list_categories<'e, E>(executor: E) -> Result<Vec<Category>, sqlx::Error>
 where
@@ -156,6 +167,41 @@ where
     .execute(executor)
     .await?;
     Ok(())
+}
+
+/// 获取所有分类及其已发布文章数量
+/// 按文章数降序、名称升序排列
+pub async fn get_all_categories_with_count<'e, E>(
+    executor: E,
+) -> Result<Vec<CategoryWithCount>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    sqlx::query_as!(
+        CategoryWithCount,
+        r#"
+        SELECT
+            c.id,
+            c.name,
+            c.slug,
+            c.description,
+            COUNT(DISTINCT CASE
+                WHEN p.status = 'published'
+                     AND p.visibility = 'public'
+                     AND p.deleted_at IS NULL
+                THEN p.id
+                ELSE NULL
+            END) as post_count
+        FROM categories c
+        LEFT JOIN posts p ON p.category_id = c.id
+        WHERE c.deleted_at IS NULL
+        GROUP BY c.id, c.name, c.slug, c.description
+        HAVING post_count > 0
+        ORDER BY post_count DESC, c.name ASC
+        "#
+    )
+    .fetch_all(executor)
+    .await
 }
 
 /// 根据 slug 获取分类

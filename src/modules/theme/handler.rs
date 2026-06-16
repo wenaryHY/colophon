@@ -285,6 +285,183 @@ pub async fn render_home(
     Ok(response)
 }
 
+/// 标签列表页：/tags
+pub async fn render_tags_list(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    auth: Option<crate::shared::auth::AuthUser>,
+) -> AppResult<Response> {
+    let client_request_id =
+        crate::shared::request_id::extract_or_generate_client_request_id(&headers);
+    tracing::info!(
+        module = "theme",
+        event = "render_tags_list",
+        client_request_id = %client_request_id,
+        authenticated = auth.is_some(),
+        "rendering tags list page"
+    );
+
+    let tags = crate::modules::tag::repository::get_all_tags_with_count(&state.pool)
+        .await
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
+
+    let ctx = TemplateContext::load(&state).await?;
+
+    let fallback_site_url = crate::modules::seo::infer_site_url_from_host_header(&headers);
+    let effective_site_url = if ctx.site_url.trim().is_empty() {
+        &fallback_site_url
+    } else {
+        &ctx.site_url
+    };
+
+    let page_title = format!("标签 - {}", ctx.site_title);
+    let seo_description = format!("浏览所有标签，共 {} 个", tags.len());
+    let seo_meta = crate::modules::seo::meta::build_home_meta(
+        &page_title,
+        &seo_description,
+        effective_site_url,
+        "",
+        "",
+    );
+    let json_ld = crate::modules::seo::meta::build_home_json_ld(
+        &page_title,
+        &seo_description,
+        effective_site_url,
+    );
+
+    let plugin_guard = state.plugin_manager.read().await;
+    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
+    let env = engine::build_template_engine(
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(&current_lang),
+    )
+    .await?;
+
+    let template_name = if env.get_template("tags.html").is_ok() {
+        "tags.html"
+    } else {
+        tracing::warn!(
+            module = "theme",
+            event = "tags_list_template_not_found",
+            "tags.html not found, falling back to index.html"
+        );
+        "index.html"
+    };
+
+    let tmpl = env
+        .get_template(template_name)
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
+
+    let rendered = tmpl
+        .render(minijinja::context! {
+            tags => tags,
+            seo_meta => seo_meta,
+            json_ld => json_ld,
+            current_user => auth,
+        })
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
+
+    let mut response = Html(rendered).into_response();
+    crate::shared::security::mark_response_security_profile(
+        &mut response,
+        crate::shared::security::SECURITY_PROFILE_THEME_HTML,
+    );
+    Ok(response)
+}
+
+/// 分类列表页：/categories
+pub async fn render_categories_list(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    auth: Option<crate::shared::auth::AuthUser>,
+) -> AppResult<Response> {
+    let client_request_id =
+        crate::shared::request_id::extract_or_generate_client_request_id(&headers);
+    tracing::info!(
+        module = "theme",
+        event = "render_categories_list",
+        client_request_id = %client_request_id,
+        authenticated = auth.is_some(),
+        "rendering categories list page"
+    );
+
+    let categories =
+        crate::modules::category::repository::get_all_categories_with_count(&state.pool)
+            .await
+            .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
+
+    let ctx = TemplateContext::load(&state).await?;
+
+    let fallback_site_url = crate::modules::seo::infer_site_url_from_host_header(&headers);
+    let effective_site_url = if ctx.site_url.trim().is_empty() {
+        &fallback_site_url
+    } else {
+        &ctx.site_url
+    };
+
+    let page_title = format!("分类 - {}", ctx.site_title);
+    let seo_description = format!("浏览所有分类，共 {} 个", categories.len());
+    let seo_meta = crate::modules::seo::meta::build_home_meta(
+        &page_title,
+        &seo_description,
+        effective_site_url,
+        "",
+        "",
+    );
+    let json_ld = crate::modules::seo::meta::build_home_json_ld(
+        &page_title,
+        &seo_description,
+        effective_site_url,
+    );
+
+    let plugin_guard = state.plugin_manager.read().await;
+    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
+    let env = engine::build_template_engine(
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(&current_lang),
+    )
+    .await?;
+
+    let template_name = if env.get_template("categories.html").is_ok() {
+        "categories.html"
+    } else {
+        tracing::warn!(
+            module = "theme",
+            event = "categories_list_template_not_found",
+            "categories.html not found, falling back to index.html"
+        );
+        "index.html"
+    };
+
+    let tmpl = env
+        .get_template(template_name)
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
+
+    let rendered = tmpl
+        .render(minijinja::context! {
+            categories => categories,
+            seo_meta => seo_meta,
+            json_ld => json_ld,
+            current_user => auth,
+        })
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
+
+    let mut response = Html(rendered).into_response();
+    crate::shared::security::mark_response_security_profile(
+        &mut response,
+        crate::shared::security::SECURITY_PROFILE_THEME_HTML,
+    );
+    Ok(response)
+}
+
 /// 搜索页：/search?keyword=xxx&page=1&page_size=20
 ///
 /// 复用 `search_posts()` / `count_search_posts()` 仓库函数实现 FTS5 全文搜索，
