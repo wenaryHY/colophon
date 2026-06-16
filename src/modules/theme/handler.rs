@@ -359,6 +359,7 @@ pub async fn render_tags_list(
     let rendered = tmpl
         .render(minijinja::context! {
             tags => tags,
+            posts => Vec::<minijinja::Value>::new(),
             seo_meta => seo_meta,
             json_ld => json_ld,
             current_user => auth,
@@ -448,6 +449,7 @@ pub async fn render_categories_list(
     let rendered = tmpl
         .render(minijinja::context! {
             categories => categories,
+            posts => Vec::<minijinja::Value>::new(),
             seo_meta => seo_meta,
             json_ld => json_ld,
             current_user => auth,

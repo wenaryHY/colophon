@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){var t=localStorage.getItem('colophon-theme');
+if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
+document.documentElement.setAttribute('data-theme','dark');})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="content-language" content="{{ current_lang }}">
+<link rel="icon" type="image/svg+xml" href="/static/logo-icon.svg">
+<link rel="apple-touch-icon" href="/static/logo-icon.svg">
+<title>{{ seo_meta.title }}</title>
+<meta name="description" content="{{ seo_meta.description }}">
+{% if seo_meta.keywords %}<meta name="keywords" content="{{ seo_meta.keywords }}">{% endif %}
+<link rel="canonical" href="{{ seo_meta.canonical_url }}">
+<meta property="og:title" content="{{ seo_meta.og_title }}">
+<meta property="og:description" content="{{ seo_meta.og_description }}">
+<meta property="og:url" content="{{ seo_meta.og_url }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site_title }}">
+{% if seo_meta.og_image %}<meta property="og:image" content="{{ seo_meta.og_image }}">{% endif %}
+<meta name="twitter:card" content="{{ seo_meta.twitter_card }}">
+<meta name="twitter:title" content="{{ seo_meta.twitter_title }}">
+<meta name="twitter:description" content="{{ seo_meta.twitter_description }}">
+{% if seo_meta.twitter_image %}<meta name="twitter:image" content="{{ seo_meta.twitter_image }}">{% endif %}
+<script type="application/ld+json">{{ json_ld | safe }}</script>
+<link rel="stylesheet" href="{{ theme_assets_url('css/theme.css') }}">
+<link rel="stylesheet" href="{{ theme_assets_url('css/archive.css') }}">
+{{ plugin_head|safe }}
+</head>
+<body>
+{% include "_header.html" %}
+<div class="wrap">
+
+  <main class="archive-page">
+    <header class="archive-header">
+      <div class="archive-breadcrumb">
+        <a href="/" class="breadcrumb-link">首页</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">标签</span>
+      </div>
+      <h1 class="archive-title">
+        <span class="archive-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        </span>
+        标签
+      </h1>
+      <p class="archive-meta">共 {{ tags | length }} 个标签</p>
+    </header>
+
+    {% if tags and tags | length > 0 %}
+    <ul class="tag-list">
+      {% for tag in tags %}
+      <li class="tag-item">
+        <a href="/tags/{{ tag.slug }}" class="tag-link" title="{{ tag.name }}（{{ tag.post_count }} 篇文章）">
+          <span class="tag-name">{{ tag.name }}</span>
+          <span class="tag-count">{{ tag.post_count }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      </div>
+      <h3 class="empty-title">暂无标签</h3>
+      <p class="empty-desc">回到<a href="/" class="empty-link">首页</a>浏览更多内容</p>
+    </div>
+    {% endif %}
+  </main>
+
+  {% include "_footer.html" %}
+</div>
+
+<script src="{{ theme_assets_url('js/theme.js') }}"></script>
+{{ plugin_body|safe }}
+</body>
+</html>
