@@ -435,6 +435,10 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             post(modules::theme::handler::activate_theme),
         )
         .route(
+            "/api/v1/admin/themes/{slug}",
+            delete(modules::theme::handler::delete_theme),
+        )
+        .route(
             "/api/v1/preview/content",
             post(modules::theme::handler::preview_content),
         )

@@ -1797,6 +1797,60 @@ pub async fn fallback_404(
     render_404_page(&state, &headers).await
 }
 
+/// 验证主题 slug 是否安全（不含路径穿越字符）
+fn validate_theme_slug_is_safe(slug: &str) -> AppResult<()> {
+    if slug.contains("..") || slug.contains('/') || slug.contains('\\') {
+        return Err(AppError::BadRequest("非法的主题标识".into()));
+    }
+    Ok(())
+}
+
+/// DELETE /api/v1/admin/themes/{slug}
+pub async fn delete_theme(
+    State(state): State<Arc<AppState>>,
+    _admin: AdminUser,
+    Path(slug): Path<String>,
+) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
+    validate_theme_slug_is_safe(&slug)?;
+
+    if slug == "default" {
+        return Err(AppError::BadRequest("不能删除 default 主题".into()));
+    }
+
+    let active_slug = crate::modules::theme::repository::get_active_theme(&state.pool).await?;
+    if slug == active_slug {
+        return Err(AppError::BadRequest("不能删除当前激活的主题，请先切换到其他主题".into()));
+    }
+
+    let theme_path = state.theme_dir.join(&slug);
+    if !theme_path.exists() {
+        return Err(AppError::NotFound(format!("主题 '{}' 不存在", slug)));
+    }
+
+    std::fs::remove_dir_all(&theme_path).map_err(|e| {
+        tracing::error!(
+            module = "theme",
+            event = "delete_theme_io_error",
+            slug = %slug,
+            error = %e,
+            "failed to remove theme directory"
+        );
+        AppError::Io(e)
+    })?;
+
+    crate::modules::theme::repository::delete_config(&state.pool, &slug).await?;
+    state.invalidate_all_caches().await;
+
+    tracing::info!(
+        module = "theme",
+        event = "theme_deleted",
+        slug = %slug,
+        "theme and config deleted successfully"
+    );
+
+    Ok(Json(ApiResponse::success(serde_json::json!({ "deleted": slug }))))
+}
+
 /// 搜索页查询参数
 #[derive(Debug, Deserialize)]
 pub struct SearchPageQuery {
@@ -1804,4 +1858,29 @@ pub struct SearchPageQuery {
     pub keyword: String,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
+}
+
+#[cfg(test)]
+mod slug_tests {
+    use super::validate_theme_slug_is_safe;
+
+    #[test]
+    fn valid_slug_passes() {
+        assert!(validate_theme_slug_is_safe("my-theme").is_ok());
+    }
+
+    #[test]
+    fn dot_dot_rejected() {
+        assert!(validate_theme_slug_is_safe("../escape").is_err());
+    }
+
+    #[test]
+    fn slash_rejected() {
+        assert!(validate_theme_slug_is_safe("bad/slug").is_err());
+    }
+
+    #[test]
+    fn backslash_rejected() {
+        assert!(validate_theme_slug_is_safe("bad\\slug").is_err());
+    }
 }

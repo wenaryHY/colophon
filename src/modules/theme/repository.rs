@@ -102,3 +102,18 @@ where
 
     Ok(result > 0)
 }
+
+/// 删除主题配置记录（如果存在）
+pub async fn delete_config<'e, E>(
+    executor: E,
+    slug: &str,
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    sqlx::query("DELETE FROM theme_configs WHERE theme_slug = ?")
+        .bind(slug)
+        .execute(executor)
+        .await?;
+    Ok(())
+}
