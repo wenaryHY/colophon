@@ -8,4 +8,7 @@ pub mod provider;
 pub mod repository;
 pub mod service;
 
+#[cfg(test)]
+mod tests;
+
 pub use domain::{ThemeConfig, ThemeConfigSchema, ThemeManifest};
