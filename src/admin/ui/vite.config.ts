@@ -20,9 +20,25 @@ function printDevUrlPlugin() {
   }
 }
 
+// 生成构建版本号，用于静态资源缓存破坏
+const BUILD_VERSION = Date.now().toString(36);
+
+/** 将 HTML 中的 __BUILD_VERSION__ 占位符替换为实际构建版本号 */
+function injectBuildVersionPlugin() {
+  return {
+    name: 'inject-build-version',
+    transformIndexHtml(html: string) {
+      return html.replace(/__BUILD_VERSION__/g, BUILD_VERSION);
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), printDevUrlPlugin()],
+  plugins: [react(), tailwindcss(), printDevUrlPlugin(), injectBuildVersionPlugin()],
   base: '/admin',
+  define: {
+    __BUILD_VERSION__: JSON.stringify(BUILD_VERSION),
+  },
   build: {
     outDir: '../dist',
     emptyOutDir: true,
