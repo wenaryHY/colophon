@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 40" width="100%" height="100%" shape-rendering="crispEdges">
+  <!--
+    Colophon CMS — pixel full logo (default theme)
+    Icon (32x32 at x=2,y=4) + COLOPHON pixel font (5x5 letters, 1px gap)
+    Warm palette: parchment, wood, red wax accent
+  -->
+
+  <defs>
+    <g id="scroll-icon">
+      <!-- LEFT ROLLER (x=3-5, y=8-24) -->
+      <rect x="3" y="7"  width="3"  height="1"  fill="#2a1a0a"/>
+      <rect x="3" y="8"  width="1"  height="1"  fill="#2a1a0a"/>
+      <rect x="5" y="8"  width="1"  height="1"  fill="#2a1a0a"/>
+      <rect x="4" y="8"  width="1"  height="2"  fill="#a08020"/>
+      <rect x="4" y="10" width="1"  height="3"  fill="#8b6914"/>
+      <rect x="4" y="13" width="1"  height="6"  fill="#6b4f10"/>
+      <rect x="4" y="19" width="1"  height="5"  fill="#4a3608"/>
+      <rect x="4" y="24" width="1"  height="1"  fill="#2a1a0a"/>
+      <rect x="3" y="9"  width="1"  height="16" fill="#2a1a0a"/>
+      <rect x="5" y="9"  width="1"  height="16" fill="#2a1a0a"/>
+      <rect x="3" y="25" width="3"  height="1"  fill="#2a1a0a"/>
+
+      <!-- RIGHT ROLLER (x=26-28, y=9-24) -->
+      <rect x="26" y="8"  width="3"  height="1"  fill="#2a1a0a"/>
+      <rect x="26" y="9"  width="1"  height="1"  fill="#2a1a0a"/>
+      <rect x="28" y="9"  width="1"  height="1"  fill="#2a1a0a"/>
+      <rect x="27" y="9"  width="1"  height="2"  fill="#a08020"/>
+      <rect x="27" y="11" width="1"  height="3"  fill="#8b6914"/>
+      <rect x="27" y="14" width="1"  height="6"  fill="#6b4f10"/>
+      <rect x="27" y="20" width="1"  height="4"  fill="#4a3608"/>
+      <rect x="27" y="24" width="1"  height="1"  fill="#2a1a0a"/>
+      <rect x="26" y="10" width="1"  height="15" fill="#2a1a0a"/>
+      <rect x="28" y="10" width="1"  height="15" fill="#2a1a0a"/>
+      <rect x="26" y="25" width="3"  height="1"  fill="#2a1a0a"/>
+
+      <!-- PARCHMENT (x=6-25, y=10-20) -->
+      <rect x="6"  y="9"  width="20" height="1"  fill="#2a1a0a"/>
+      <rect x="6"  y="21" width="20" height="1"  fill="#2a1a0a"/>
+      <rect x="6"  y="10" width="20" height="2"  fill="#f0e0c0"/>
+      <rect x="6"  y="12" width="20" height="6"  fill="#d4bf90"/>
+      <rect x="6"  y="18" width="20" height="3"  fill="#b89a6a"/>
+
+      <!-- PARCHMENT TEXT -->
+      <rect x="8"  y="12" width="6" height="1" fill="#5a4a2a"/>
+      <rect x="15" y="12" width="6" height="1" fill="#5a4a2a"/>
+      <rect x="22" y="12" width="3" height="1" fill="#5a4a2a"/>
+      <rect x="8"  y="14" width="5" height="1" fill="#5a4a2a"/>
+      <rect x="14" y="14" width="4" height="1" fill="#5a4a2a"/>
+      <rect x="19" y="14" width="6" height="1" fill="#5a4a2a"/>
+      <rect x="8"  y="16" width="9" height="1" fill="#5a4a2a"/>
+      <rect x="18" y="16" width="4" height="1" fill="#5a4a2a"/>
+      <rect x="23" y="16" width="2" height="1" fill="#5a4a2a"/>
+      <rect x="8"  y="18" width="7" height="1" fill="#5a4a2a"/>
+      <rect x="16" y="18" width="4" height="1" fill="#5a4a2a"/>
+
+      <!-- RED WAX SEAL outline -->
+      <rect x="22" y="16" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="21" y="17" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="23" y="17" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="24" y="17" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="20" y="18" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="25" y="18" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="19" y="19" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="25" y="19" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="20" y="20" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="24" y="20" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="21" y="21" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="23" y="21" width="1" height="1" fill="#2a1a0a"/>
+      <rect x="22" y="22" width="1" height="1" fill="#2a1a0a"/>
+
+      <!-- RED WAX SEAL body -->
+      <rect x="22" y="17" width="1" height="1" fill="#b02020"/>
+      <rect x="21" y="18" width="1" height="1" fill="#d43030"/>
+      <rect x="22" y="18" width="1" height="1" fill="#f05050"/>
+      <rect x="23" y="18" width="1" height="1" fill="#d43030"/>
+      <rect x="24" y="18" width="1" height="1" fill="#b02020"/>
+      <rect x="20" y="19" width="1" height="1" fill="#d43030"/>
+      <rect x="21" y="19" width="1" height="1" fill="#d43030"/>
+      <rect x="22" y="19" width="1" height="1" fill="#b02020"/>
+      <rect x="23" y="19" width="1" height="1" fill="#8b1a1a"/>
+      <rect x="24" y="19" width="1" height="1" fill="#8b1a1a"/>
+      <rect x="21" y="20" width="1" height="1" fill="#b02020"/>
+      <rect x="22" y="20" width="1" height="1" fill="#8b1a1a"/>
+      <rect x="23" y="20" width="1" height="1" fill="#8b1a1a"/>
+      <rect x="22" y="21" width="1" height="1" fill="#8b1a1a"/>
+
+      <!-- RIBBON -->
+      <rect x="21" y="22" width="1" height="1" fill="#c9a050"/>
+      <rect x="21" y="23" width="1" height="1" fill="#c9a050"/>
+      <rect x="20" y="24" width="1" height="1" fill="#c9a050"/>
+      <rect x="20" y="25" width="1" height="1" fill="#c9a050"/>
+      <rect x="19" y="26" width="1" height="1" fill="#c9a050"/>
+      <rect x="19" y="27" width="1" height="1" fill="#c9a050"/>
+    </g>
+  </defs>
+
+  <!-- Icon: 32px icon centered vertically in 40px viewBox (y=(40-32)/2=4) -->
+  <use href="#scroll-icon" x="2" y="4"/>
+
+  <!-- ===== PIXEL FONT: COLOPHON (5x5 letters, 1px gap, x=38, y=17) ===== -->
+  <g transform="translate(38, 17)" fill="#4a2a0a" shape-rendering="crispEdges">
+
+    <!-- C (01110 10000 10000 10000 01110) offset 0, x=0..4 -->
+    <rect x="1" y="0" width="3" height="1"/>
+    <rect x="0" y="1" width="1" height="1"/>
+    <rect x="0" y="2" width="1" height="1"/>
+    <rect x="0" y="3" width="1" height="1"/>
+    <rect x="1" y="4" width="3" height="1"/>
+
+    <!-- O (01110 10001 10001 10001 01110) offset 6, x=6..10 -->
+    <rect x="7"  y="0" width="3" height="1"/>
+    <rect x="6"  y="1" width="1" height="1"/>
+    <rect x="10" y="1" width="1" height="1"/>
+    <rect x="6"  y="2" width="1" height="1"/>
+    <rect x="10" y="2" width="1" height="1"/>
+    <rect x="6"  y="3" width="1" height="1"/>
+    <rect x="10" y="3" width="1" height="1"/>
+    <rect x="7"  y="4" width="3" height="1"/>
+
+    <!-- L (10000 10000 10000 10000 11111) offset 12, x=12..16 -->
+    <rect x="12" y="0" width="1" height="1"/>
+    <rect x="12" y="1" width="1" height="1"/>
+    <rect x="12" y="2" width="1" height="1"/>
+    <rect x="12" y="3" width="1" height="1"/>
+    <rect x="12" y="4" width="5" height="1"/>
+
+    <!-- O offset 18, x=18..22 -->
+    <rect x="19" y="0" width="3" height="1"/>
+    <rect x="18" y="1" width="1" height="1"/>
+    <rect x="22" y="1" width="1" height="1"/>
+    <rect x="18" y="2" width="1" height="1"/>
+    <rect x="22" y="2" width="1" height="1"/>
+    <rect x="18" y="3" width="1" height="1"/>
+    <rect x="22" y="3" width="1" height="1"/>
+    <rect x="19" y="4" width="3" height="1"/>
+
+    <!-- P (11110 10001 11110 10000 10000) offset 24, x=24..28 -->
+    <rect x="24" y="0" width="4" height="1"/>
+    <rect x="24" y="1" width="1" height="1"/>
+    <rect x="28" y="1" width="1" height="1"/>
+    <rect x="24" y="2" width="4" height="1"/>
+    <rect x="24" y="3" width="1" height="1"/>
+    <rect x="24" y="4" width="1" height="1"/>
+
+    <!-- H (10001 10001 11111 10001 10001) offset 30, x=30..34 -->
+    <rect x="30" y="0" width="1" height="1"/>
+    <rect x="34" y="0" width="1" height="1"/>
+    <rect x="30" y="1" width="1" height="1"/>
+    <rect x="34" y="1" width="1" height="1"/>
+    <rect x="30" y="2" width="5" height="1"/>
+    <rect x="30" y="3" width="1" height="1"/>
+    <rect x="34" y="3" width="1" height="1"/>
+    <rect x="30" y="4" width="1" height="1"/>
+    <rect x="34" y="4" width="1" height="1"/>
+
+    <!-- O offset 36, x=36..40 -->
+    <rect x="37" y="0" width="3" height="1"/>
+    <rect x="36" y="1" width="1" height="1"/>
+    <rect x="40" y="1" width="1" height="1"/>
+    <rect x="36" y="2" width="1" height="1"/>
+    <rect x="40" y="2" width="1" height="1"/>
+    <rect x="36" y="3" width="1" height="1"/>
+    <rect x="40" y="3" width="1" height="1"/>
+    <rect x="37" y="4" width="3" height="1"/>
+
+    <!-- N (10001 11001 10101 10011 10001) offset 42, x=42..46 -->
+    <rect x="42" y="0" width="1" height="1"/>
+    <rect x="46" y="0" width="1" height="1"/>
+    <rect x="42" y="1" width="2" height="1"/>
+    <rect x="46" y="1" width="1" height="1"/>
+    <rect x="42" y="2" width="1" height="1"/>
+    <rect x="44" y="2" width="1" height="1"/>
+    <rect x="46" y="2" width="1" height="1"/>
+    <rect x="42" y="3" width="1" height="1"/>
+    <rect x="45" y="3" width="2" height="1"/>
+    <rect x="42" y="4" width="1" height="1"/>
+    <rect x="46" y="4" width="1" height="1"/>
+
+  </g>
+</svg>
