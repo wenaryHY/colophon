@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
-import { apiData, API_PREFIX, getQueryClient, uploadTheme } from '../lib/api';
+import { apiData, API_PREFIX, deleteTheme, getQueryClient, uploadTheme } from '../lib/api';
 import type { ThemeConfigField, ThemeSummary } from '../types';
 import { useToast } from '../contexts/ToastContext';
 import { useI18n } from '../i18n';
@@ -51,6 +51,22 @@ export default function Themes() {
   const handleActivate = (slug: string) => {
     setActivatingSlug(slug);
     activateMutation.mutate(slug);
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: (slug: string) => deleteTheme(slug),
+    onSuccess: (_data, _slug) => {
+      toast(t('deleteThemeSuccess'), 'success');
+      getQueryClient().invalidateQueries({ queryKey: ['themes'] });
+    },
+    onError: (error: Error) => {
+      toast(error.message || t('deleteThemeFailed'), 'error');
+    },
+  });
+
+  const handleDelete = (slug: string, name: string) => {
+    if (!window.confirm(t('deleteThemeMessage').replace('{name}', name))) return;
+    deleteMutation.mutate(slug);
   };
 
   const FILE_SIZE_MAX_BYTES = 100 * 1024 * 1024;
@@ -228,6 +244,14 @@ export default function Themes() {
                         >
                           {theme.active ? t('themeEnabled') : t('enableTheme')}
                         </Button>
+                        {!theme.active && theme.manifest.slug !== 'default' && (
+                          <Button
+                            variant="danger"
+                            onClick={() => handleDelete(theme.manifest.slug, theme.manifest.name)}
+                          >
+                            {t('deleteThemeButton')}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </article>

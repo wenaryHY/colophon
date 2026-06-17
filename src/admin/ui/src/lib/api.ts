@@ -212,6 +212,10 @@ export async function activateTheme(slug: string) {
   });
 }
 
+export async function deleteTheme(slug: string) {
+  return apiData(`${API_PREFIX}/admin/themes/${slug}`, { method: 'DELETE' });
+}
+
 export async function uploadTheme(file: File) {
   const formData = new FormData();
   formData.append('file', file);

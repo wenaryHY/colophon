@@ -139,6 +139,11 @@ export const contentDict = {
     themeNotFound: '主题不存在',
     pleaseSelectOption: '-- 请选择 --',
     defaultValuePrefix: '默认: {value}',
+    deleteThemeButton: '删除',
+    deleteThemeTitle: '删除主题',
+    deleteThemeMessage: '确定要删除主题「{name}」吗？此操作不可撤销。',
+    deleteThemeSuccess: '主题已删除',
+    deleteThemeFailed: '删除主题失败',
 
     recycleBinTitle: '回收站',
     recycleBinCount: '共 {count} 项已删除内容',
@@ -491,6 +496,11 @@ export const contentDict = {
     themeNotFound: 'Theme not found',
     pleaseSelectOption: '-- Please select --',
     defaultValuePrefix: 'Default: {value}',
+    deleteThemeButton: 'Delete',
+    deleteThemeTitle: 'Delete Theme',
+    deleteThemeMessage: 'Delete theme "{name}"? This cannot be undone.',
+    deleteThemeSuccess: 'Theme deleted',
+    deleteThemeFailed: 'Failed to delete theme',
 
     recycleBinTitle: 'Recycle Bin',
     recycleBinCount: '{count} deleted items',
