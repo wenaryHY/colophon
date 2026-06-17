@@ -61,3 +61,14 @@ pub struct SearchPageQuery {
 }
 
 fn default_search_page() -> u32 { 1 }
+
+/// 归档页查询参数（标签/分类/作者）
+#[derive(Debug, Deserialize)]
+pub struct ArchivePageQuery {
+    #[serde(default = "default_archive_page")]
+    pub page: u32,
+}
+
+fn default_archive_page() -> u32 {
+    1
+}

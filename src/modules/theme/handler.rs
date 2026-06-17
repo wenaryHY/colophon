@@ -21,6 +21,7 @@ use crate::{
 
 use super::{
     context::TemplateContext, domain::ThemeSummary, engine, service::ThemeService, ThemeConfig,
+    dto::ArchivePageQuery,
 };
 use crate::modules::plugin::hook::{HookContext, HookData, PostBeforeRenderData};
 
@@ -628,6 +629,7 @@ pub async fn render_author_archive(
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
     Path(username): Path<String>,
+    Query(query): Query<ArchivePageQuery>,
 ) -> AppResult<Response> {
     let client_request_id =
         crate::shared::request_id::extract_or_generate_client_request_id(&headers);
@@ -670,7 +672,7 @@ pub async fn render_author_archive(
     };
 
     // 2. 分页参数（默认第 1 页，每页 20 条）
-    let page = 1u32;
+    let page = query.page;
     let page_size = 20u32;
 
     // 3. 查询该作者的文章列表
@@ -1333,6 +1335,7 @@ pub async fn render_tag_archive(
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
     Path(slug): Path<String>,
+    Query(query): Query<ArchivePageQuery>,
 ) -> AppResult<Response> {
     let client_request_id =
         crate::shared::request_id::extract_or_generate_client_request_id(&headers);
@@ -1370,7 +1373,7 @@ pub async fn render_tag_archive(
     };
 
     // 2. 分页参数（默认第 1 页，每页 20 条）
-    let page = 1u32;
+    let page = query.page;
     let page_size = 20u32;
 
     // 3. 查询该标签下的文章列表
@@ -1487,6 +1490,7 @@ pub async fn render_category_archive(
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
     Path(slug): Path<String>,
+    Query(query): Query<ArchivePageQuery>,
 ) -> AppResult<Response> {
     let client_request_id =
         crate::shared::request_id::extract_or_generate_client_request_id(&headers);
@@ -1524,7 +1528,7 @@ pub async fn render_category_archive(
     };
 
     // 2. 分页参数（默认第 1 页，每页 20 条）
-    let page = 1u32;
+    let page = query.page;
     let page_size = 20u32;
 
     // 3. 查询该分类下的文章列表
