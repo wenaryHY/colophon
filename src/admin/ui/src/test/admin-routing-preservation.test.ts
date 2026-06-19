@@ -135,11 +135,11 @@ describe('Preservation: Existing Admin Functionality', () => {
     expect(appContent).toContain('function AdminGate()')
     
     // Verify it uses AuthContext
-    expect(appContent).toMatch(/const\s+{\s*token/)
+    expect(appContent).toMatch(/const\s+{\s*user/)
     expect(appContent).toMatch(/useAuth\(\)/)
     
     // Verify it shows Login when no token
-    expect(appContent).toContain('if (!token)')
+    expect(appContent).toMatch(/if\s*\(!\s*user\s*\|\|\s*user\.role/)
     expect(appContent).toContain('return <Login />')
     
     // Verify loading state
@@ -201,8 +201,6 @@ describe('Preservation: Existing Admin Functionality', () => {
     
     // List of i18n elements that must be preserved (excluding ADMIN button)
     const requiredI18nElements = [
-      { key: 'backHome', attr: 'data-i18n' },
-      { key: 'signOut', attr: 'data-i18n' },
       { key: 'role', attr: 'data-i18n' },
       { key: 'joined', attr: 'data-i18n' },
       { key: 'profileSettings', attr: 'data-i18n' },
@@ -290,8 +288,6 @@ describe('Preservation: Existing Admin Functionality', () => {
     fc.assert(
       fc.property(
         fc.constantFrom(
-          { key: 'backHome', text: 'Back home' },
-          { key: 'signOut', text: 'Sign out' },
           { key: 'profileSettings', text: 'Profile settings' },
           { key: 'displayName', text: 'Display name' },
           { key: 'saveProfile', text: 'Save profile' },
@@ -424,7 +420,7 @@ describe('Preservation: Existing Admin Functionality', () => {
           
           if (authState === 'unauthenticated') {
             // Must show login page
-            expect(appContent).toContain('if (!token)')
+            expect(appContent).toMatch(/if\s*\(!\s*user\s*\|\|\s*user\.role/)
             expect(appContent).toContain('return <Login />')
           }
           

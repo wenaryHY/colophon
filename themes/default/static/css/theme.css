@@ -51,6 +51,8 @@ a{color:inherit;text-decoration:none}
   display:flex;align-items:center;justify-content:space-between
 }
 .footer-copy{font-size:13px;color:var(--muted)}
+.footer-links{font-size:13px;color:var(--muted)}
+.footer-links a{color:var(--accent);font-weight:500}
 .footer-powered{font-size:13px;color:var(--muted)}
 .footer-powered a{color:var(--accent);font-weight:500}
 

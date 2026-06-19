@@ -4,6 +4,7 @@ import type { CurrentUser } from '../types';
 import { useI18n } from '../i18n';
 import { saveLanguage } from '../i18n/detector';
 import { useToast } from './ToastContext';
+import { clearAllDrafts } from '../hooks/useAutoSaveDraft';
 
 interface RegisterData {
   username: string;
@@ -28,7 +29,6 @@ interface AuthContextValue {
   isLoading: boolean;
 }
 
-const AUTH_STORAGE_KEY = 'colophon_auth_user';
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearAuth = useCallback(() => {
     clearAccessToken();
     setUser(null);
-    try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch { /* ignore quota / priv errors */ }
+    try { clearAllDrafts(); } catch { /* ignore */ }
   }, []);
 
   /// 当 API 返回 401 且 refresh 失败时触发：清除登录态并 toast i18n 提示。
@@ -71,7 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     const me = await apiData<CurrentUser>(`${API_PREFIX}/me`);
     setUser(me);
-    try { sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(me)); } catch { /* ignore */ }
     if (me.language) {
       setLang(me.language);
       saveLanguage(me.language);
@@ -81,16 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (authChecked.current) return;
     authChecked.current = true;
-
-    // 快速恢复：从 sessionStorage 还原 user，消除首次骨架
-    const stored = sessionStorage.getItem(AUTH_STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as CurrentUser;
-        setUser(parsed);
-        setIsLoading(false);
-      } catch { /* 脏数据，忽略 */ }
-    }
 
     let active = true;
     setOnAuthExpired(() => handleAuthExpiredRef.current());
@@ -165,3 +154,4 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
+

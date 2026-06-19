@@ -404,7 +404,7 @@
     btn.addEventListener('click', function(e) {
       e.preventDefault();
       var lang = this.getAttribute('data-lang');
-      document.cookie = 'lang=' + lang + '; Path=/; Max-Age=31536000; SameSite=Lax';
+      document.cookie = 'lang=' + lang + '; Path=/; Max-Age=7776000; SameSite=Lax; Secure';
       localStorage.setItem('preferred_language', lang);
       window.location.reload();
     });
@@ -455,5 +455,41 @@
       }
     });
   }
+
+  /* Cookie info banner — 首次访问展示，关闭后 sessionStorage 记录 */
+  (function() {
+    var BANNER_KEY = 'colophon-cookie-notice-dismissed';
+    if (sessionStorage.getItem(BANNER_KEY)) return;
+
+    var banner = document.createElement('div');
+    banner.setAttribute('role', 'alert');
+    banner.id = 'cookie-consent-banner';
+    banner.innerHTML =
+      '<div style="position:fixed;bottom:0;left:0;right:0;background:var(--color-surface, #1e1e1e);' +
+      'color:var(--color-on-surface, #e0e0e0);padding:0.75rem 1rem;font-size:0.875rem;' +
+      'display:flex;align-items:center;justify-content:center;gap:0.75rem;flex-wrap:wrap;' +
+      'z-index:9999;border-top:1px solid var(--color-outline, rgba(255,255,255,0.12));' +
+      'box-shadow:0 -2px 8px rgba(0,0,0,0.3);">' +
+      '<span>' + (CURRENT_LANG === 'en'
+        ? 'This site uses only essential cookies for proper functioning.'
+        : '本网站仅使用必要 cookie 以保证正常运行。') + '</span>' +
+      '<a href="/pages/cookie-policy" style="color:var(--color-primary, #bb86fc);">' +
+        (CURRENT_LANG === 'en' ? 'Cookie Policy' : 'Cookie 政策') + '</a>' +
+      '<button id="cookie-consent-dismiss" ' +
+        'style="background:var(--color-primary, #bb86fc);color:#000;border:none;' +
+        'padding:0.35rem 0.75rem;border-radius:4px;cursor:pointer;font-size:0.875rem;font-weight:500;">' +
+        (CURRENT_LANG === 'en' ? 'Got it' : '知道了') + '</button></div>';
+    document.body.appendChild(banner);
+
+    // 外部事件绑定（替代 inline onclick，兼容严格 CSP）
+    var dismissBtn = document.getElementById('cookie-consent-dismiss');
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', function() {
+        var b = document.getElementById('cookie-consent-banner');
+        if (b) b.remove();
+        sessionStorage.setItem(BANNER_KEY, '1');
+      });
+    }
+  })();
 })();
 </script>

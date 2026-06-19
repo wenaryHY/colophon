@@ -1343,6 +1343,20 @@ p { margin: 0; }
   font-size: var(--font-size-caption);
   color: var(--on-surface-variant);
 }
+.footer-links {
+  font-size: var(--font-size-caption);
+  color: var(--on-surface-variant);
+}
+.footer-links a {
+  color: var(--on-surface-variant);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: all var(--transition-base);
+}
+.footer-links a:hover {
+  color: var(--primary);
+  text-decoration-color: currentColor;
+}
 
 .site-footer__links {
   display: flex;
