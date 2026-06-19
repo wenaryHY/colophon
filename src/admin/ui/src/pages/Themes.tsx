@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { apiData, API_PREFIX, deleteTheme, getQueryClient, uploadTheme } from '../lib/api';
 import type { ThemeConfigField, ThemeSummary } from '../types';
 import { useToast } from '../contexts/ToastContext';
@@ -27,6 +28,7 @@ export default function Themes() {
   const { t, format } = useI18n();
   const [activatingSlug, setActivatingSlug] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ slug: string; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: themes = [], isLoading } = useQuery({
@@ -64,9 +66,14 @@ export default function Themes() {
     },
   });
 
-  const handleDelete = (slug: string, name: string) => {
-    if (!window.confirm(t('deleteThemeMessage').replace('{name}', name))) return;
-    deleteMutation.mutate(slug);
+  const handleDeleteClick = (slug: string, name: string) => {
+    setDeleteTarget({ slug, name });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteMutation.mutate(deleteTarget.slug);
+    setDeleteTarget(null);
   };
 
   const FILE_SIZE_MAX_BYTES = 100 * 1024 * 1024;
@@ -226,11 +233,11 @@ export default function Themes() {
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginTop: 'auto' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
                       <span style={{ fontSize: '12px', color: 'var(--md-outline)' }}>
                         {theme.active ? t('themeCurrentlyActive') : t('themeSwitchHint')}
                       </span>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                         <Button
                           onClick={() => navigate(`/themes/${theme.manifest.slug}`)}
                           variant="ghost"
@@ -247,7 +254,7 @@ export default function Themes() {
                         {!theme.active && theme.manifest.slug !== 'default' && (
                           <Button
                             variant="danger"
-                            onClick={() => handleDelete(theme.manifest.slug, theme.manifest.name)}
+                            onClick={() => handleDeleteClick(theme.manifest.slug, theme.manifest.name)}
                           >
                             {t('deleteThemeButton')}
                           </Button>
@@ -261,6 +268,16 @@ export default function Themes() {
           )}
         </div>
       </section>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        title={t('deleteThemeTitle')}
+        message={format('deleteThemeMessage', { name: deleteTarget?.name || '' })}
+        variant="danger"
+        confirmText={t('deleteThemeButton')}
+      />
     </div>
   );
 }
