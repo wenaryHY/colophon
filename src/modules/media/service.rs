@@ -195,9 +195,50 @@ pub async fn upload_media_raw(
     )
     .await?;
 
+    // ── 异步触发 WebP 转换 ──
+    // 通过 bounded channel 投递给后台 worker，不阻塞上传响应
+    // 跳过条件统一由 converter::should_skip_conversion 判定，
+    // 避免 service 与 worker 判断不一致导致记录永久卡在 pending
+    if state.config.media.webp_enabled
+        && !super::converter::should_skip_conversion(&mime_type, bytes.len() as u64)
+    {
+        tracing::debug!(
+            media_id = %media_id,
+            mime_type = %mime_type,
+            "triggering webp conversion for uploaded image"
+        );
+
+        // 先标记为 pending
+        if let Err(e) = repository::mark_media_pending(&state.pool, &media_id).await {
+            tracing::warn!(media_id = %media_id, error = %e, "failed to mark media as pending");
+        } else if let Some(tx) = state.converter_send.lock().await.as_ref() {
+            let job = crate::modules::media::worker::ConversionJob {
+                media_id: media_id.clone(),
+                source_path: absolute_path.clone(),
+                mime_type: mime_type.clone(),
+                file_size: bytes.len() as u64,
+            };
+            // 非阻塞发送：如果 channel 满了则丢弃（worker 会在启动时扫描 pending 重新入队）
+            let _ = tx.try_send(job);
+
+            tracing::info!(
+                media_id = %media_id,
+                mime_type = %mime_type,
+                file_size = bytes.len(),
+                "webp conversion job submitted"
+            );
+        }
+    }
+
     repository::get_media(&state.pool, &media_id)
         .await?
         .ok_or(AppError::NotFound("媒体文件未找到".to_string()))
+}
+
+pub async fn get_media_item(state: &AppState, id: &str) -> AppResult<MediaItem> {
+    repository::get_media(&state.pool, id)
+        .await?
+        .ok_or(AppError::NotFound(format!("媒体文件 '{}' 未找到", id)))
 }
 
 pub async fn delete_media(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {

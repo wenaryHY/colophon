@@ -24,9 +24,13 @@ walkdir = "=2.5.0"
 [dependencies]
 # Web 框架
 axum = { version = "=0.8.9", features = ["multipart", "macros", "ws"] }
+multer = "3"
 futures-util = "=0.3.32"
 axum-extra = { version = "=0.10.0", features = ["typed-header", "cookie"] }
 tokio = { version = "=1.51.0", features = ["full"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+zenwebp = "0.4"
+image = { version = "=0.25.6", default-features = false, features = ["jpeg", "png", "webp"] }
 tower = { version = "=0.5.2" }
 tower-http = { version = "=0.6.8", features = ["cors", "fs", "trace", "set-header", "compression-gzip"] }
 
@@ -97,6 +101,7 @@ debug = true
 [dev-dependencies]
 serial_test = "=3.4.0"
 criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
+tempfile = "3"
 
 [[bench]]
 name = "api_benchmarks"

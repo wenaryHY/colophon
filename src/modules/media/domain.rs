@@ -20,5 +20,11 @@ pub struct MediaItem {
     pub category: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    /// 转换状态：''(旧数据不转换) | 'pending' | 'converted' | 'failed'
+    pub conversion_status: String,
+    /// 转换重试次数
+    pub conversion_retries: i64,
+    /// 转换失败时的错误信息
+    pub conversion_error: Option<String>,
     pub deleted_at: Option<String>,
 }

@@ -1,9 +1,13 @@
 #[cfg(test)]
 mod tests {
     use sqlx::SqlitePool;
+    use std::io::Read;
+    use std::io::Write;
     use std::sync::Arc;
     use tokio::fs;
     use tokio::sync::{broadcast, RwLock};
+
+    use tokio_util::sync::CancellationToken;
 
     use crate::{
         infra::backup::BackupStorageBackend, modules::plugin::manager::PluginManager,
@@ -67,6 +71,11 @@ mod tests {
             plugin_manager,
             backup_scheduler: Arc::new(tokio::sync::Mutex::new(None)),
             asset_manifest: Arc::new(crate::state::AssetManifest::load()),
+            shutdown_token: CancellationToken::new(),
+            trash_scheduler_handle: Arc::new(tokio::sync::Mutex::new(None)),
+            theme_watcher_handle: Arc::new(tokio::sync::Mutex::new(None)),
+            converter_send: Arc::new(tokio::sync::Mutex::new(None)),
+            webp_worker_handle: Arc::new(tokio::sync::Mutex::new(None)),
         };
 
         (Arc::new(state), backup_dir)
@@ -298,6 +307,11 @@ mod tests {
             plugin_manager: state.plugin_manager.clone(),
             backup_scheduler: state.backup_scheduler.clone(),
             asset_manifest: state.asset_manifest.clone(),
+            shutdown_token: CancellationToken::new(),
+            trash_scheduler_handle: Arc::new(tokio::sync::Mutex::new(None)),
+            theme_watcher_handle: Arc::new(tokio::sync::Mutex::new(None)),
+            converter_send: Arc::new(tokio::sync::Mutex::new(None)),
+            webp_worker_handle: Arc::new(tokio::sync::Mutex::new(None)),
         });
 
         restore_backup_from_bytes(new_state.clone(), backup_bytes)
@@ -474,6 +488,11 @@ mod tests {
             plugin_manager: state.plugin_manager.clone(),
             backup_scheduler: state.backup_scheduler.clone(),
             asset_manifest: state.asset_manifest.clone(),
+            shutdown_token: CancellationToken::new(),
+            trash_scheduler_handle: Arc::new(tokio::sync::Mutex::new(None)),
+            theme_watcher_handle: Arc::new(tokio::sync::Mutex::new(None)),
+            converter_send: Arc::new(tokio::sync::Mutex::new(None)),
+            webp_worker_handle: Arc::new(tokio::sync::Mutex::new(None)),
         });
 
         let result = restore_backup_from_bytes(new_state.clone(), bytes).await;
@@ -524,6 +543,189 @@ mod tests {
         assert!(backend.read(&backup_id1, "backup.zip").await.is_err());
         assert!(backend.read(&backup_id2, "backup.zip").await.is_ok());
 
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    /// 路径穿越防护：构造包含 `../` 的恶意 ZIP 条目，验证 restore 拒绝写入
+    #[tokio::test]
+    async fn test_restore_rejects_path_traversal_in_zip_entry() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        let author_id = create_test_user(&state.pool).await;
+        insert_test_post(&state.pool, &author_id, "ZipSlip Test", "zipslip-test").await;
+
+        // 1. 创建合法备份，从中获取一致性的数据库快照和 manifest
+        let result = create_backup(state.clone(), BackupProvider::Local)
+            .await
+            .expect("Failed to create backup");
+        let backup_id = result["id"].as_str().unwrap();
+
+        let backend =
+            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+        let original_bytes = backend.read(backup_id, "backup.zip").await.unwrap();
+
+        // 2. 提取有效条目（DB + manifest）
+        let reader = std::io::Cursor::new(&original_bytes);
+        let mut archive = zip::ZipArchive::new(reader).unwrap();
+
+        let mut db_bytes = Vec::new();
+        {
+            let mut entry = archive.by_name("database/colophon.db").unwrap();
+            Read::read_to_end(&mut entry, &mut db_bytes).unwrap();
+        }
+
+        let mut manifest_bytes = Vec::new();
+        {
+            let mut entry = archive.by_name("manifest.json").unwrap();
+            Read::read_to_end(&mut entry, &mut manifest_bytes).unwrap();
+        }
+
+        // 3. 构造恶意 ZIP：有效条目 + 路径穿越条目
+        let cursor = std::io::Cursor::new(Vec::new());
+        let mut writer = zip::ZipWriter::new(cursor);
+        let options = zip::write::SimpleFileOptions::default();
+
+        writer
+            .start_file("database/colophon.db", options)
+            .unwrap();
+        writer.write_all(&db_bytes).unwrap();
+
+        writer.start_file("manifest.json", options).unwrap();
+        writer.write_all(&manifest_bytes).unwrap();
+
+        // 恶意条目：通过 ../ 穿越到 /etc/cron.d
+        writer
+            .start_file("media/../../../etc/cron.d/evil", options)
+            .unwrap();
+        writer.write_all(b"malicious cron payload").unwrap();
+
+        let malicious_zip = writer.finish().unwrap().into_inner();
+
+        // 4. 尝试恢复 —— 应在路径穿越检查处被拒绝
+        //    注意：此时不关闭连接池，因为 restore 会在替换数据库前（validate 之后、
+        //    media 解压阶段）因路径穿越而提前返回 Err，数据库不会被修改
+        let result = restore_backup_from_bytes(state.clone(), malicious_zip).await;
+        assert!(
+            result.is_err(),
+            "Should reject ZIP with path traversal entry"
+        );
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("穿越") || err_msg.contains("非法"),
+            "错误信息应包含路径穿越相关提示，实际: {}",
+            err_msg
+        );
+
+        // 5. 验证恶意文件未被写入文件系统
+        //    restore_backup_from_bytes 的三层防护（拒绝 ../ / 前缀断言 / 100MB 限制）
+        //    应在第1层即拦截，文件不会落盘
+        let evil_path = std::path::Path::new("/etc/cron.d/evil");
+        assert!(!evil_path.exists(), "恶意文件不应被写入系统目录");
+
+        cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    /// Zip Bomb 防护：验证 100MB 单文件上限逻辑可达
+    ///
+    /// restore_backup_from_bytes 中硬编码:
+    /// - const MAX_SINGLE_MEDIA_FILE_SIZE: u64 = 100 * 1024 * 1024
+    /// - file.take(MAX_SINGLE_MEDIA_FILE_SIZE + 1) 限制读取
+    /// - 读取后检查 file_bytes.len() > MAX_SINGLE_MEDIA_FILE_SIZE
+    ///
+    /// 构造 >100MB 解压数据的端到端测试运行成本过高（内存/时间），
+    /// 本测试改为验证合法大小文件通过限制检查，确认代码路径可正常执行。
+    #[tokio::test]
+    async fn test_restore_allows_media_file_within_size_limit() {
+        let (state, backup_dir) = setup_test_env().await;
+        let db_path = state.db_path.to_string_lossy().to_string();
+
+        let author_id = create_test_user(&state.pool).await;
+        insert_test_post(&state.pool, &author_id, "SizeTest", "sizetest").await;
+
+        // 创建合法备份
+        let result = create_backup(state.clone(), BackupProvider::Local)
+            .await
+            .unwrap();
+        let backup_id = result["id"].as_str().unwrap();
+
+        let backend =
+            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+        let original_bytes = backend.read(backup_id, "backup.zip").await.unwrap();
+
+        // 提取有效条目
+        let reader = std::io::Cursor::new(&original_bytes);
+        let mut archive = zip::ZipArchive::new(reader).unwrap();
+
+        let mut db_bytes = Vec::new();
+        {
+            let mut entry = archive.by_name("database/colophon.db").unwrap();
+            Read::read_to_end(&mut entry, &mut db_bytes).unwrap();
+        }
+
+        let mut manifest_bytes = Vec::new();
+        {
+            let mut entry = archive.by_name("manifest.json").unwrap();
+            Read::read_to_end(&mut entry, &mut manifest_bytes).unwrap();
+        }
+
+        // 构造包含正常大小媒体文件的 ZIP
+        let cursor = std::io::Cursor::new(Vec::new());
+        let mut writer = zip::ZipWriter::new(cursor);
+        let options = zip::write::SimpleFileOptions::default();
+
+        writer
+            .start_file("database/colophon.db", options)
+            .unwrap();
+        writer.write_all(&db_bytes).unwrap();
+
+        writer.start_file("manifest.json", options).unwrap();
+        writer.write_all(&manifest_bytes).unwrap();
+
+        // 正常大小的媒体文件，应通过 100MB 限制
+        writer.start_file("media/small.txt", options).unwrap();
+        writer.write_all(b"small file content").unwrap();
+
+        let valid_zip = writer.finish().unwrap().into_inner();
+
+        // 完整恢复需要替换数据库，先关闭连接池再重建 AppState
+        state.pool.close().await;
+        let new_pool =
+            SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path)).await.unwrap();
+        let new_state = Arc::new(AppState {
+            pool: new_pool.clone(),
+            config: state.config.clone(),
+            upload_dir: state.upload_dir.clone(),
+            static_dir: state.static_dir.clone(),
+            theme_dir: state.theme_dir.clone(),
+            admin_dist_dir: state.admin_dist_dir.clone(),
+            db_path: state.db_path.clone(),
+            backup_dir: state.backup_dir.clone(),
+            event_tx: state.event_tx.clone(),
+            site_url: state.site_url.clone(),
+            admin_url: state.admin_url.clone(),
+            setup_stage: state.setup_stage.clone(),
+            login_rate_limiter: state.login_rate_limiter.clone(),
+            comment_rate_limiter: state.comment_rate_limiter.clone(),
+            template_cache: state.template_cache.clone(),
+            template_env_cache: state.template_env_cache.clone(),
+            plugin_manager: state.plugin_manager.clone(),
+            backup_scheduler: state.backup_scheduler.clone(),
+            asset_manifest: state.asset_manifest.clone(),
+            shutdown_token: CancellationToken::new(),
+            trash_scheduler_handle: Arc::new(tokio::sync::Mutex::new(None)),
+            theme_watcher_handle: Arc::new(tokio::sync::Mutex::new(None)),
+            converter_send: Arc::new(tokio::sync::Mutex::new(None)),
+            webp_worker_handle: Arc::new(tokio::sync::Mutex::new(None)),
+        });
+
+        let result = restore_backup_from_bytes(new_state.clone(), valid_zip).await;
+        assert!(
+            result.is_ok(),
+            "Normal-sized media file should pass 100MB size limit check"
+        );
+
+        new_pool.close().await;
         cleanup_test_files(&db_path, &backup_dir).await;
     }
 }

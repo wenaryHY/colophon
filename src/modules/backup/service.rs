@@ -648,27 +648,63 @@ pub async fn restore_backup_from_bytes(
     let media_dir = state.upload_dir.join("media");
     fs::create_dir_all(&media_dir).await?;
 
-    let mut media_files = Vec::new();
+    // 解析 media_dir 的绝对路径，用于目录穿越检测（canonicalize 要求文件已存在，改用 absolute）
+    let resolved_media_dir =
+        std::path::absolute(&media_dir).unwrap_or_else(|_| media_dir.clone());
+
+    const MAX_SINGLE_MEDIA_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100MB 单文件上限，防 Zip Bomb
+
+    let mut media_files: Vec<(PathBuf, Vec<u8>)> = Vec::new();
     for i in 0..archive.len() {
-        let mut file = archive
+        let file = archive
             .by_index(i)
             .map_err(|e| AppError::BadRequest(format!("无法读取备份文件: {e}")))?;
 
         if file.name().starts_with("media/") && !file.is_dir() {
-            let file_name = file
-                .name()
+            let entry_name = file.name();
+            let relative_name = entry_name
                 .strip_prefix("media/")
-                .unwrap_or(file.name())
-                .to_string();
+                .unwrap_or(entry_name);
+
+            // 第1层防护：拒绝包含危险路径组件的条目名
+            if relative_name.contains("..")
+                || relative_name.starts_with('/')
+                || relative_name.starts_with('\\')
+            {
+                return Err(AppError::BadRequest(
+                    "检测到非法的 ZIP 条目路径".into(),
+                ));
+            }
+
+            // 第2层防护：拼接目标路径后验证绝对路径仍在 media_dir 内
+            let dest_path = media_dir.join(relative_name);
+            let resolved_dest =
+                std::path::absolute(&dest_path).unwrap_or_else(|_| dest_path.clone());
+            if !resolved_dest.starts_with(&resolved_media_dir) {
+                return Err(AppError::BadRequest("目录穿越攻击拦截".into()));
+            }
+
+            // 第3层防护：限制单文件解压大小，防止 Zip Bomb
             let mut file_bytes = Vec::new();
-            file.read_to_end(&mut file_bytes)?;
-            media_files.push((file_name, file_bytes));
+            let mut limited = file.take(MAX_SINGLE_MEDIA_FILE_SIZE + 1);
+            limited.read_to_end(&mut file_bytes)?;
+            if file_bytes.len() as u64 > MAX_SINGLE_MEDIA_FILE_SIZE {
+                return Err(AppError::BadRequest(format!(
+                    "媒体文件超过单文件大小上限 {}MB",
+                    MAX_SINGLE_MEDIA_FILE_SIZE / (1024 * 1024)
+                )));
+            }
+
+            media_files.push((dest_path, file_bytes));
         }
     }
 
-    for (file_name, file_bytes) in media_files {
-        let file_path = media_dir.join(&file_name);
-        fs::write(&file_path, file_bytes).await?;
+    for (dest_path, file_bytes) in media_files {
+        // 确保父目录存在后再写入
+        if let Some(parent) = dest_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::write(&dest_path, file_bytes).await?;
     }
 
     let bak_path = restore_database_file(&state, &db_bytes).await?;

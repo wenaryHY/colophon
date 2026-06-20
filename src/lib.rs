@@ -4,6 +4,7 @@ pub mod cli;
 pub mod infra;
 pub mod modules;
 pub mod shared;
+pub mod shutdown;
 pub mod state;
 pub mod ws;
 
@@ -17,7 +18,7 @@ pub mod ws;
 #[cfg(test)]
 pub mod tests;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use bootstrap::{config::AppConfig, router::build_router};
 use sqlx::sqlite::SqlitePoolOptions;
@@ -115,18 +116,115 @@ pub async fn serve() -> anyhow::Result<()> {
     modules::backup::scheduler::start_backup_scheduler(state.clone()).await?;
     modules::trash::scheduler::start_trash_scheduler(state.clone()).await?;
 
+    // ── 启动 WebP 转换 worker ──
+    if state.config.media.webp_enabled {
+        let (tx, handle) = modules::media::worker::start_webp_worker(
+            state.pool.clone(),
+            state.upload_dir.clone(),
+            &state.config.media,
+            state.shutdown_token.clone(),
+        );
+        state.converter_send.lock().await.replace(tx);
+
+        tracing::info!(
+            webp_enabled = true,
+            max_edge = state.config.media.webp_max_edge,
+            max_concurrent = state.config.media.webp_max_concurrent,
+            "webp conversion worker started"
+        );
+
+        // 启动时扫描 pending 状态的旧记录，重新入队
+        match modules::media::repository::list_pending_conversions(&state.pool).await {
+            Ok(pending) => {
+                if !pending.is_empty() {
+                    tracing::info!(
+                        count = pending.len(),
+                        "found pending conversions, re-enqueuing"
+                    );
+                    for item in pending {
+                        let sender_guard = state.converter_send.lock().await;
+                        if let Some(ref tx) = *sender_guard {
+                            let job = modules::media::worker::ConversionJob {
+                                media_id: item.id.clone(),
+                                source_path: state.upload_dir.join(&item.storage_path),
+                                mime_type: item.mime_type.clone(),
+                                file_size: item.size_bytes as u64,
+                            };
+                            let _ = tx.try_send(job);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "failed to list pending conversions on startup");
+            }
+        }
+
+        // 存入 state 供 shutdown 使用
+        state.webp_worker_handle.lock().await.replace(handle);
+    }
+
     // 启动主题文件监听器（仅开发模式）。
     // 失败不阻止服务启动 —— 退化为"修改后手动重启"模式即可。
-    if let Err(e) = infra::file_watcher::spawn_theme_watcher(state.clone(), &state.theme_dir) {
+    if let Err(e) = infra::file_watcher::spawn_theme_watcher(state.clone(), &state.theme_dir).await {
         tracing::warn!(error = ?e, "failed to start theme file watcher; continuing without hot-reload");
     }
 
-    let app = build_router(state).await;
+    let app = build_router(state.clone()).await;
 
     let addr = SocketAddr::new(config.server.host.parse()?, config.server.port);
     tracing::info!("Colophon listening on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+
+    // ── 优雅关闭 ──
+    // 用 oneshot channel 桥接信号监听和 axum graceful shutdown
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+    // axum serve 放在 tokio task 中以获取 JoinHandle 实现超时控制
+    let serve_task = tokio::spawn(async move {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async {
+                let _ = shutdown_rx.await;
+            })
+            .await
+    });
+
+    // 等待 OS 信号
+    crate::shutdown::wait_for_shutdown_signal().await;
+
+    // 通知 axum 停止接受新连接，开始 drain
+    let _ = shutdown_tx.send(());
+    tracing::info!("notified axum to stop accepting new connections");
+
+    // 等待 axum drain 完成，超过配置的超时则强制退出
+    let drain_timeout = Duration::from_secs(state.config.server.graceful_shutdown_timeout_seconds);
+    let abort_handle = serve_task.abort_handle();
+    tokio::select! {
+        result = serve_task => {
+            // result 的类型是 Result<Result<(), anyhow::Error>, JoinError>
+            // 外层 Result 来自 tokio::spawn 的 JoinHandle（task 是否 panic）
+            // 内层 Result 来自 axum::serve 的返回值（服务是否正常退出）
+            match result {
+                // JoinHandle 正常 + axum 正常 drain 退出
+                Ok(Ok(())) => tracing::info!("axum server drained gracefully"),
+                // JoinHandle 正常 + axum 返回错误（如绑定失败）
+                Ok(Err(e)) => tracing::error!(error = %e, "axum server exited with error"),
+                // tokio::spawn 的 task panic 了（JoinError）
+                Err(join_err) => tracing::error!(error = %join_err, "axum serve task panicked"),
+            }
+        }
+        _ = tokio::time::sleep(drain_timeout) => {
+            tracing::warn!(
+                timeout_secs = drain_timeout.as_secs(),
+                "graceful shutdown drain timeout reached, forcing exit"
+            );
+            abort_handle.abort();
+        }
+    }
+
+    // 执行清理序列
+    crate::shutdown::run_shutdown_sequence(&state).await;
+
     Ok(())
 }

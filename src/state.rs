@@ -6,6 +6,7 @@ use std::time::Instant;
 use minijinja::Environment;
 use sqlx::SqlitePool;
 use tokio::sync::{broadcast, Mutex, RwLock};
+use tokio_util::sync::CancellationToken;
 
 use tokio_cron_scheduler::JobScheduler;
 
@@ -84,6 +85,19 @@ pub struct AppState {
     pub backup_scheduler: Arc<tokio::sync::Mutex<Option<JobScheduler>>>,
     /// 静态资源版本控制 manifest，构建时生成
     pub asset_manifest: Arc<AssetManifest>,
+    /// 全局取消信号。关闭时 cancel() 通知所有后台任务退出。
+    /// 文件监听器、垃圾清理调度器等通过 clone() 订阅。
+    pub shutdown_token: CancellationToken,
+    /// 回收站清理调度器的 JoinHandle，关闭时用于等待或 abort
+    pub trash_scheduler_handle: Arc<tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    /// 文件监听器的 JoinHandle，关闭时用于等待或 abort
+    pub theme_watcher_handle: Arc<tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    /// WebP 转换器 channel 的发送端。
+    /// 上传图片后通过此 channel 向后台 worker 投递转换任务。
+    /// 当 `config.media.webp_enabled == false` 时为 None（worker 不启动）。
+    pub converter_send: Arc<tokio::sync::Mutex<Option<tokio::sync::mpsc::Sender<crate::modules::media::worker::ConversionJob>>>>,
+    /// WebP worker 的 JoinHandle，关闭时用于等待排空或 abort。
+    pub webp_worker_handle: Arc<tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 impl AppState {
@@ -117,6 +131,11 @@ impl AppState {
             plugin_manager,
             backup_scheduler: Arc::new(tokio::sync::Mutex::new(None)),
             asset_manifest: Arc::new(AssetManifest::load()),
+            shutdown_token: CancellationToken::new(),
+            trash_scheduler_handle: Arc::new(tokio::sync::Mutex::new(None)),
+            theme_watcher_handle: Arc::new(tokio::sync::Mutex::new(None)),
+            converter_send: Arc::new(tokio::sync::Mutex::new(None)),
+            webp_worker_handle: Arc::new(tokio::sync::Mutex::new(None)),
         })
     }
 

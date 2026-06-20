@@ -988,6 +988,7 @@ pub async fn serve_active_static(
 
 pub async fn serve_upload_static(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Path(file_path): Path<String>,
 ) -> impl IntoResponse {
     if file_path.contains("..") || file_path.contains('\\') || file_path.starts_with('/') {
@@ -1009,20 +1010,46 @@ pub async fn serve_upload_static(
         "ttf" => "font/ttf",
         "mp3" => "audio/mpeg",
         "ogg" => "audio/ogg",
-        "wav" => "audio/wav",
+            "wav" => "audio/wav",
         "m4a" => "audio/mp4",
         _ => "application/octet-stream",
     };
 
+    // ── 内容协商：浏览器支持 WebP 且存在 .webp 版本 → 返回 WebP ──
+    let accept_header = headers.get(header::ACCEPT).and_then(|v| v.to_str().ok()).unwrap_or("");
+    let supports_webp = accept_header.contains("image/webp");
+    let webp_path_str = format!("{}.webp", full_path.display());
+    let webp_exists = supports_webp && tokio::fs::metadata(&webp_path_str).await.is_ok();
+
+    if webp_exists {
+        match tokio::fs::read(&webp_path_str).await {
+            Ok(d) => {
+                return (
+                    [
+                        (header::CONTENT_TYPE, "image/webp"),
+                        (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+                    ],
+                    d,
+                )
+                    .into_response();
+            }
+            Err(_) => {
+                // WebP 文件读取失败，回退到原文件
+            }
+        }
+    }
+
     match tokio::fs::read(&full_path).await {
-        Ok(d) => (
-            [
-                (header::CONTENT_TYPE, mime),
-                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
-            ],
-            d,
-        )
-            .into_response(),
+        Ok(d) => {
+            (
+                [
+                    (header::CONTENT_TYPE, mime),
+                    (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+                ],
+                d,
+            )
+                .into_response()
+        }
         Err(_) => {
             let is_image = matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "svg" | "webp");
             if is_image {
@@ -1849,6 +1876,51 @@ pub async fn delete_theme(
     );
 
     Ok(Json(ApiResponse::success(serde_json::json!({ "deleted": slug }))))
+}
+
+/// Cookie 政策页面：/cookie-policy
+///
+/// 渲染主题模板 `cookie-policy.html`，纯静态内容页面，无需认证。
+/// 模板中使用 `site_title`、`current_lang` 等 TemplateContext 内置变量。
+pub async fn render_cookie_policy(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> AppResult<Response> {
+    let client_request_id =
+        crate::shared::request_id::extract_or_generate_client_request_id(&headers);
+    tracing::info!(
+        module = "theme",
+        event = "render_cookie_policy",
+        client_request_id = %client_request_id,
+        "rendering cookie policy page"
+    );
+
+    let ctx = TemplateContext::load(&state).await?;
+    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
+    let plugin_guard = state.plugin_manager.read().await;
+    let env = engine::build_template_engine(
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(&current_lang),
+    )
+    .await?;
+    let tmpl = env
+        .get_template("cookie-policy.html")
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
+
+    let rendered = tmpl
+        .render(minijinja::context! {})
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
+
+    let mut response = Html(rendered).into_response();
+    crate::shared::security::mark_response_security_profile(
+        &mut response,
+        crate::shared::security::SECURITY_PROFILE_THEME_HTML,
+    );
+    Ok(response)
 }
 
 /// 搜索页查询参数

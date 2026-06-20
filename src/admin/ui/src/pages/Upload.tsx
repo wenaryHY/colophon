@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { apiData, paginationPages, API, API_PREFIX, getQueryClient } from '../lib/api';
+import { apiData, paginationPages, API, API_PREFIX, getQueryClient, getAccessToken } from '../lib/api';
 
 import { esc } from '../lib/utils';
 import type { MediaItem, PaginatedResponse } from '../types';
@@ -13,6 +13,7 @@ import { useMediaCategories } from '../hooks/useMediaCategories';
 import { useI18n } from '../i18n';
 import { MediaCategorySelect } from '../components/media/MediaCategorySelect';
 import { IconUpload, IconCheckCircle, IconAlertCircle, IconTrash2, IconSearch, IconEdit2, IconFolder } from '../components/Icons';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 const dropZoneBase: React.CSSProperties = {
   border: '2px dashed var(--md-outline-variant)', borderRadius: '14px',
@@ -38,6 +39,11 @@ export default function Upload() {
   const [keyword, setKeyword] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [uploadingFileName, setUploadingFileName] = useState('');
+  const [uploadingFileSize, setUploadingFileSize] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const { data: payload, isLoading } = useQuery({
     queryKey: ['media', { page, kind, category, keyword }],
@@ -82,34 +88,122 @@ export default function Upload() {
     onError: (error) => toast(error instanceof Error ? error.message : t('updateCategoryFailed'), 'error'),
   });
 
-  async function doUpload(file: File) {
-    const fd = new FormData();
-    fd.append('file', file);
-    if (category) fd.append('category', category);
-    setResult(null);
-    try {
-      const res = await fetch(`${API}${API_PREFIX}/admin/media`, {
-        method: 'POST',
-        body: fd,
-        credentials: 'include',
-      });
-      const json = await res.json();
-      if (!res.ok || json.code !== 0) throw new Error(json.message || t('uploadFailed'));
-      setResult({ success: true, message: json.data.public_url });
-      toast(t('uploadSuccess'), 'success');
-      invalidateMedia();
-      setPage(1);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : t('uploadFailed');
-      setResult({ success: false, message: msg });
-      toast(msg, 'error');
-    }
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  function doUpload(file: File) {
+    return new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest();
+      const fd = new FormData();
+      fd.append('file', file);
+      // 只上传有效的分类值（排除筛选用的 __all__）
+      if (category && category !== '__all__') {
+        fd.append('category', category);
+      }
+      setResult(null);
+      setUploading(true);
+      setProgress(0);
+      setUploadingFileName(file.name);
+      setUploadingFileSize(file.size);
+
+      // 真实上传进度（XMLHttpRequest 的 upload.onprogress 提供分块进度）
+      xhr.upload.onprogress = (e: ProgressEvent) => {
+        if (e.lengthComputable) {
+          setProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        setUploading(false);
+        setUploadingFileName('');
+        setUploadingFileSize(0);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const json = JSON.parse(xhr.responseText);
+            if (json.code !== 0) {
+              const msg = json.message || t('uploadFailed');
+              setResult({ success: false, message: msg });
+              toast(msg, 'error');
+            } else {
+              const newItem: MediaItem = json.data;
+              setResult({ success: true, message: newItem.public_url });
+              toast(t('uploadSuccess'), 'success');
+              // 乐观更新：将新媒体项插入当前列表缓存头部
+              const queryClient = getQueryClient();
+              queryClient.setQueryData(
+                ['media', { page, kind, category, keyword }],
+                (old: { items?: MediaItem[]; pagination?: { total: number; page: number; page_size: number } } | undefined) => {
+                  if (!old) return old;
+                  return {
+                    ...old,
+                    items: [newItem, ...(old.items || [])],
+                    pagination: {
+                      ...old.pagination!,
+                      total: (old.pagination?.total || 0) + 1,
+                    },
+                  };
+                }
+              );
+              // 乐观更新完成后，轮询转换状态直到 worker 完成
+              const mediaId = newItem.id;
+              const pollInterval = setInterval(async () => {
+                try {
+                  const updated = await apiData<MediaItem & { conversion_status?: string }>(
+                    `${API_PREFIX}/admin/media/${mediaId}`
+                  );
+                  if (updated?.conversion_status === 'converted' || updated?.conversion_status === 'failed') {
+                    clearInterval(pollInterval);
+                    queryClient.invalidateQueries({ queryKey: ['media'] });
+                  }
+                } catch {
+                  // 获取失败静默忽略，继续轮询
+                }
+              }, 1000);
+
+              // 30 秒超时兜底
+              setTimeout(() => clearInterval(pollInterval), 30000);
+              // 后台静默刷新其他页面的缓存
+              queryClient.invalidateQueries({ queryKey: ['media'] });
+              setPage(1);
+            }
+          } catch {
+            setResult({ success: false, message: t('uploadFailed') });
+            toast(t('uploadFailed'), 'error');
+          }
+        } else {
+          let msg = t('uploadFailed');
+          try {
+            const errJson = JSON.parse(xhr.responseText);
+            if (errJson.message) msg = errJson.message;
+          } catch { /* use default message */ }
+          setResult({ success: false, message: msg });
+          toast(msg, 'error');
+        }
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        resolve();
+      };
+
+      xhr.onerror = () => {
+        setUploading(false);
+        setUploadingFileName('');
+        setUploadingFileSize(0);
+        const msg = t('uploadFailed');
+        setResult({ success: false, message: msg });
+        toast(msg, 'error');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        resolve();
+      };
+
+      xhr.upload.onerror = () => {
+        // 上传阶段网络错误，onerror 后续也会触发，这里只做提示
+        setProgress(0);
+      };
+
+      xhr.open('POST', `${API}${API_PREFIX}/admin/media`);
+      xhr.setRequestHeader('Authorization', `Bearer ${getAccessToken() || ''}`);
+      xhr.send(fd);
+    });
   }
 
   function deleteMedia(id: string) {
-    if (!window.confirm(t('deleteMediaConfirm'))) return;
-    deleteMutation.mutate(id);
+    setDeleteTarget(id);
   }
 
   function startRename(item: MediaItem) {
@@ -145,8 +239,15 @@ export default function Upload() {
     if (e.dataTransfer.files[0]) void doUpload(e.dataTransfer.files[0]);
   }
 
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
   return (
     <>
+      <style>{`@keyframes if-spin { to { transform: rotate(360deg); } }`}</style>
       <PageHeader title={t('mediaTitle')} subtitle={t('mediaSubtitle')} />
 
       <Card>
@@ -187,6 +288,31 @@ export default function Upload() {
             </p>
           </div>
           <input ref={fileInputRef} type="file" hidden onChange={handleFileSelect} />
+
+          {uploading && (
+            <div style={{ marginTop: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--md-on-surface)' }}>
+                  {t('uploading')} {progress}%
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--md-outline)' }}>
+                  {esc(uploadingFileName)} · {formatFileSize(uploadingFileSize)}
+                </span>
+              </div>
+              <div style={{
+                width: '100%', height: '6px', borderRadius: '3px',
+                background: 'var(--md-surface-container-highest)',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  width: `${progress}%`, height: '100%',
+                  borderRadius: '3px',
+                  background: 'var(--md-primary)',
+                  transition: 'width 0.2s ease',
+                }} />
+              </div>
+            </div>
+          )}
 
           {result && (
             <div className="if-slide-up" style={{ marginTop: '20px' }}>
@@ -323,6 +449,28 @@ export default function Upload() {
                       <div style={{ fontSize: '11.5px', color: 'var(--md-outline)', marginTop: '2px' }}>
                         {item.kind === 'image' ? t('imageLabel') : t('audioLabel')} · {Math.ceil(item.size_bytes / 1024)} KB
                       </div>
+                      {(item as MediaItem & { conversion_status?: string }).conversion_status === 'converted' && (
+                        <span style={{
+                          background: 'var(--md-primary-container)', color: 'var(--md-on-primary-container)',
+                          fontSize: '11px', padding: '2px 6px', borderRadius: '4px', marginTop: '4px',
+                          display: 'inline-block', alignSelf: 'flex-start', fontWeight: 600,
+                        }}>
+                          WebP
+                        </span>
+                      )}
+                      {(item as MediaItem & { conversion_status?: string }).conversion_status === 'pending' && (
+                        <span style={{
+                          opacity: 0.6, fontSize: '11px', marginTop: '4px',
+                          display: 'inline-flex', alignItems: 'center', gap: '4px',
+                        }}>
+                          <span style={{
+                            display: 'inline-block', width: '12px', height: '12px',
+                            border: '2px solid var(--md-outline)', borderTopColor: 'transparent',
+                            borderRadius: '50%', animation: 'if-spin 0.8s linear infinite',
+                          }} />
+                          {t('processing')}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -378,6 +526,20 @@ export default function Upload() {
           <Pagination page={page} pages={pages} onPageChange={setPage} />
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMutation.mutate(deleteTarget);
+            setDeleteTarget(null);
+          }
+        }}
+        title={t('deleteMedia')}
+        message={t('deleteMediaConfirm')}
+        variant="danger"
+      />
     </>
   );
 }

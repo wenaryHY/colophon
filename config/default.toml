@@ -10,6 +10,11 @@ host = "0.0.0.0"
 # 环境变量：COLOPHON__SERVER__PORT
 port = 2000
 
+# 优雅关闭最长等待时间（秒）
+# SIGTERM 到达后停止接受新连接，等待现有请求完成
+# 超时后强制退出
+graceful_shutdown_timeout_seconds = 30
+
 [database]
 # SQLite 数据库文件路径
 # - 相对路径基于当前工作目录
@@ -65,6 +70,23 @@ upload_dir = "uploads"
 # 💡 上传 11MB 图片失败？把这个值改成 20 并重启服务
 # 环境变量：COLOPHON__STORAGE__MAX_UPLOAD_SIZE_MB
 max_upload_size_mb = 10
+
+[media]
+# 是否启用 WebP 异步转换（关闭后所有图片保持原始格式）
+# 环境变量：COLOPHON__MEDIA__WEBP_ENABLED
+webp_enabled = true
+
+# WebP 编码质量 (0-100)，默认 75
+# 环境变量：COLOPHON__MEDIA__WEBP_QUALITY
+webp_quality = 75
+
+# 最大边长（像素），超过则等比缩放
+# 环境变量：COLOPHON__MEDIA__WEBP_MAX_EDGE
+webp_max_edge = 2048
+
+# 最大并发转换数（控制内存峰值）
+# 环境变量：COLOPHON__MEDIA__WEBP_MAX_CONCURRENT
+webp_max_concurrent = 1
 
 [theme]
 # 主题文件存储目录

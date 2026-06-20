@@ -90,7 +90,7 @@ pub async fn restart_backup_scheduler(state: Arc<AppState>) -> Result<(), AppErr
 }
 
 /// Gracefully stop the running backup scheduler.
-async fn stop_backup_scheduler(state: &AppState) {
+pub(crate) async fn stop_backup_scheduler(state: &AppState) {
     let mut guard = state.backup_scheduler.lock().await;
     if let Some(mut scheduler) = guard.take() {
         if let Err(err) = scheduler.shutdown().await {

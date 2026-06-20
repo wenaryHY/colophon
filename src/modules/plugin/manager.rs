@@ -162,6 +162,11 @@ impl PluginManager {
         Ok(())
     }
 
+    /// 返回所有已加载插件的不可变引用，用于关机时逐个超时保护。
+    pub(crate) fn plugins(&self) -> &[Box<dyn Plugin>] {
+        &self.plugins
+    }
+
     pub fn plugin_names(&self) -> Vec<String> {
         self.plugins
             .iter()

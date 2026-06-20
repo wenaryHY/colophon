@@ -57,6 +57,7 @@ mod delete_theme_tests {
             server: ServerConfig {
                 host: "127.0.0.1".to_string(),
                 port: 8080,
+                graceful_shutdown_timeout_seconds: 30,
             },
             database: DatabaseConfig {
                 url: "sqlite::memory:".to_string(),
@@ -87,6 +88,12 @@ mod delete_theme_tests {
             webhook: WebhookConfig {
                 max_concurrency: 5,
                 timeout_seconds: 60,
+            },
+            media: crate::bootstrap::config::MediaConfig {
+                webp_enabled: false,
+                webp_quality: 80,
+                webp_max_edge: 2048,
+                webp_max_concurrent: 1,
             },
         };
 

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% if current_lang == "zh" %}Cookie 政策{% else %}Cookie Policy{% endif %} - {{ site_title }}</title>
+<meta name="description" content="{% if current_lang == "zh" %}本网站 Cookie 使用说明{% else %}Cookie usage information for this site{% endif %}">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="{{ theme_assets_url('css/theme.css') }}" rel="stylesheet">
+<style>
+.cookie-policy-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+}
+.cookie-policy-wrap h1 {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--md-sys-color-on-surface, var(--color-on-surface));
+}
+.cookie-policy-wrap .subtitle {
+  font-size: 14px;
+  color: var(--md-sys-color-on-surface-variant, var(--color-on-surface-variant));
+  margin: 0 0 32px;
+}
+.cookie-policy-wrap h2 {
+  font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 32px 0 12px;
+  color: var(--md-sys-color-on-surface, var(--color-on-surface));
+}
+.cookie-policy-wrap p, .cookie-policy-wrap li {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--md-sys-color-on-surface, var(--color-on-surface));
+  margin: 0 0 12px;
+}
+.cookie-policy-wrap ul {
+  padding-left: 20px;
+  margin: 0 0 16px;
+}
+.cookie-policy-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+.cookie-policy-wrap th, .cookie-policy-wrap td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant, var(--color-outline-variant));
+  font-size: 14px;
+}
+.cookie-policy-wrap th {
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant, var(--color-on-surface-variant));
+}
+.cookie-policy-wrap code {
+  background: var(--md-sys-color-surface-variant, rgba(127,127,127,0.15));
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+</style>
+</head>
+<body>
+{% include "_header.html" %}
+<div class="cookie-policy-wrap">
+{% if current_lang == "zh" %}
+  <h1>Cookie 政策</h1>
+  <p class="subtitle">最后更新：2026-06-19</p>
+
+  <p>本网站使用最少量的必要 Cookie 来保证正常运行。我们重视您的隐私，不使用任何追踪、分析或广告 Cookie。</p>
+
+  <h2>我们使用的 Cookie</h2>
+  <table>
+    <thead>
+      <tr><th>Cookie 名称</th><th>用途</th><th>有效期</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>colophon_session</code></td>
+        <td>登录认证会话。仅在您登录管理后台时设置。</td>
+        <td>会话期间（关闭浏览器后失效）</td>
+      </tr>
+      <tr>
+        <td><code>lang</code></td>
+        <td>记住您的语言偏好（您通过页面上的语言切换器主动选择）。</td>
+        <td>90 天</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>我们不使用</h2>
+  <ul>
+    <li>第三方 Cookie</li>
+    <li>分析或追踪 Cookie</li>
+    <li>广告 Cookie</li>
+    <li>社交媒体追踪器</li>
+  </ul>
+
+  <h2>管理 Cookie</h2>
+  <p>您可以在浏览器设置中管理或删除 Cookie。大多数浏览器允许您阻止所有 Cookie 或在设置 Cookie 时收到通知。由于本网站仅使用必要 Cookie，阻止 Cookie 可能会导致登录等功能无法正常使用。</p>
+
+  <h2>数据控制</h2>
+  <p>本网站运行在您自己的服务器上，所有数据由您自己掌控。我们不会将任何数据发送给第三方。</p>
+{% else %}
+  <h1>Cookie Policy</h1>
+  <p class="subtitle">Last updated: 2026-06-19</p>
+
+  <p>This site uses only the minimum necessary cookies for proper functioning. We value your privacy and do not use any tracking, analytics, or advertising cookies.</p>
+
+  <h2>Cookies We Use</h2>
+  <table>
+    <thead>
+      <tr><th>Cookie Name</th><th>Purpose</th><th>Duration</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>colophon_session</code></td>
+        <td>Login authentication session. Only set when you log into the admin panel.</td>
+        <td>Session (deleted when browser is closed)</td>
+      </tr>
+      <tr>
+        <td><code>lang</code></td>
+        <td>Remembers your language preference (actively chosen via the language switcher).</td>
+        <td>90 days</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>What We Don't Use</h2>
+  <ul>
+    <li>Third-party cookies</li>
+    <li>Analytics or tracking cookies</li>
+    <li>Advertising cookies</li>
+    <li>Social media trackers</li>
+  </ul>
+
+  <h2>Managing Cookies</h2>
+  <p>You can manage or delete cookies in your browser settings. Most browsers allow you to block all cookies or be notified when a cookie is set. Since this site only uses essential cookies, blocking them may prevent features like login from working properly.</p>
+
+  <h2>Data Control</h2>
+  <p>This site runs on your own server, and all data stays under your control. We do not send any data to third parties.</p>
+{% endif %}
+</div>
+{% include "_footer.html" %}
+<script src="{{ theme_assets_url('js/theme.js') }}"></script>
+{{ plugin_body|safe }}
+</body>
+</html>

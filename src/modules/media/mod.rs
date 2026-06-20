@@ -1,10 +1,12 @@
 pub mod category;
 pub mod category_domain;
+pub mod converter;
 pub mod domain;
 pub mod dto;
 pub mod handler;
 pub mod repository;
 pub mod service;
+pub mod worker;
 
 #[cfg(test)]
 mod upload_tests;

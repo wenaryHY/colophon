@@ -1,0 +1,3 @@
+ALTER TABLE media ADD COLUMN conversion_status TEXT NOT NULL DEFAULT '';
+ALTER TABLE media ADD COLUMN conversion_retries INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE media ADD COLUMN conversion_error TEXT;

@@ -8,6 +8,7 @@ pub struct AppConfig {
     pub database: DatabaseConfig,
     pub auth: AuthConfig,
     pub storage: StorageConfig,
+    pub media: MediaConfig,
     pub theme: ThemeConfig,
     pub paths: PathsConfig,
     pub runtime: RuntimeConfig,
@@ -18,6 +19,10 @@ pub struct AppConfig {
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
+    /// 优雅关闭最长等待时间（秒）。SIGTERM 到达后停止接受新连接，
+    /// 等待现有请求在该时间内完成，超时后强制退出。
+    #[serde(default = "default_graceful_shutdown_timeout_seconds")]
+    pub graceful_shutdown_timeout_seconds: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -46,6 +51,31 @@ pub struct StorageConfig {
     pub upload_dir: String,
     pub max_upload_size_mb: u64,
     pub static_dir: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MediaConfig {
+    #[serde(default = "default_webp_enabled")]
+    pub webp_enabled: bool,
+    #[serde(default = "default_webp_quality")]
+    pub webp_quality: u8,
+    #[serde(default = "default_webp_max_edge")]
+    pub webp_max_edge: u32,
+    #[serde(default = "default_webp_max_concurrent")]
+    pub webp_max_concurrent: usize,
+}
+
+fn default_webp_enabled() -> bool {
+    true
+}
+fn default_webp_quality() -> u8 {
+    75
+}
+fn default_webp_max_edge() -> u32 {
+    2048
+}
+fn default_webp_max_concurrent() -> usize {
+    1
 }
 
 #[allow(dead_code)]
@@ -81,6 +111,10 @@ fn default_webhook_timeout_seconds() -> u64 {
     60
 }
 
+fn default_graceful_shutdown_timeout_seconds() -> u64 {
+    30
+}
+
 impl AppConfig {
     /// 是否为生产模式（运行时判断，非编译期）
     pub fn is_production(&self) -> bool {
@@ -99,6 +133,7 @@ impl AppConfig {
             .add_source(config::Environment::with_prefix("COLOPHON").separator("__"))
             .set_default("server.host", "0.0.0.0")?
             .set_default("server.port", 2000)?
+            .set_default("server.graceful_shutdown_timeout_seconds", 30)?
             .set_default("database.url", "sqlite://colophon.db?mode=rwc")?
             .set_default("auth.secret", "change-me-in-production-please")?
             .set_default("auth.expires_in_seconds", 900)?
@@ -108,6 +143,10 @@ impl AppConfig {
             .set_default("storage.upload_dir", "uploads")?
             .set_default("storage.max_upload_size_mb", 10)?
             .set_default("storage.static_dir", "static")?
+            .set_default("media.webp_enabled", true)?
+            .set_default("media.webp_quality", 75)?
+            .set_default("media.webp_max_edge", 2048)?
+            .set_default("media.webp_max_concurrent", 1)?
             .set_default("theme.theme_dir", "themes")?
             .set_default("theme.active_theme_fallback", "default")?
             .set_default("theme.default_mode", "system")?
@@ -120,6 +159,11 @@ impl AppConfig {
     }
 
     pub fn validate(&self) -> Result<()> {
+        // webp_quality 范围校验
+        if self.media.webp_quality > 100 {
+            bail!("media.webp_quality 必须在 0-100 之间，当前值: {}", self.media.webp_quality);
+        }
+
         const UNSAFE_SECRETS: &[&str] = &[
             "colophon-change-me-in-production",
             "change-me-in-production-please",

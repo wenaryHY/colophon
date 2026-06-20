@@ -4,14 +4,13 @@
 //! 经 SSRF / DNS 重绑定校验、HMAC 签名、指数退避重试后投递到已启用的 webhook，
 //! 并记录投递日志。安全敏感的 IP 段判定委托给 [`super::ssrf`]。
 
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use chrono::Utc;
 use futures_util::future;
 use hmac::{Hmac, Mac};
-use reqwest::Client;
 use sha2::Sha256;
 use sqlx::SqlitePool;
 use tokio::time::sleep;
@@ -25,24 +24,11 @@ use crate::{
 use super::{
     domain::Webhook,
     repository,
-    ssrf::{is_private_ip, is_private_or_local_url},
+    ssrf::is_private_ip,
 };
 
 // ── 重试退避常量 ──
 const INITIAL_DELAY_SECONDS_FOR_WEBHOOK_RETRY: u64 = 5;
-
-/// Webhook HTTP client 懒加载，避免 expect 硬崩溃
-static WEBHOOK_HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-
-fn get_webhook_http_client() -> &'static reqwest::Client {
-    WEBHOOK_HTTP_CLIENT.get_or_init(|| {
-        reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
-            .redirect(reqwest::redirect::Policy::limited(3)) // 允许最多 3 次重定向，但最终 URL 会再次检查
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new()) // 降级到默认 client
-    })
-}
 
 /// Webhook 分发器——注册为 HookHandler 监听 post.after_save / post.after_publish 等事件
 #[derive(Clone)]
@@ -77,7 +63,6 @@ impl HookHandler for WebhookDispatcher {
         tokio::spawn(async move {
             dispatch_webhooks_for_event(
                 &pool,
-                get_webhook_http_client(),
                 &event,
                 &payload,
                 &config,
@@ -140,7 +125,6 @@ fn serialize_hook_data_to_json(event: &str, data: &HookData) -> serde_json::Valu
 /// 查询匹配的 webhook 并通过有界并发分发
 async fn dispatch_webhooks_for_event(
     pool: &SqlitePool,
-    client: &Client,
     event: &str,
     payload: &serde_json::Value,
     config: &WebhookConfig,
@@ -184,7 +168,6 @@ async fn dispatch_webhooks_for_event(
             Err(_) => continue, // semaphore closed
         };
         let pool = pool.clone();
-        let client = client.clone();
         let webhook = webhook.clone();
         let payload_str = payload_str.clone();
         let event = event.to_string();
@@ -194,7 +177,7 @@ async fn dispatch_webhooks_for_event(
 
             let start = Instant::now();
             let (success, response_status, response_body) =
-                send_webhook_with_retry(&client, &webhook, &payload_str).await;
+                send_webhook_with_retry(&webhook, &payload_str).await;
             let duration_ms = start.elapsed().as_millis() as i64;
 
             // 记录投递日志
@@ -258,7 +241,6 @@ async fn dispatch_webhooks_for_event(
 
 /// 发送单个 webhook 请求，支持重试
 async fn send_webhook_with_retry(
-    client: &Client,
     webhook: &Webhook,
     payload: &str,
 ) -> (bool, Option<i64>, String) {
@@ -281,7 +263,7 @@ async fn send_webhook_with_retry(
             sleep(Duration::from_secs(delay_secs)).await;
         }
 
-        match try_send_webhook(client, webhook, payload).await {
+        match try_send_webhook(webhook, payload).await {
             Ok((status, body)) => {
                 if status >= 200 && status < 300 {
                     return (true, Some(status), body);
@@ -326,57 +308,52 @@ fn build_hmac_signature(secret: &str, body: &str) -> String {
 
 /// 尝试发送一次 HTTP 请求
 ///
-/// 🔒 P2-3 修复：DNS 重绑定防护
-/// 在实际发送前二次解析域名，防止攻击者在创建后修改 DNS 记录指向内网
+/// 🔒 DNS 重绑定防护：
+/// 先用 tokio::net::lookup_host 解析域名，找到第一个非内网 IP，
+/// 再通过 `reqwest::Client::builder().resolve()` 将域名强制绑定到该 IP。
+/// 这样 reqwest 不会独立解析 DNS，消除了两次解析之间 TTL=0 攻击窗口。
+/// 同时关闭自动重定向，防止通过 302 跳转到内网地址。
+///
+/// 注意：此处为每次调用构建临时 Client（而非复用全局连接池），
+/// 这是安全换性能的正确取舍——连接池复用会让 DNS 重绑定防护形同虚设。
 async fn try_send_webhook(
-    client: &Client,
     webhook: &Webhook,
     payload: &str,
 ) -> Result<(i64, String), String> {
-    // 🔒 DNS 重绑定防护：触发时二次检查 URL 是否解析到私有地址
-    if let Ok(parsed) = url::Url::parse(&webhook.url) {
-        if let Some(host) = parsed.host_str() {
-            // 只对域名进行 DNS 解析检查（跳过直接 IP 地址，因为已在创建时检查）
-            if host.parse::<std::net::IpAddr>().is_err() {
-                // 这是域名，需要解析并检查所有 IP
-                let port = parsed.port_or_known_default().unwrap_or(443);
-                match tokio::net::lookup_host(format!("{}:{}", host, port)).await {
-                    Ok(addrs) => {
-                        for addr in addrs {
-                            if is_private_ip(&addr.ip()) {
-                                let error_msg = format!(
-                                    "DNS rebinding attack detected: domain '{}' resolved to private IP {} at delivery time",
-                                    host, addr.ip()
-                                );
-                                tracing::warn!(
-                                    module = "webhook",
-                                    webhook_id = %webhook.id,
-                                    domain = host,
-                                    resolved_ip = %addr.ip(),
-                                    "DNS rebinding attack detected"
-                                );
-                                return Err(error_msg);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        let error_msg = format!("DNS resolution failed: {}", e);
-                        tracing::error!(
-                            module = "webhook",
-                            webhook_id = %webhook.id,
-                            domain = host,
-                            error = %e,
-                            "DNS resolution failed during webhook delivery"
-                        );
-                        return Err(error_msg);
-                    }
-                }
-            }
-        }
-    }
+    let parsed = url::Url::parse(&webhook.url)
+        .map_err(|e| format!("invalid webhook URL: {}", e))?;
+    let host_str = parsed
+        .host_str()
+        .ok_or_else(|| "webhook URL missing host".to_string())?;
+    let port = parsed.port_or_known_default().unwrap_or(443);
 
-    let mut req = client
-        .post(&webhook.url)
+    // DNS 解析：找到第一个非内网 IP（域名和 IP 地址统一走此路径）
+    let addrs =
+        tokio::net::lookup_host(format!("{}:{}", host_str, port))
+            .await
+            .map_err(|e| format!("DNS resolution failed: {}", e))?;
+
+    let safe_addr = addrs
+        .into_iter()
+        .find(|addr| !is_private_ip(&addr.ip()))
+        .ok_or_else(|| {
+            format!(
+                "SSRF prevention: domain '{}' resolved exclusively to private/internal IPs at delivery time",
+                host_str
+            )
+        })?;
+
+    // 构建临时 client，强制 reqwest 使用我们解析出的 IP，杜绝独立 DNS 解析
+    // 注：不使用全局共享 client（OnceLock），否则 DNS 重绑定防护无效
+    let transient_client = reqwest::Client::builder()
+        .resolve(host_str, safe_addr)
+        .timeout(Duration::from_secs(10))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|e| format!("failed to build HTTP client: {}", e))?;
+
+    let mut req = transient_client
+        .post(webhook.url.clone())
         .header("Content-Type", "application/json")
         .header("User-Agent", "Colophon-Webhook/1.0")
         .body(payload.to_string());
@@ -391,22 +368,7 @@ async fn try_send_webhook(
 
     let response = req.send().await.map_err(|e| e.to_string())?;
 
-    // 🔒 重定向安全检查：验证最终 URL 是否指向私有地址（防止通过 302 绕过初始检查）
-    let final_url = response.url().as_str();
-    if is_private_or_local_url(final_url).unwrap_or_else(|_| false) {
-        let error_msg = format!(
-            "final request URL {} resolves to private address (potential SSRF attack via redirect)",
-            final_url
-        );
-        tracing::warn!(
-            module = "webhook",
-            webhook_id = %webhook.id,
-            original_url = %webhook.url,
-            final_url = final_url,
-            "SSRF attack prevented: redirect to private address"
-        );
-        return Err(error_msg);
-    }
+    // 已禁用自动重定向（Policy::none），无需额外检查最终 URL
 
     let status = response.status().as_u16() as i64;
     let body = match response.text().await {

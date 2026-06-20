@@ -397,7 +397,8 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         )
         .route(
             "/api/v1/admin/media/{id}",
-            delete(modules::media::handler::delete_media)
+            get(modules::media::handler::get_media)
+                .delete(modules::media::handler::delete_media)
                 .patch(modules::media::handler::rename_media),
         )
         .route(
@@ -551,6 +552,10 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .route("/categories", get(modules::theme::handler::render_categories_list))
         .route("/tags/{slug}", get(modules::theme::handler::render_tag_archive))
         .route("/search", get(modules::theme::handler::render_search))
+        .route(
+            "/cookie-policy",
+            get(modules::theme::handler::render_cookie_policy),
+        )
         .route(
             "/categories/{slug}",
             get(modules::theme::handler::render_category_archive),

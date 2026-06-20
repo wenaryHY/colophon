@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 
 use crate::state::AppState;
 
@@ -31,7 +32,7 @@ const NOTIFY_POLL_INTERVAL: Duration = Duration::from_secs(1);
 /// - 检测到相关变化后调用 [`AppState::invalidate_all_caches`] 清空所有模板缓存。
 ///
 /// 失败不应阻止服务启动 —— 调用方应捕获错误并降级为"修改后手动重启"模式。
-pub fn spawn_theme_watcher(state: Arc<AppState>, theme_dir: &Path) -> anyhow::Result<()> {
+pub async fn spawn_theme_watcher(state: Arc<AppState>, theme_dir: &Path) -> anyhow::Result<()> {
     if state.config.is_production() {
         tracing::info!("production mode: theme file watcher disabled");
         return Ok(());
@@ -60,7 +61,16 @@ pub fn spawn_theme_watcher(state: Arc<AppState>, theme_dir: &Path) -> anyhow::Re
 
     watcher.watch(&theme_dir, RecursiveMode::Recursive)?;
 
-    tokio::spawn(run_cache_invalidation_loop(state, watcher, rx, theme_dir));
+    let cancel_token = state.shutdown_token.clone();
+    let handle = tokio::spawn(run_cache_invalidation_loop(
+        state.clone(),
+        watcher,
+        rx,
+        theme_dir,
+        cancel_token,
+    ));
+
+    *state.theme_watcher_handle.lock().await = Some(handle);
 
     Ok(())
 }
@@ -73,31 +83,42 @@ async fn run_cache_invalidation_loop(
     _watcher: RecommendedWatcher,
     mut rx: mpsc::UnboundedReceiver<Event>,
     theme_dir: PathBuf,
+    cancel_token: CancellationToken,
 ) {
     tracing::info!(
         theme_dir = %theme_dir.display(),
         "theme file watcher started (development mode)"
     );
 
-    while let Some(first_event) = rx.recv().await {
-        let mut changed_paths = collect_relevant_paths(&first_event);
+    loop {
+        tokio::select! {
+            _ = cancel_token.cancelled() => {
+                tracing::info!(module = "file_watcher", "shutdown signal received, stopping theme file watcher");
+                break;
+            }
+            first_event = rx.recv() => {
+                let Some(first_event) = first_event else { break; };
 
-        // 防抖：等待短暂时间后 drain 通道中累积的事件，合并为一次缓存失效。
-        tokio::time::sleep(CACHE_INVALIDATION_DEBOUNCE).await;
-        while let Ok(event) = rx.try_recv() {
-            changed_paths.extend(collect_relevant_paths(&event));
+                let mut changed_paths = collect_relevant_paths(&first_event);
+
+                // 防抖：等待短暂时间后 drain 通道中累积的事件，合并为一次缓存失效。
+                tokio::time::sleep(CACHE_INVALIDATION_DEBOUNCE).await;
+                while let Ok(event) = rx.try_recv() {
+                    changed_paths.extend(collect_relevant_paths(&event));
+                }
+
+                if changed_paths.is_empty() {
+                    continue;
+                }
+
+                state.invalidate_all_caches().await;
+
+                tracing::info!(
+                    files = ?changed_paths,
+                    "theme files changed, caches invalidated"
+                );
+            }
         }
-
-        if changed_paths.is_empty() {
-            continue;
-        }
-
-        state.invalidate_all_caches().await;
-
-        tracing::info!(
-            files = ?changed_paths,
-            "theme files changed, caches invalidated"
-        );
     }
 
     tracing::info!("theme file watcher stopped");

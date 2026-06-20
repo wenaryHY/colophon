@@ -21,7 +21,7 @@ pub async fn start_trash_scheduler(state: Arc<AppState>) -> Result<(), AppError>
     let minute = minute_str.parse::<u32>().unwrap_or(0).clamp(0, 59);
 
     let cron = format!("0 {} {} * * * *", minute, hour);
-    let scheduler = JobScheduler::new()
+    let mut scheduler = JobScheduler::new()
         .await
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("create trash scheduler failed: {e}")))?;
 
@@ -52,16 +52,19 @@ pub async fn start_trash_scheduler(state: Arc<AppState>) -> Result<(), AppError>
         .await
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("start trash scheduler failed: {e}")))?;
 
-    tracing::info!(cron = %cron, "trash cleanup scheduler started");
-
-    // Keep the scheduler alive for the lifetime of the process.
-    // Unlike backup scheduler, trash doesn't need dynamic restart,
-    // so we hold it via a background task instead of storing in AppState.
-    tokio::spawn(async move {
-        let _keep_alive = scheduler;
-        // Block forever — the scheduler runs internally via its own tokio tasks.
-        // This task only exists to prevent the scheduler from being dropped.
-        std::future::pending::<()>().await;
+    let cancel_token = state.shutdown_token.clone();
+    let handle = tokio::spawn(async move {
+        cancel_token.cancelled().await;
+        tracing::info!(module = "trash_scheduler", "shutdown signal received");
+        if let Err(e) = scheduler.shutdown().await {
+            tracing::warn!(module = "trash_scheduler", error = %e, "scheduler shutdown error");
+        } else {
+            tracing::info!(module = "trash_scheduler", "stopped gracefully");
+        }
     });
+
+    *state.trash_scheduler_handle.lock().await = Some(handle);
+
+    tracing::info!(cron = %cron, "trash cleanup scheduler started");
     Ok(())
 }

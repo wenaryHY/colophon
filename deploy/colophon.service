@@ -12,6 +12,12 @@ ExecStart=/opt/colophon/colophon
 Restart=always
 RestartSec=5
 
+# 优雅关闭超时：SIGTERM 后等待 35 秒，超时则 SIGKILL
+# 应略大于 graceful_shutdown_timeout_seconds(30) + 清理缓冲(5)
+TimeoutStopSec=35s
+KillSignal=SIGTERM
+KillMode=mixed
+
 Environment=RUST_LOG=colophon=info
 Environment=COLOPHON__RUNTIME__MODE=production
 Environment=COLOPHON__SERVER__HOST=127.0.0.1
