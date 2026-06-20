@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT COUNT(DISTINCT p.id) as \"count!\"\n        FROM posts p\n        INNER JOIN post_tags pt ON p.id = pt.post_id\n        INNER JOIN tags t ON pt.tag_id = t.id\n        WHERE t.slug = ?\n          AND p.status = 'published'\n          AND p.visibility = 'public'\n          AND p.deleted_at IS NULL\n          AND p.content_type = 'post'\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e86c903d89c3578c094009a7c0c692a866e5bc01a82d57ff43076dd918cd50b4"
+}

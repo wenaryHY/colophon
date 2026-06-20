@@ -1,0 +1,86 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            id as \"id!\",\n            name as \"name!\",\n            url as \"url!\",\n            events as \"events!\",\n            secret,\n            enabled,\n            retry_count,\n            max_retries,\n            last_triggered_at,\n            last_error,\n            created_at as \"created_at!\",\n            updated_at as \"updated_at!\"\n        FROM webhooks\n        ORDER BY created_at DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "name!",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "url!",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "events!",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "secret",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "enabled",
+        "ordinal": 5,
+        "type_info": "Int64"
+      },
+      {
+        "name": "retry_count",
+        "ordinal": 6,
+        "type_info": "Int64"
+      },
+      {
+        "name": "max_retries",
+        "ordinal": 7,
+        "type_info": "Int64"
+      },
+      {
+        "name": "last_triggered_at",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "last_error",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at!",
+        "ordinal": 10,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at!",
+        "ordinal": 11,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "d3e8a3a15b988bb853f8a501c1786a55119bfa76e4ac4b1524815816c502180c"
+}

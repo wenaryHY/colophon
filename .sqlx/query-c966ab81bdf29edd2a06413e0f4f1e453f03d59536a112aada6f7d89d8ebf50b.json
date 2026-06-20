@@ -1,0 +1,80 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            p.id,\n            p.title,\n            p.slug,\n            p.excerpt,\n            p.content_type as \"content_type: ContentType\",\n            p.published_at,\n            p.created_at,\n            p.updated_at,\n            u.display_name AS author_display_name,\n            c.name AS category_name,\n            c.id AS category_id\n        FROM posts p\n        JOIN users u ON u.id = p.author_id\n        LEFT JOIN categories c ON c.id = p.category_id\n        WHERE p.status = 'published' AND p.visibility = 'public' AND p.deleted_at IS NULL\n        ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC\n        LIMIT ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "slug",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "excerpt",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "published_at",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "author_display_name",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "category_name",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "category_id",
+        "ordinal": 10,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "c966ab81bdf29edd2a06413e0f4f1e453f03d59536a112aada6f7d89d8ebf50b"
+}

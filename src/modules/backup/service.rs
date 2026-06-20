@@ -6,7 +6,8 @@ use std::{
 };
 
 use anyhow::Context;
-use chrono::Utc;
+use chrono::{Datelike, Timelike, Utc, TimeZone};
+use chrono_tz::Tz;
 use cron::Schedule;
 use sha2::{Digest, Sha256};
 use sqlx::Row;
@@ -739,16 +740,20 @@ pub async fn get_schedule(state: Arc<AppState>) -> AppResult<BackupScheduleRespo
     })
 }
 
-/// 基于 cron 表达式计算下一次触发时间。
-/// 如果 cron 表达式无效，fallback 到 now + 1 小时。
-/// 将用户选择的本地时间（北京时间 UTC+8）转换为 UTC 时间，用于 cron 表达式计算。
-/// 中国标准时间 (UTC+8): 00:00 本地 → 16:00 UTC（前一天）
-pub(super) fn local_time_to_utc_for_cron(hour: u32, minute: u32) -> (u32, u32) {
-    let total_minutes = (hour * 60 + minute) as i32;
-    let utc_total = (total_minutes - 8 * 60).rem_euclid(24 * 60);
-    let utc_hour = (utc_total / 60) as u32;
-    let utc_minute = (utc_total % 60) as u32;
-    (utc_hour, utc_minute)
+/// 将用户选择的站点时区本地时间转换为 UTC 时间，用于 cron 表达式计算
+/// 例如用户选 Asia/Shanghai 的 02:00 → UTC 18:00（前一天）
+pub(super) fn local_time_to_utc_for_cron(hour: u32, minute: u32, tz: Tz) -> (u32, u32) {
+    let now = Utc::now();
+    let local_result = tz.with_ymd_and_hms(now.year(), now.month(), now.day(), hour, minute, 0);
+    let utc_time = match local_result {
+        chrono::LocalResult::Single(dt) => dt.with_timezone(&Utc),
+        _ => {
+            // DST 跳变导致时间不存在或歧义，fallback 到今天的 UTC 同时间点
+            Utc.with_ymd_and_hms(now.year(), now.month(), now.day(), hour, minute, 0)
+                .unwrap()
+        }
+    };
+    (utc_time.hour(), utc_time.minute())
 }
 
 fn calculate_next_run_at_from_cron_expression(cron_expression: &str) -> chrono::DateTime<Utc> {
@@ -785,9 +790,11 @@ pub async fn update_schedule(
 
     // Set next_run_at based on cron expression (do NOT set last_run_at here;
     // last_run_at is only updated when a backup actually executes).
-    // 将用户选择的本地时间（北京时间）转为 UTC，确保 cron 在正确时刻触发
+    // 将用户选择的站点时区本地时间转为 UTC，确保 cron 在正确时刻触发
     if request.enabled {
-        let (utc_hour, utc_minute) = local_time_to_utc_for_cron(request.hour, request.minute);
+        let tz: Tz = state.config.site.site_timezone.parse()
+            .unwrap_or(chrono_tz::Asia::Shanghai);
+        let (utc_hour, utc_minute) = local_time_to_utc_for_cron(request.hour, request.minute, tz);
         let cron = frequency.cron_expression(utc_hour, utc_minute);
         let next_run_at = calculate_next_run_at_from_cron_expression(&cron);
         repository::set_next_run_at(&state.pool, &next_run_at.to_rfc3339()).await?;

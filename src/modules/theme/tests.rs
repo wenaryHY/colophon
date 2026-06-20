@@ -36,6 +36,7 @@ mod delete_theme_tests {
             "test-admin-id".to_string(),
             "testadmin".to_string(),
             Role::Admin,
+            1,
         )
         .expect("issue admin JWT token for theme test")
     }
@@ -88,6 +89,9 @@ mod delete_theme_tests {
             webhook: WebhookConfig {
                 max_concurrency: 5,
                 timeout_seconds: 60,
+            },
+            site: crate::bootstrap::config::SiteConfig {
+                site_timezone: "UTC".to_string(),
             },
             media: crate::bootstrap::config::MediaConfig {
                 webp_enabled: false,

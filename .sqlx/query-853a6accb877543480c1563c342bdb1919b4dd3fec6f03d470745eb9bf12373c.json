@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            ak.id AS \"api_key_id!\",\n            ak.user_id as \"user_id!\",\n            u.username as \"username!\",\n            u.role as \"role!\",\n            ak.permissions as \"permissions!\",\n            ak.expires_at AS api_key_expires_at\n        FROM api_keys ak\n        JOIN users u ON u.id = ak.user_id\n        WHERE ak.key_hash = ?\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "api_key_id!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "user_id!",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "username!",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "role!",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "permissions!",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "api_key_expires_at",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "853a6accb877543480c1563c342bdb1919b4dd3fec6f03d470745eb9bf12373c"
+}

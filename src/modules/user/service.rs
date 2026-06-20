@@ -107,5 +107,6 @@ pub async fn update_password(
 
     let new_hash = hash_password(&body.new_password).await?;
     repository::update_password(&state.pool, &auth.id, &new_hash).await?;
+    repository::increment_token_version(&state.pool, &auth.id).await?;
     Ok(serde_json::json!({ "updated": true }))
 }

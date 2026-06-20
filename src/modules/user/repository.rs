@@ -110,3 +110,32 @@ where
     .fetch_optional(executor)
     .await
 }
+
+/// 查询用户当前的 token_version，用于 JWT 签发时打入 claims
+pub async fn find_token_version<'e, E>(
+    executor: E,
+    user_id: &str,
+) -> Result<Option<i32>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    sqlx::query_scalar("SELECT token_version FROM users WHERE id = ?")
+        .bind(user_id)
+        .fetch_optional(executor)
+        .await
+}
+
+/// 自增 token_version，使该用户所有已签发 JWT 立即失效
+pub async fn increment_token_version<'e, E>(
+    executor: E,
+    user_id: &str,
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    sqlx::query("UPDATE users SET token_version = token_version + 1 WHERE id = ?")
+        .bind(user_id)
+        .execute(executor)
+        .await?;
+    Ok(())
+}

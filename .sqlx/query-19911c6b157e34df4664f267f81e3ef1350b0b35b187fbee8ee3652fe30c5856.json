@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT \n            t.id,\n            t.name,\n            t.slug,\n            COUNT(DISTINCT CASE \n                WHEN p.status = 'published' \n                     AND p.visibility = 'public' \n                     AND p.deleted_at IS NULL \n                THEN pt.post_id \n                ELSE NULL \n            END) as post_count\n        FROM tags t\n        LEFT JOIN post_tags pt ON t.id = pt.tag_id\n        LEFT JOIN posts p ON pt.post_id = p.id\n        WHERE t.deleted_at IS NULL\n        GROUP BY t.id, t.name, t.slug\n        HAVING post_count > 0\n        ORDER BY post_count DESC, t.name ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "slug",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "post_count",
+        "ordinal": 3,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "19911c6b157e34df4664f267f81e3ef1350b0b35b187fbee8ee3652fe30c5856"
+}

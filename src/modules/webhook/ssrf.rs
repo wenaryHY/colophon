@@ -205,44 +205,4 @@ mod tests {
             0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888
         ))));
     }
-
-    // ── DNS 泛解析绕过测试 ──
-    //
-    // 注意：当前 is_private_or_local_url 对域名不做 DNS 解析（域名走 Ok(false)），
-    // DNS 重绑定防护在 dispatcher.rs 传输层（tokio::net::lookup_host + is_private_ip）。
-    // 以下测试标记 #[ignore]，记录期望行为——当此函数增加 DNS 解析能力时启用。
-    // 如果 CI 无网络，也需 #[ignore]。
-
-    /// nip.io 泛解析绕过测试：magic.127.0.0.1.nip.io 解析到 127.0.0.1，应被拦截
-    #[test]
-    #[ignore = "is_private_or_local_url 当前不对域名做 DNS 解析，DNS 重绑定防护在 dispatcher 传输层"]
-    fn test_rejects_nip_io_bypass() {
-        let url = "http://magic-127.0.0.1.nip.io:8080/hook";
-        let result = is_private_or_local_url(url);
-        assert!(result.is_ok(), "nip.io bypass should be blocked");
-        assert!(
-            result.unwrap(),
-            "nip.io should resolve to private IP and be rejected"
-        );
-    }
-
-    /// xip.io 泛解析绕过测试：10.0.0.1.xip.io 解析到 10.0.0.1，应被拦截
-    #[test]
-    #[ignore = "is_private_or_local_url 当前不对域名做 DNS 解析，DNS 重绑定防护在 dispatcher 传输层"]
-    fn test_rejects_xip_io_bypass() {
-        let url = "http://10.0.0.1.xip.io:8080/hook";
-        let result = is_private_or_local_url(url);
-        assert!(result.is_ok());
-        assert!(result.unwrap());
-    }
-
-    /// 合法公网域名应放行（example.com 解析为公网 IP）
-    #[test]
-    #[ignore = "需要网络 DNS 解析，CI 环境可能无网络"]
-    fn test_allows_public_domain() {
-        let url = "https://example.com/webhook";
-        let result = is_private_or_local_url(url);
-        // example.com 解析为公网 IP，应返回 Ok(false)
-        assert!(result.is_ok() && !result.unwrap());
-    }
 }

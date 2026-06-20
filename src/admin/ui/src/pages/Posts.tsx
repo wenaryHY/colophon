@@ -119,7 +119,7 @@ export default function Posts() {
   const [batchDeleteTarget, setBatchDeleteTarget] = useState(false);
 
   // 获取文章列表
-  const { data: postsPayload, isLoading } = useQuery({
+  const { data: postsPayload, isLoading, refetch: refetchPosts } = useQuery({
     queryKey: ['posts', { page, contentTypeTab }],
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page), page_size: '10', content_type: contentTypeTab });
@@ -128,7 +128,7 @@ export default function Posts() {
   });
 
   // 获取元数据（分类、评论数、siteUrl）
-  const { data: metaData } = useQuery({
+  const { data: metaData, refetch: refetchMeta } = useQuery({
     queryKey: ['posts-meta'],
     queryFn: async () => {
       const [categoryData, commentData, settingData] = await Promise.all([
@@ -139,6 +139,16 @@ export default function Posts() {
       return { categories: categoryData, commentTotal: commentData.pagination.total, siteUrl: settingData.find((item) => item.key === 'site_url')?.value || '' };
     },
   });
+
+  // WebSocket 重连后重新拉取数据
+  useEffect(() => {
+    const handler = () => {
+      refetchPosts();
+      refetchMeta();
+    };
+    window.addEventListener('colophon:ws_reconnected', handler);
+    return () => window.removeEventListener('colophon:ws_reconnected', handler);
+  }, [refetchPosts, refetchMeta]);
 
   const posts = postsPayload?.items ?? [];
   const total = postsPayload?.pagination.total ?? 0;

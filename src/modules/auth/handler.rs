@@ -280,12 +280,17 @@ pub async fn refresh_token(
             crate::shared::error::AppError::Unauthorized
         })?;
 
+    let token_version = crate::modules::user::repository::find_token_version(&state.pool, &user.id)
+        .await?
+        .unwrap_or(1);
+
     let access_token = jwt::issue_token(
         &state.config.auth.secret,
         state.config.auth.expires_in_seconds,
         user.id.clone(),
         user.username.clone(),
         user.role.parse()?,
+        token_version,
     )?;
 
     tracing::info!(

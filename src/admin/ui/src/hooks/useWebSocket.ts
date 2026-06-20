@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { getQueryClient } from '../lib/api';
 
 type WSEventType = 'comment_created' | 'comment_approved' | 'comment_deleted';
 type WSHandler = (event: { type: WSEventType }) => void;
@@ -33,6 +34,17 @@ export function useWebSocket(onEvent?: WSHandler) {
 
     wsRef.current.onopen = () => {
       console.log('[Colophon WS] 已连接');
+
+      // 如果是断开后重连（非首次加载），触发数据刷新保证最终一致性
+      if (attemptsRef.current > 0) {
+        window.dispatchEvent(new CustomEvent('colophon:ws_reconnected'));
+        try {
+          getQueryClient().invalidateQueries();
+        } catch {
+          // queryClient 尚未初始化时静默忽略
+        }
+      }
+
       attemptsRef.current = 0;
       if (timerRef.current) {
         clearTimeout(timerRef.current);

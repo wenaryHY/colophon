@@ -10,6 +10,7 @@ pub struct AppConfig {
     pub storage: StorageConfig,
     pub media: MediaConfig,
     pub theme: ThemeConfig,
+    pub site: SiteConfig,
     pub paths: PathsConfig,
     pub runtime: RuntimeConfig,
     pub webhook: WebhookConfig,
@@ -87,6 +88,17 @@ pub struct ThemeConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct SiteConfig {
+    /// 站点时区（IANA 时区标识符），用于备份 Cron 表达式计算
+    #[serde(default = "default_site_timezone")]
+    pub site_timezone: String,
+}
+
+fn default_site_timezone() -> String {
+    "Asia/Shanghai".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct PathsConfig {
     pub admin_dist_dir: String,
 }
@@ -150,6 +162,7 @@ impl AppConfig {
             .set_default("theme.theme_dir", "themes")?
             .set_default("theme.active_theme_fallback", "default")?
             .set_default("theme.default_mode", "system")?
+            .set_default("site.site_timezone", "Asia/Shanghai")?
             .set_default("paths.admin_dist_dir", "src/admin/dist")?
             .set_default("runtime.mode", "development")?
             .set_default("webhook.max_concurrency", 5)?

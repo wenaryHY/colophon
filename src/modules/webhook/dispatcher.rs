@@ -22,6 +22,7 @@ use crate::{
 };
 
 use super::{
+    dns::DnsResolver,
     domain::Webhook,
     repository,
     ssrf::is_private_ip,
@@ -35,11 +36,16 @@ const INITIAL_DELAY_SECONDS_FOR_WEBHOOK_RETRY: u64 = 5;
 pub struct WebhookDispatcher {
     pool: SqlitePool,
     config: WebhookConfig,
+    resolver: Arc<dyn DnsResolver>,
 }
 
 impl WebhookDispatcher {
-    pub fn new(pool: SqlitePool, config: WebhookConfig) -> Self {
-        Self { pool, config }
+    pub fn new(pool: SqlitePool, config: WebhookConfig, resolver: Arc<dyn DnsResolver>) -> Self {
+        Self {
+            pool,
+            config,
+            resolver,
+        }
     }
 
     /// 将本分发器包装为 action hooks
@@ -60,14 +66,9 @@ impl HookHandler for WebhookDispatcher {
         let pool = self.pool.clone();
 
         let config = self.config.clone();
+        let resolver = self.resolver.clone();
         tokio::spawn(async move {
-            dispatch_webhooks_for_event(
-                &pool,
-                &event,
-                &payload,
-                &config,
-            )
-            .await;
+            dispatch_webhooks_for_event(&pool, &event, &payload, &config, resolver).await;
         });
 
         Ok(())
@@ -128,6 +129,7 @@ async fn dispatch_webhooks_for_event(
     event: &str,
     payload: &serde_json::Value,
     config: &WebhookConfig,
+    resolver: Arc<dyn DnsResolver>,
 ) {
     let webhooks = match repository::list_enabled_webhooks_for_event(pool, event).await {
         Ok(list) => list,
@@ -171,13 +173,14 @@ async fn dispatch_webhooks_for_event(
         let webhook = webhook.clone();
         let payload_str = payload_str.clone();
         let event = event.to_string();
+        let resolver = Arc::clone(&resolver);
 
         handles.push(tokio::spawn(async move {
             let _permit = permit; // 持有许可直到当前 webhook 完成
 
             let start = Instant::now();
             let (success, response_status, response_body) =
-                send_webhook_with_retry(&webhook, &payload_str).await;
+                send_webhook_with_retry(&webhook, &payload_str, &*resolver).await;
             let duration_ms = start.elapsed().as_millis() as i64;
 
             // 记录投递日志
@@ -243,6 +246,7 @@ async fn dispatch_webhooks_for_event(
 async fn send_webhook_with_retry(
     webhook: &Webhook,
     payload: &str,
+    resolver: &dyn DnsResolver,
 ) -> (bool, Option<i64>, String) {
     let max_retries = webhook.max_retries.min(5); // 最多 5 次重试
     let mut last_status: Option<i64> = None;
@@ -263,7 +267,7 @@ async fn send_webhook_with_retry(
             sleep(Duration::from_secs(delay_secs)).await;
         }
 
-        match try_send_webhook(webhook, payload).await {
+        match try_send_webhook(webhook, payload, resolver).await {
             Ok((status, body)) => {
                 if status >= 200 && status < 300 {
                     return (true, Some(status), body);
@@ -319,6 +323,7 @@ fn build_hmac_signature(secret: &str, body: &str) -> String {
 async fn try_send_webhook(
     webhook: &Webhook,
     payload: &str,
+    resolver: &dyn DnsResolver,
 ) -> Result<(i64, String), String> {
     let parsed = url::Url::parse(&webhook.url)
         .map_err(|e| format!("invalid webhook URL: {}", e))?;
@@ -328,10 +333,10 @@ async fn try_send_webhook(
     let port = parsed.port_or_known_default().unwrap_or(443);
 
     // DNS 解析：找到第一个非内网 IP（域名和 IP 地址统一走此路径）
-    let addrs =
-        tokio::net::lookup_host(format!("{}:{}", host_str, port))
-            .await
-            .map_err(|e| format!("DNS resolution failed: {}", e))?;
+    let addrs = resolver
+        .lookup_host(host_str, port)
+        .await
+        .map_err(|e| format!("DNS resolution failed: {}", e))?;
 
     let safe_addr = addrs
         .into_iter()
@@ -479,8 +484,145 @@ mod tests {
             timeout_seconds: 30,
         };
         let pool = SqlitePool::connect_lazy("sqlite::memory:").unwrap();
-        let dispatcher = WebhookDispatcher::new(pool, config);
+        let resolver = Arc::new(crate::modules::webhook::dns::TokioDnsResolver);
+        let dispatcher = WebhookDispatcher::new(pool, config, resolver);
         let hooks = dispatcher.into_hooks();
         assert_eq!(hooks.len(), 2);
+    }
+
+    // ── MockResolver ──
+
+    /// Mock DNS 解析器，返回预设的 SocketAddr 列表，无需真实网络。
+    struct MockResolver {
+        addrs: Vec<std::net::SocketAddr>,
+    }
+
+    impl DnsResolver for MockResolver {
+        fn lookup_host(
+            &self,
+            _host: &str,
+            _port: u16,
+        ) -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<Output = Result<Vec<std::net::SocketAddr>, std::io::Error>>
+                    + Send
+                    + '_,
+            >,
+        > {
+            let addrs = self.addrs.clone();
+            Box::pin(async move { Ok(addrs) })
+        }
+    }
+
+    fn make_test_webhook(url: &str) -> Webhook {
+        Webhook {
+            id: "wh_test".into(),
+            name: "test".into(),
+            url: url.to_string(),
+            events: "post.after_save".into(),
+            secret: None,
+            enabled: 1,
+            retry_count: 0,
+            max_retries: 0,
+            last_triggered_at: None,
+            last_error: None,
+            created_at: String::new(),
+            updated_at: String::new(),
+        }
+    }
+
+    // ── SSRF DNS 重绑定测试 ──
+
+    /// Mock 返回内网 IP 时，try_send_webhook 应拒绝（SSRF 拦截）。
+    #[tokio::test]
+    async fn ssrf_blocks_mock_resolved_private_ip() {
+        let resolver = MockResolver {
+            addrs: vec!["10.0.0.1:443".parse().unwrap()],
+        };
+        let webhook = make_test_webhook("https://evil.internal/hook");
+        let result = try_send_webhook(&webhook, r#"{"event":"test"}"#, &resolver).await;
+        assert!(result.is_err(), "should reject private IP");
+        let err_msg = result.unwrap_err();
+        assert!(
+            err_msg.contains("SSRF prevention") || err_msg.contains("private"),
+            "error should mention SSRF/private, got: {}",
+            err_msg
+        );
+    }
+
+    /// Mock 返回链路本地 IP（169.254.x.x）同样应被 SSRF 拦截。
+    #[tokio::test]
+    async fn ssrf_blocks_link_local_ip() {
+        let resolver = MockResolver {
+            addrs: vec!["169.254.169.254:80".parse().unwrap()],
+        };
+        let webhook = make_test_webhook("http://metadata.internal/latest");
+        let result = try_send_webhook(&webhook, r#"{"event":"test"}"#, &resolver).await;
+        assert!(result.is_err(), "should reject link-local IP");
+        let err_msg = result.unwrap_err();
+        assert!(
+            err_msg.contains("SSRF prevention") || err_msg.contains("private"),
+            "error should mention SSRF/private, got: {}",
+            err_msg
+        );
+    }
+
+    /// Mock 返回 127.0.0.1 应被 SSRF 拦截。
+    #[tokio::test]
+    async fn ssrf_blocks_loopback_ip() {
+        let resolver = MockResolver {
+            addrs: vec!["127.0.0.1:8080".parse().unwrap()],
+        };
+        let webhook = make_test_webhook("http://localhost/hook");
+        let result = try_send_webhook(&webhook, r#"{"event":"test"}"#, &resolver).await;
+        assert!(result.is_err(), "should reject loopback IP");
+        let err_msg = result.unwrap_err();
+        assert!(
+            err_msg.contains("SSRF prevention") || err_msg.contains("private"),
+            "error should mention SSRF/private, got: {}",
+            err_msg
+        );
+    }
+
+    /// Mock 返回公网 IP 时，try_send_webhook 不应因 IP 被拒绝。
+    /// 注：实际 HTTP 请求会因无服务端而失败，但错误不应是 SSRF/DNS。
+    #[tokio::test]
+    async fn ssrf_allows_mock_resolved_public_ip() {
+        let resolver = MockResolver {
+            addrs: vec!["93.184.216.34:443".parse().unwrap()], // example.com
+        };
+        let webhook = make_test_webhook("https://example.com/hook");
+        let result = try_send_webhook(&webhook, r#"{"event":"test"}"#, &resolver).await;
+        // 公网 IP 不会被 SSRF 拦截，但后续 HTTP 请求会失败（连接超时/拒绝）。
+        // 确保错误不包含 "SSRF prevention" 或 "private"。
+        if let Err(e) = &result {
+            assert!(
+                !e.contains("SSRF prevention") && !e.contains("private"),
+                "public IP should NOT be blocked by SSRF, but got: {}",
+                e
+            );
+        }
+        // 如果成功（极不可能，但类型安全），也视为通过
+    }
+
+    /// Mock 返回混合地址（内网+公网）时，应选择公网 IP 放行。
+    #[tokio::test]
+    async fn ssrf_picks_public_from_mixed_addresses() {
+        let resolver = MockResolver {
+            addrs: vec![
+                "10.0.0.1:443".parse().unwrap(),
+                "93.184.216.34:443".parse().unwrap(),
+            ],
+        };
+        let webhook = make_test_webhook("https://example.com/hook");
+        let result = try_send_webhook(&webhook, r#"{"event":"test"}"#, &resolver).await;
+        // 应跳过 10.0.0.1，选择 93.184.216.34（公网）
+        if let Err(e) = &result {
+            assert!(
+                !e.contains("SSRF prevention") && !e.contains("private"),
+                "should pick public IP from mixed list, but got: {}",
+                e
+            );
+        }
     }
 }

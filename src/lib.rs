@@ -100,9 +100,13 @@ pub async fn serve() -> anyhow::Result<()> {
     state.plugin_manager.write().await.init_all(&state).await?;
     // 初始化 Webhook 分发器，注册到全局 HookRegistry
     {
+        let resolver = std::sync::Arc::new(
+            modules::webhook::dns::TokioDnsResolver,
+        );
         let dispatcher = modules::webhook::dispatcher::WebhookDispatcher::new(
             state.pool.clone(),
             config.webhook.clone(),
+            resolver,
         );
         let hooks = dispatcher.into_hooks();
         state

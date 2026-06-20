@@ -67,6 +67,9 @@ mod tests {
                 max_concurrency: 5,
                 timeout_seconds: 60,
             },
+            site: crate::bootstrap::config::SiteConfig {
+                site_timezone: "UTC".to_string(),
+            },
             media: crate::bootstrap::config::MediaConfig {
                 webp_enabled: false,
                 webp_quality: 80,
@@ -404,6 +407,7 @@ mod tests {
             "user-123".to_string(),
             "testuser".to_string(),
             Role::Member,
+            1,
         )
         .unwrap();
 
@@ -414,6 +418,7 @@ mod tests {
         assert_eq!(claims.sub, "user-123");
         assert_eq!(claims.username, "testuser");
         assert_eq!(claims.role, Role::Member);
+        assert_eq!(claims.token_version, 1);
     }
 
     #[tokio::test]
@@ -427,6 +432,7 @@ mod tests {
             username: "testuser".to_string(),
             role: Role::Member,
             exp: now - 3600, // 1 小时前过期
+            token_version: 1,
         };
 
         let token = jsonwebtoken::encode(
@@ -451,6 +457,7 @@ mod tests {
             "user-123".to_string(),
             "testuser".to_string(),
             Role::Member,
+            1,
         )
         .unwrap();
 
@@ -468,6 +475,7 @@ mod tests {
             "user-123".to_string(),
             "testuser".to_string(),
             Role::Member,
+            1,
         )
         .unwrap();
 

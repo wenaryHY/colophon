@@ -10,6 +10,7 @@ pub struct Claims {
     pub username: String,
     pub role: Role,
     pub exp: i64,
+    pub token_version: i32,
 }
 
 /// 签发 JWT，不依赖 AppState — 解耦架构：infra 层不应了解 state 层
@@ -19,6 +20,7 @@ pub fn issue_token(
     user_id: String,
     username: String,
     role: Role,
+    token_version: i32,
 ) -> Result<String, AppError> {
     // 此处是唯一一处 u64 → i64 转换：JWT exp 字段要求 i64
     let exp = chrono::Utc::now().timestamp() + token_lifetime_seconds_in_seconds as i64;
@@ -27,6 +29,7 @@ pub fn issue_token(
         username,
         role,
         exp,
+        token_version,
     };
 
     encode(
@@ -76,12 +79,14 @@ mod tests {
             "user-1".into(),
             "alice".into(),
             Role::Admin,
+            1,
         )
         .unwrap();
         let claims = decode_token(&token, TEST_SECRET).unwrap();
         assert_eq!(claims.sub, "user-1");
         assert_eq!(claims.username, "alice");
         assert_eq!(claims.role, Role::Admin);
+        assert_eq!(claims.token_version, 1);
     }
 
     #[test]
@@ -92,6 +97,7 @@ mod tests {
             "user-1".into(),
             "alice".into(),
             Role::Admin,
+            1,
         )
         .unwrap();
         assert!(decode_token(&token, "wrong-secret").is_err());
@@ -147,6 +153,7 @@ mod tests {
             "u1".into(),
             "bob".into(),
             Role::Member,
+            1,
         )
         .unwrap();
         let after = chrono::Utc::now().timestamp();

@@ -175,6 +175,39 @@ where
             }
         };
 
+        // ── token_version 自救校验：比对 JWT 中的 version 与 DB 当前值 ──
+        let current_version: i32 = sqlx::query_scalar(
+            "SELECT token_version FROM users WHERE id = ?",
+        )
+        .bind(&claims.sub)
+        .fetch_optional(&app_state.pool)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                module = "shared_auth",
+                event = "auth_token_version_query_failed",
+                path = %parts.uri.path(),
+                user_id = %claims.sub,
+                error = ?e,
+                "token_version query failed"
+            );
+            AppError::Sqlx(e)
+        })?
+        .unwrap_or(1);
+
+        if current_version != claims.token_version {
+            tracing::warn!(
+                module = "shared_auth",
+                event = "auth_token_version_mismatch",
+                path = %parts.uri.path(),
+                user_id = %claims.sub,
+                jwt_version = claims.token_version,
+                current_version = current_version,
+                "token version mismatch — token has been logically revoked"
+            );
+            return Err(AppError::Unauthorized);
+        }
+
         tracing::debug!(
             module = "shared_auth",
             event = "auth_success",

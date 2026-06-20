@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT COUNT(*) as \"count!\"\n        FROM posts p\n        INNER JOIN categories c ON p.category_id = c.id\n        WHERE c.slug = ?\n          AND p.status = 'published'\n          AND p.visibility = 'public'\n          AND p.deleted_at IS NULL\n          AND p.content_type = 'post'\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!",
+        "ordinal": 0,
+        "type_info": "Int"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5f84d1533f2cdf7871a00e41cb5f47d389026a6f9eba97a20719f87c154de094"
+}

@@ -1,0 +1,80 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            p.id,\n            p.title,\n            p.slug,\n            p.excerpt,\n            p.content_type as \"content_type: ContentType\",\n            p.published_at,\n            p.created_at,\n            p.updated_at,\n            u.display_name AS author_display_name,\n            c.name AS category_name,\n            c.id AS category_id\n        FROM posts p\n        JOIN users u ON u.id = p.author_id\n        INNER JOIN categories c ON p.category_id = c.id\n        WHERE c.slug = ?\n          AND p.status = 'published'\n          AND p.visibility = 'public'\n          AND p.deleted_at IS NULL\n          AND p.content_type = 'post'\n        ORDER BY p.pinned DESC, p.published_at DESC, p.created_at DESC\n        LIMIT ? OFFSET ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "slug",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "excerpt",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_type: ContentType",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "published_at",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "author_display_name",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "category_name",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "category_id",
+        "ordinal": 10,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f1bb0933735cb465156e2f59d3c4b3b53092a9b1b1aac0e6cc74a32123b4f95a"
+}

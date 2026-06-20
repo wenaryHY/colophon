@@ -1,0 +1,134 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            id,\n            uploader_id,\n            kind,\n            mime_type,\n            original_name,\n            stored_name,\n            storage_path,\n            public_url,\n            size_bytes,\n            width,\n            height,\n            duration_seconds,\n            alt_text,\n            category,\n            created_at,\n            updated_at,\n            conversion_status,\n            conversion_retries,\n            conversion_error,\n            deleted_at\n        FROM media\n        WHERE id = ? AND deleted_at IS NULL\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "uploader_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "kind",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "mime_type",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "original_name",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "stored_name",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "storage_path",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "public_url",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "size_bytes",
+        "ordinal": 8,
+        "type_info": "Int64"
+      },
+      {
+        "name": "width",
+        "ordinal": 9,
+        "type_info": "Int64"
+      },
+      {
+        "name": "height",
+        "ordinal": 10,
+        "type_info": "Int64"
+      },
+      {
+        "name": "duration_seconds",
+        "ordinal": 11,
+        "type_info": "Int64"
+      },
+      {
+        "name": "alt_text",
+        "ordinal": 12,
+        "type_info": "Text"
+      },
+      {
+        "name": "category",
+        "ordinal": 13,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 14,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 15,
+        "type_info": "Text"
+      },
+      {
+        "name": "conversion_status",
+        "ordinal": 16,
+        "type_info": "Text"
+      },
+      {
+        "name": "conversion_retries",
+        "ordinal": 17,
+        "type_info": "Int64"
+      },
+      {
+        "name": "conversion_error",
+        "ordinal": 18,
+        "type_info": "Text"
+      },
+      {
+        "name": "deleted_at",
+        "ordinal": 19,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "3102a11d69ef7b9c06d05969bd09d49d8e1c5c8f895bc84dd2eb97e369177d97"
+}

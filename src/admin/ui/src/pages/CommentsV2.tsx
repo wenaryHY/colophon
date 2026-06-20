@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiData, paginationPages, API_PREFIX, getQueryClient } from '../lib/api';
@@ -68,7 +68,7 @@ export default function CommentsV2() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
-  const { data: payload, isLoading } = useQuery({
+  const { data: payload, isLoading, refetch: refetchComments } = useQuery({
     queryKey: ['comments', { page }],
     queryFn: () => {
       const params = new URLSearchParams({
@@ -84,6 +84,13 @@ export default function CommentsV2() {
   const items = payload?.items ?? [];
   const total = payload?.pagination.total ?? 0;
   const pages = payload ? paginationPages(payload) : 1;
+
+  // WebSocket 重连后重新拉取数据
+  useEffect(() => {
+    const handler = () => refetchComments();
+    window.addEventListener('colophon:ws_reconnected', handler);
+    return () => window.removeEventListener('colophon:ws_reconnected', handler);
+  }, [refetchComments]);
 
   const invalidateComments = () => getQueryClient().invalidateQueries({ queryKey: ['comments'] });
 

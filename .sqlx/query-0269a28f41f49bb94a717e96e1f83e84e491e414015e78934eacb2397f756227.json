@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT username, display_name, bio, avatar_media_id\n        FROM users\n        WHERE username = ? AND deleted_at IS NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "username",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "display_name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "bio",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "avatar_media_id",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "0269a28f41f49bb94a717e96e1f83e84e491e414015e78934eacb2397f756227"
+}

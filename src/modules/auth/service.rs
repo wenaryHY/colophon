@@ -1,7 +1,11 @@
 use std::sync::Arc;
 
 use crate::{
-    modules::{auth::dto::RegisterRequest, setting::repository as setting_repository},
+    modules::{
+        auth::dto::RegisterRequest,
+        setting::repository as setting_repository,
+        user::repository as user_repository,
+    },
     shared::{
         auth::{generate_refresh_token, hash_password, hash_token, issue_token, verify_password},
         error::{AppError, AppResult},
@@ -47,12 +51,17 @@ pub async fn register(
     )
     .await?;
 
+    let token_version = user_repository::find_token_version(&state.pool, &user_id)
+        .await?
+        .unwrap_or(1);
+
     let access_token = issue_token(
         &state.config.auth.secret,
         token_lifetime_seconds,
         user_id.clone(),
         username.clone(),
         role,
+        token_version,
     )?;
 
     let refresh_token = generate_refresh_token();
@@ -160,12 +169,17 @@ pub async fn login(
         role = %role.as_db_str(),
         "login succeeded"
     );
+    let token_version = user_repository::find_token_version(&state.pool, &user.id)
+        .await?
+        .unwrap_or(1);
+
     let access_token = issue_token(
         &state.config.auth.secret,
         token_lifetime_seconds,
         user.id.clone(),
         user.username.clone(),
         role,
+        token_version,
     )?;
 
     let refresh_token = generate_refresh_token();

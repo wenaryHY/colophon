@@ -83,12 +83,17 @@ pub async fn initialize(
     )
     .await?;
 
+    let token_version = crate::modules::user::repository::find_token_version(&state.pool, &user_id)
+        .await?
+        .unwrap_or(1);
+
     let token = issue_token(
         &state.config.auth.secret,
         state.config.auth.expires_in_seconds,
         user_id,
         model.username.clone(),
         Role::Admin,
+        token_version,
     )?;
 
     Ok((

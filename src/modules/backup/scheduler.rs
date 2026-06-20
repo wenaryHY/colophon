@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use chrono::Utc;
+use chrono_tz::Tz;
 use cron::Schedule;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
@@ -109,7 +110,9 @@ async fn update_run_times_after_backup(
     minute: u32,
 ) -> Result<(), AppError> {
     let now = Utc::now();
-    let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(hour, minute);
+    let tz: Tz = state.config.site.site_timezone.parse()
+        .unwrap_or(chrono_tz::Asia::Shanghai);
+    let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(hour, minute, tz);
     let cron_expr = frequency.cron_expression(utc_hour, utc_minute);
     let next = calculate_next_run_at_from_cron_expression(&cron_expr);
     repository::update_schedule_run_time(&state.pool, &now.to_rfc3339(), &next.to_rfc3339())
