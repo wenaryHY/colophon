@@ -18,10 +18,10 @@ pub mod ws;
 #[cfg(test)]
 pub mod tests;
 
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 
 use bootstrap::{config::AppConfig, router::build_router};
-use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use state::AppState;
 use tokio::sync::broadcast;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -54,18 +54,17 @@ pub async fn serve() -> anyhow::Result<()> {
     std::fs::create_dir_all(&config.theme.theme_dir)?;
     std::fs::create_dir_all(&config.storage.static_dir)?;
 
+    let db_options = SqliteConnectOptions::from_str(&config.database.url)?
+        .journal_mode(SqliteJournalMode::Wal)           // WAL 模式
+        .busy_timeout(Duration::from_secs(5))           // 写锁自旋等待 5s
+        .pragma("synchronous", "NORMAL")                 // WAL 下安全 + 高性能
+        .pragma("foreign_keys", "ON")                    // 外键约束
+        .pragma("temp_store", "MEMORY")                  // 临时表放内存，加速 FTS5
+        .pragma("mmap_size", "268435456");               // 256MB 内存映射加速读
+
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&config.database.url)
-        .await?;
-    sqlx::query("PRAGMA foreign_keys = ON")
-        .execute(&pool)
-        .await?;
-    sqlx::query("PRAGMA journal_mode=WAL")
-        .execute(&pool)
-        .await?;
-    sqlx::query("PRAGMA synchronous=NORMAL")
-        .execute(&pool)
+        .connect_with(db_options)
         .await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 

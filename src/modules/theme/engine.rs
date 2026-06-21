@@ -51,6 +51,10 @@ pub async fn build_template_engine(
             }
         });
 
+        // 每次渲染最多执行 50,000 条指令（正常页面 2000-5000 步）。
+        // 超过配额时引擎抛出错误，防止用户编写的恶意模板死循环耗尽 CPU。
+        new_env.set_fuel(Some(50_000));
+
         // Dynamic template loader with path traversal protection
         let loader_path =
             std::fs::canonicalize(&template_dir).unwrap_or_else(|_| template_dir.clone());
