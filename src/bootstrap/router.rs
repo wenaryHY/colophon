@@ -305,39 +305,32 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .unwrap();
 
     let auth_v1 = Router::new()
+        // Register: 仅绑定 register_governor_config
         .route(
             "/api/v1/auth/register",
             post(modules::auth::handler::register)
-                .layer(AxumGovernorLayer::new(register_governor_config)),
+                .route_layer(AxumGovernorLayer::new(register_governor_config)),
         )
+        // Login: 双重保护——内存限流（from_fn）+ governor 限流
+        .route(
+            "/api/v1/auth/login",
+            post(modules::auth::handler::login)
+                .route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    crate::shared::security::login_rate_limit,
+                ))
+                .route_layer(AxumGovernorLayer::new(login_rate_limit)),
+        )
+        // Logout: 无限流（幂等操作，无资源消耗）
         .route("/api/v1/auth/logout", post(modules::auth::handler::logout))
+        // Refresh: 无限流（频繁调用，不应限流）
         .route(
             "/api/v1/auth/refresh",
             post(modules::auth::handler::refresh_token),
         )
-        .merge(
-            Router::new()
-                .route("/api/v1/auth/login", post(modules::auth::handler::login))
-                .route_layer(axum::middleware::from_fn_with_state(
-                    state.clone(),
-                    crate::shared::security::login_rate_limit,
-                )),
-        )
-        .layer(AxumGovernorLayer::new(login_rate_limit))
         .layer(cors_layer.clone());
 
     let v1 = Router::new()
-        .route("/api/v1/health", get(health_check))
-        .route("/api/v1/version", get(version_info))
-        .route(
-            "/api/v1/turnstile-config",
-            get(modules::setup::turnstile_config::get_turnstile_config),
-        )
-        .route("/api/v1/setup/status", get(modules::setup::handler::status))
-        .route(
-            "/api/v1/setup/initialize",
-            post(modules::setup::handler::initialize),
-        )
         .route("/api/v1/me", get(modules::user::handler::me))
         .route(
             "/api/v1/me/profile",
@@ -586,6 +579,21 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .layer(AxumGovernorLayer::new(api_rate_limit))
         .layer(cors_layer.clone());
 
+    // 绕过 rate limit 的公共端点：health、version、turnstile-config、setup
+    // 这些端点直连 localhost 时无 X-Forwarded-For，ForwardedIpExtractor 不应拦截
+    let unguarded = Router::new()
+        .route("/api/v1/health", get(health_check))
+        .route("/api/v1/version", get(version_info))
+        .route(
+            "/api/v1/turnstile-config",
+            get(modules::setup::turnstile_config::get_turnstile_config),
+        )
+        .route("/api/v1/setup/status", get(modules::setup::handler::status))
+        .route(
+            "/api/v1/setup/initialize",
+            post(modules::setup::handler::initialize),
+        );
+
     Router::new()
         .route("/", get(render_home_entry))
         .route("/preview", get(modules::theme::handler::preview_page))
@@ -656,6 +664,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         )
         .route("/ws/admin", get(ws::ws_admin_handler))
         .route("/ws/public", get(ws::ws_public_handler))
+        .merge(unguarded)
         .merge(auth_v1)
         .merge(v1)
         .layer(

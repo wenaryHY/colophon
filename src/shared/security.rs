@@ -6,7 +6,7 @@ use std::{
 };
 
 use axum::{
-    extract::{Request, State},
+    extract::{ConnectInfo, Request, State},
     http::{HeaderMap, HeaderValue, request::Parts},
     middleware::Next,
     response::Response,
@@ -21,7 +21,8 @@ impl axum_governor::KeyExtractor for ForwardedIpExtractor {
     type Key = IpAddr;
 
     fn extract(&self, parts: &Parts) -> Result<axum_governor::KeyOutcome<Self::Key>, axum_governor::ExtractionError> {
-        let ip = forwarded_ip(&parts.headers)
+        // 1. 尝试从代理头提取 (X-Forwarded-For 或 X-Real-IP)
+        if let Some(ip) = forwarded_ip(&parts.headers)
             .or_else(|| {
                 parts.headers
                     .get("x-real-ip")
@@ -31,12 +32,28 @@ impl axum_governor::KeyExtractor for ForwardedIpExtractor {
                     .map(ToOwned::to_owned)
             })
             .and_then(|s| s.parse::<IpAddr>().ok())
-            .unwrap_or(IpAddr::from([127, 0, 0, 1]));
+        {
+            return Ok(axum_governor::KeyOutcome {
+                key: ip,
+                quota_override: None,
+            });
+        }
 
-        Ok(axum_governor::KeyOutcome {
-            key: ip,
-            quota_override: None,
-        })
+        // 2. 回退到 ConnectInfo（真实 TCP 对端 IP）
+        if let Some(addr) = parts.extensions.get::<ConnectInfo<std::net::SocketAddr>>() {
+            return Ok(axum_governor::KeyOutcome {
+                key: addr.0.ip(),
+                quota_override: None,
+            });
+        }
+
+        // 3. 底线：无法确定客户端 IP，拒绝限流（拒绝比给假 key 更安全）
+        Err(axum_governor::ExtractionError::Other(Box::new(
+            std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "无法提取客户端 IP：X-Forwarded-For、X-Real-IP 和 ConnectInfo 均缺失",
+            ),
+        )))
     }
 }
 
