@@ -9,18 +9,17 @@ use axum::{
     routing::{delete, get, patch, post},
     Router,
 };
-use axum_governor::{extractor::PeerIp, nz, Quota};
+use axum_governor::{nz, Quota};
 use axum_governor::GovernorConfigBuilder as AxumGovernorConfigBuilder;
 use axum_governor::GovernorLayer as AxumGovernorLayer;
 use tower::ServiceBuilder;
-use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, CorsLayer},
     trace::TraceLayer,
 };
 
-use crate::{admin, modules, state::AppState, ws};
+use crate::{admin, modules, shared::security::ForwardedIpExtractor, state::AppState, ws};
 
 /// GET /api/v1/health — 健康检查端点
 ///
@@ -260,31 +259,29 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         ]);
 
     let register_governor_config = AxumGovernorConfigBuilder::default()
-        .with_extractor(PeerIp::default())
-        .expect_connect_info()
+        .with_extractor(ForwardedIpExtractor)
+
         .quota_default(Quota::requests_per_second(nz!(1u32)).burst(nz!(3u32)))
         .finish()
         .expect("governor config with valid quota must succeed");
 
     // 登录接口：极严苛限流（Argon2 极度耗费 CPU）
     // 每个 IP 每 10 秒最多 1 次，突发 3 次
-    let login_rate_limit = Arc::new(
-        GovernorConfigBuilder::default()
-            .per_second(10)
-            .burst_size(3)
-            .finish()
-            .unwrap(),
-    );
+    let login_rate_limit = AxumGovernorConfigBuilder::default()
+        .with_extractor(ForwardedIpExtractor)
+
+        .quota_default(Quota::seconds_per_request(nz!(10u32)).burst(nz!(3u32)))
+        .finish()
+        .unwrap();
 
     // 普通 API 接口：防爬虫
     // 每个 IP 每秒最多 10 次，突发 50 次
-    let api_rate_limit = Arc::new(
-        GovernorConfigBuilder::default()
-            .per_millisecond(100)
-            .burst_size(50)
-            .finish()
-            .unwrap(),
-    );
+    let api_rate_limit = AxumGovernorConfigBuilder::default()
+        .with_extractor(ForwardedIpExtractor)
+
+        .quota_default(Quota::requests_per_second(nz!(10u32)).burst(nz!(50u32)))
+        .finish()
+        .unwrap();
 
     let auth_v1 = Router::new()
         .route(
@@ -305,9 +302,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                     crate::shared::security::login_rate_limit,
                 )),
         )
-        .layer(GovernorLayer {
-            config: login_rate_limit,
-        })
+        .layer(AxumGovernorLayer::new(login_rate_limit))
         .layer(cors_layer.clone());
 
     let v1 = Router::new()
@@ -567,9 +562,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                 .delete(crate::modules::api_key::handler::revoke_api_key),
         )
         .merge(state.plugin_manager.read().await.collect_routes(&state))
-        .layer(GovernorLayer {
-            config: api_rate_limit.clone(),
-        })
+        .layer(AxumGovernorLayer::new(api_rate_limit))
         .layer(cors_layer.clone());
 
     Router::new()

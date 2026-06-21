@@ -1,17 +1,44 @@
 use std::{
     collections::HashMap,
+    net::IpAddr,
     sync::Arc,
     time::{Duration, Instant},
 };
 
 use axum::{
     extract::{Request, State},
-    http::{HeaderMap, HeaderValue},
+    http::{HeaderMap, HeaderValue, request::Parts},
     middleware::Next,
     response::Response,
 };
 
 use crate::{shared::error::AppError, state::AppState};
+
+#[derive(Clone, Debug)]
+pub struct ForwardedIpExtractor;
+
+impl axum_governor::KeyExtractor for ForwardedIpExtractor {
+    type Key = IpAddr;
+
+    fn extract(&self, parts: &Parts) -> Result<axum_governor::KeyOutcome<Self::Key>, axum_governor::ExtractionError> {
+        let ip = forwarded_ip(&parts.headers)
+            .or_else(|| {
+                parts.headers
+                    .get("x-real-ip")
+                    .and_then(|v| v.to_str().ok())
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .map(ToOwned::to_owned)
+            })
+            .and_then(|s| s.parse::<IpAddr>().ok())
+            .unwrap_or(IpAddr::from([127, 0, 0, 1]));
+
+        Ok(axum_governor::KeyOutcome {
+            key: ip,
+            quota_override: None,
+        })
+    }
+}
 
 const LOGIN_WINDOW: Duration = Duration::from_secs(60);
 const MAX_LOGIN_ATTEMPTS: u32 = 8;
