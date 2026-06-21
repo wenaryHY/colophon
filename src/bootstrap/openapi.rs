@@ -31,6 +31,7 @@ use utoipa::{
         crate::modules::user::handler::me,
         crate::modules::post::handler::list_admin_posts,
         crate::modules::post::handler::create_post,
+        crate::modules::setting::sysinfo::sysinfo,
     ),
     components(
         schemas(
@@ -54,6 +55,7 @@ use utoipa::{
             crate::shared::response::ApiResponse<crate::modules::post::dto::AdminPostResponse>,
             crate::shared::response::PaginatedResponse<crate::modules::post::dto::AdminPostResponse>,
             crate::shared::response::ApiResponse<crate::shared::response::PaginatedResponse<crate::modules::post::dto::AdminPostResponse>>,
+            crate::modules::setting::sysinfo::SysInfoResponse,
         )
     ),
     modifiers(&JwtSecurityModifier),

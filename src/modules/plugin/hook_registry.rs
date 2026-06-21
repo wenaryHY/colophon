@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
+use tracing::instrument;
 
 use super::action_registry::ActionRegistry;
 use super::hook::{Hook, HookContext, HookType};
@@ -49,6 +50,7 @@ impl HookRegistry {
         );
     }
 
+    #[instrument(skip_all, fields(hook = %name))]
     pub async fn dispatch_filter(&self, name: &str, ctx: &mut HookContext) -> AppResult<()> {
         let hooks = {
             let guard = self.hooks.read().await;
@@ -73,6 +75,7 @@ impl HookRegistry {
         Ok(())
     }
 
+    #[instrument(skip_all, fields(hook = %name))]
     pub async fn dispatch_filter_best_effort(&self, name: &str, ctx: &mut HookContext) {
         let hooks = {
             let guard = self.hooks.read().await;
@@ -95,6 +98,7 @@ impl HookRegistry {
         }
     }
 
+    #[instrument(skip_all, fields(hook = %name))]
     pub async fn dispatch_action(&self, name: &str, ctx: HookContext) {
         let hooks = {
             let guard = self.hooks.read().await;

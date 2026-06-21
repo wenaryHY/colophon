@@ -22,6 +22,7 @@ use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 
 use bootstrap::{config::AppConfig, router::build_router};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+use sqlx::ConnectOptions;
 use state::AppState;
 use tokio::sync::broadcast;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -31,13 +32,31 @@ use crate::modules::plugin::manager::PluginManager;
 use std::path::PathBuf;
 
 pub async fn serve() -> anyhow::Result<()> {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "colophon=info,axum=info,tower_http=info".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    let log_format = std::env::var("COLOPHON_LOG_FORMAT").unwrap_or_else(|_| "pretty".into());
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "colophon=info,axum=info,tower_http=info".into());
+
+    if log_format == "json" {
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .json()
+                    .with_current_span(true)
+                    .with_span_list(false)
+                    .flatten_event(true),
+            )
+            .init();
+    } else {
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .pretty()
+                    .with_target(false),
+            )
+            .init();
+    }
 
     let config = AppConfig::load()?;
     config.validate()?;
@@ -60,7 +79,8 @@ pub async fn serve() -> anyhow::Result<()> {
         .pragma("synchronous", "NORMAL")                 // WAL 下安全 + 高性能
         .pragma("foreign_keys", "ON")                    // 外键约束
         .pragma("temp_store", "MEMORY")                  // 临时表放内存，加速 FTS5
-        .pragma("mmap_size", "268435456");               // 256MB 内存映射加速读
+        .pragma("mmap_size", "268435456")                // 256MB 内存映射加速读
+        .log_slow_statements(tracing_log::log::LevelFilter::Warn, Duration::from_millis(100));
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)

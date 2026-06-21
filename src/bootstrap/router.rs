@@ -16,7 +16,7 @@ use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, CorsLayer},
-    trace::TraceLayer,
+    trace::{DefaultOnResponse, TraceLayer},
 };
 use utoipa::OpenApi;
 
@@ -575,8 +575,13 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             patch(crate::modules::api_key::handler::update_api_key)
                 .delete(crate::modules::api_key::handler::revoke_api_key),
         )
+        .route(
+            "/api/v1/admin/sysinfo",
+            get(crate::modules::setting::sysinfo::sysinfo),
+        )
         .merge(state.plugin_manager.read().await.collect_routes(&state))
         .layer(AxumGovernorLayer::new(api_rate_limit))
+        .layer(axum::middleware::from_fn(crate::shared::security::log_rate_limited))
         .layer(cors_layer.clone());
 
     // 绕过 rate limit 的公共端点：health、version、turnstile-config、setup
@@ -593,6 +598,27 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/setup/initialize",
             post(modules::setup::handler::initialize),
         );
+
+    let trace_layer = {
+        use crate::shared::request_id::current_request_id;
+
+        TraceLayer::new_for_http()
+            .make_span_with(|request: &axum::http::Request<axum::body::Body>| {
+                let request_id =
+                    current_request_id().unwrap_or_else(|| "unknown".into());
+                tracing::info_span!(
+                    "http_request",
+                    client_request_id = %request_id,
+                    method = %request.method(),
+                    uri = %request.uri(),
+                )
+            })
+            .on_response(
+                DefaultOnResponse::new()
+                    .level(tracing::Level::INFO)
+                    .include_headers(false),
+            )
+    };
 
     Router::new()
         .route("/", get(render_home_entry))
@@ -669,7 +695,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .merge(v1)
         .layer(
             ServiceBuilder::new()
-                .layer(TraceLayer::new_for_http())
+                .layer(trace_layer)
                 .layer(CompressionLayer::new()),
         )
         .layer(axum::middleware::from_fn(

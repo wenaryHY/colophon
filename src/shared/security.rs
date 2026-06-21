@@ -7,7 +7,7 @@ use std::{
 
 use axum::{
     extract::{ConnectInfo, Request, State},
-    http::{HeaderMap, HeaderValue, request::Parts},
+    http::{HeaderMap, HeaderValue, StatusCode, request::Parts},
     middleware::Next,
     response::Response,
 };
@@ -211,6 +211,41 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
         if let Some(csp) = csp_for_profile(&profile) {
             headers.insert("Content-Security-Policy", HeaderValue::from_static(csp));
         }
+    }
+
+    response
+}
+
+/// 记录被限流拦截的请求信息（HTTP 429 响应）
+pub async fn log_rate_limited(
+    request: Request,
+    next: Next,
+) -> Response {
+    let path = request.uri().path().to_string();
+    let method = request.method().clone();
+    let headers = request.headers().clone();
+
+    let response = next.run(request).await;
+
+    if response.status() == StatusCode::TOO_MANY_REQUESTS {
+        let ip = forwarded_ip(&headers)
+            .or_else(|| {
+                headers
+                    .get("x-real-ip")
+                    .and_then(|v| v.to_str().ok())
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .map(ToOwned::to_owned)
+            })
+            .unwrap_or_else(|| "unknown".into());
+
+        tracing::warn!(
+            event = "rate_limited",
+            client_ip = %ip,
+            method = %method,
+            path = %path,
+            "请求被限流拦截 (HTTP 429)"
+        );
     }
 
     response
