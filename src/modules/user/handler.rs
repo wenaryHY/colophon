@@ -12,6 +12,16 @@ use super::{
     service,
 };
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/me",
+    tag = "user",
+    responses(
+        (status = 200, description = "当前用户信息", body = ApiResponse<super::domain::CurrentUser>),
+        (status = 401, description = "未认证"),
+    ),
+    security(("jwt" = []))
+)]
 pub async fn me(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,

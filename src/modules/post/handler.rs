@@ -173,6 +173,18 @@ pub async fn search_posts(
 /// # 列出所有页面类型
 /// curl -b cookies.txt "http://localhost:2000/api/v1/admin/posts?content_type=page"
 /// ```
+#[utoipa::path(
+    get,
+    path = "/api/v1/admin/posts",
+    tag = "admin.posts",
+    params(PostQuery),
+    responses(
+        (status = 200, description = "文章列表", body = ApiResponse<PaginatedResponse<AdminPostResponse>>),
+        (status = 401, description = "未认证"),
+        (status = 403, description = "无管理员权限"),
+    ),
+    security(("jwt" = []))
+)]
 pub async fn list_admin_posts(
     State(state): State<Arc<AppState>>,
     _admin: AdminUser,
@@ -222,6 +234,19 @@ pub async fn get_admin_post(
 ///   -d '{"title":"我的第一篇文章","content_md":"# Hello\n\n这是正文"}' \
 ///   http://localhost:2000/api/v1/admin/posts
 /// ```
+#[utoipa::path(
+    post,
+    path = "/api/v1/admin/posts",
+    tag = "admin.posts",
+    request_body = CreatePostRequest,
+    responses(
+        (status = 201, description = "文章创建成功", body = ApiResponse<AdminPostResponse>),
+        (status = 400, description = "参数错误"),
+        (status = 401, description = "未认证"),
+        (status = 403, description = "无管理员权限"),
+    ),
+    security(("jwt" = []))
+)]
 pub async fn create_post(
     State(state): State<Arc<AppState>>,
     admin: AdminUser,

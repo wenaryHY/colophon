@@ -17,7 +17,7 @@ use crate::shared::error::AppError;
 /// ## 序列化
 /// `#[serde(rename_all = "snake_case")]` 保证 JSON 格式为 `"draft"` / `"published"` / `"trashed"`，
 /// 与原有 API 契约完全兼容。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PostStatus {
     Draft,
@@ -70,7 +70,7 @@ impl FromStr for PostStatus {
 ///
 /// ## 序列化
 /// JSON 格式为 `"public"` / `"private"`。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Visibility {
     Public,
@@ -114,7 +114,7 @@ impl FromStr for Visibility {
 ///
 /// ## 序列化
 /// JSON 格式为 `"post"` / `"page"`。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ContentType {
     Post,

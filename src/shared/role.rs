@@ -20,7 +20,7 @@ use crate::shared::error::AppError;
 /// 不标注 `#[repr(u8)]`，让编译器自行选择最优布局。
 /// 当前两个变体（均为 field-less），编译器会做 niche 优化：
 /// `Option<Role>` 仅占 1 字节 —— Admin=0, Member=1, None=2。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, utoipa::ToSchema)]
 pub enum Role {
     /// 系统管理员
     Admin,

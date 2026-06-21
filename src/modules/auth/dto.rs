@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::shared::role::Role;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RegisterRequest {
     pub username: String,
     pub email: String,
@@ -13,7 +13,7 @@ pub struct RegisterRequest {
     pub turnstile_token: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct LoginRequest {
     pub login: String,
     pub password: String,
@@ -24,7 +24,7 @@ pub struct LoginRequest {
 }
 
 /// 登录/注册响应中返回的用户摘要信息
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct AuthUserInfo {
     pub id: String,
     pub username: String,
@@ -32,7 +32,7 @@ pub struct AuthUserInfo {
 }
 
 /// 登录/注册响应体：用户信息 + access_token
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct LoginResponseData {
     pub user: AuthUserInfo,
     pub access_token: String,

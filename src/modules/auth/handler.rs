@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    dto::{LoginRequest, RegisterRequest},
+    dto::{LoginRequest, LoginResponseData, RegisterRequest},
     repository, service,
 };
 
@@ -83,6 +83,17 @@ pub async fn register(
     Ok((resp_headers, json).into_response())
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/login",
+    tag = "auth",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "登录成功", body = ApiResponse<LoginResponseData>),
+        (status = 400, description = "验证失败或参数错误"),
+        (status = 429, description = "触发限流"),
+    )
+)]
 pub async fn login(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,

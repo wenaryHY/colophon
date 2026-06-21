@@ -1,9 +1,10 @@
 use serde::Serialize;
 use sqlx::FromRow;
+use utoipa::ToSchema;
 
 use super::post_types::{ContentType, PostStatus, Visibility};
 
-#[derive(Debug, Clone, Serialize, FromRow)]
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
 pub struct SitemapItem {
     pub slug: String,
     pub content_type: ContentType,
@@ -11,7 +12,7 @@ pub struct SitemapItem {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, Serialize, FromRow)]
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
 pub struct PublicPostSummary {
     pub id: String,
     pub title: String,
@@ -26,7 +27,7 @@ pub struct PublicPostSummary {
     pub category_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, FromRow)]
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
 pub struct PublicPostDetail {
     pub id: String,
     pub title: String,
@@ -43,7 +44,7 @@ pub struct PublicPostDetail {
     pub cover_media_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, FromRow)]
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
 pub struct AdminPost {
     pub id: String,
     pub author_id: String,

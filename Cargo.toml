@@ -24,6 +24,10 @@ walkdir = "=2.5.0"
 [dependencies]
 # Web 框架
 axum = { version = "=0.8.9", features = ["multipart", "macros", "ws"] }
+
+# OpenAPI 文档（utoipa 5.5 + swagger-ui 9.0 已支持 axum 0.8）
+utoipa = { version = "=5.5.0", features = ["axum_extras", "chrono", "uuid"] }
+utoipa-swagger-ui = { version = "=9.0.2", features = ["axum"] }
 multer = "3"
 futures-util = "=0.3.32"
 axum-extra = { version = "=0.10.0", features = ["typed-header", "cookie"] }

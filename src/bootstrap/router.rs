@@ -18,8 +18,21 @@ use tower_http::{
     cors::{AllowOrigin, CorsLayer},
     trace::TraceLayer,
 };
+use utoipa::OpenApi;
 
 use crate::{admin, modules, shared::security::ForwardedIpExtractor, state::AppState, ws};
+
+/// 健康检查响应体。
+///
+/// 始终返回 200，DB 故障通过 body 中的 `status`/`db` 字段表达，
+/// 避免触发监控系统的 5xx 告警。
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct HealthResponse {
+    /// 服务整体状态：`"ok"` | `"degraded"`
+    pub status: String,
+    /// 数据库连通性：`"ok"` | `"error"`
+    pub db: String,
+}
 
 /// GET /api/v1/health — 健康检查端点
 ///
@@ -38,6 +51,14 @@ use crate::{admin, modules, shared::security::ForwardedIpExtractor, state::AppSt
 /// ```bash
 /// curl http://localhost:2000/api/v1/health
 /// ```
+#[utoipa::path(
+    get,
+    path = "/api/v1/health",
+    tag = "system",
+    responses(
+        (status = 200, description = "服务健康状态", body = crate::shared::response::ApiResponse<HealthResponse>),
+    )
+)]
 async fn health_check(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let db_ok = sqlx::query_scalar::<_, String>("SELECT 'ok'")
         .fetch_one(&state.pool)
@@ -45,10 +66,10 @@ async fn health_check(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         .is_ok();
 
     let status = if db_ok { "ok" } else { "degraded" };
-    axum::Json(serde_json::json!({
-        "status": status,
-        "db": if db_ok { "ok" } else { "error" }
-    }))
+    axum::Json(HealthResponse {
+        status: status.to_string(),
+        db: if db_ok { "ok" } else { "error" }.to_string(),
+    })
 }
 
 /// GET /api/v1/version — 版本信息
@@ -654,4 +675,8 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         ))
         .fallback(get(modules::theme::handler::fallback_404))
         .with_state(state)
+        .merge(
+            utoipa_swagger_ui::SwaggerUi::new("/api/docs")
+                .url("/api-docs/openapi.json", crate::bootstrap::openapi::ApiDoc::openapi()),
+        )
 }

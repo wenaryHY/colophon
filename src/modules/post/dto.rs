@@ -4,7 +4,7 @@ use crate::modules::tag::domain::Tag;
 
 use super::post_types::{ContentType, PostStatus, Visibility};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct PostQuery {
     pub page: Option<i64>,
     pub page_size: Option<i64>,
@@ -13,7 +13,7 @@ pub struct PostQuery {
     pub content_type: Option<ContentType>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct SearchQuery {
     pub keyword: String,
     pub category_id: Option<String>,
@@ -22,7 +22,7 @@ pub struct SearchQuery {
     pub page_size: Option<i64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreatePostRequest {
     pub title: String,
     pub slug: Option<String>,
@@ -41,7 +41,7 @@ pub struct CreatePostRequest {
     pub content_html: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdatePostRequest {
     pub title: Option<String>,
     pub slug: Option<String>,
@@ -60,14 +60,14 @@ pub struct UpdatePostRequest {
     pub content_html: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PublicPostResponse {
     #[serde(flatten)]
     pub post: super::domain::PublicPostDetail,
     pub tags: Vec<Tag>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct AdminPostResponse {
     #[serde(flatten)]
     pub post: super::domain::AdminPost,

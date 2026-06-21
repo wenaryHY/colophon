@@ -1,8 +1,13 @@
 use serde::Serialize;
+use utoipa::ToSchema;
 
 use crate::shared::{error::AppResult, request_id::current_or_generate_request_id};
 
-#[derive(Debug, Serialize)]
+/// 通用 API 响应包装。
+///
+/// utoipa 5 移除了 `#[aliases]` 支持，泛型 `ApiResponse<T>` 通过 `schemas()` 直接注册
+/// 具体实例（如 `ApiResponse<LoginResponseData>`）来生成具名 schema。
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ApiResponse<T: Serialize> {
     pub code: i32,
     pub message: String,
@@ -10,14 +15,14 @@ pub struct ApiResponse<T: Serialize> {
     pub request_id: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct PaginationMeta {
     pub page: i64,
     pub page_size: i64,
     pub total: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct PaginatedResponse<T: Serialize> {
     pub items: Vec<T>,
     pub pagination: PaginationMeta,
