@@ -161,6 +161,7 @@ Restart=always
 RestartSec=5
 
 Environment=RUST_LOG=colophon=info
+Environment=WASMTIME_CACHE_DISABLE=1
 Environment=COLOPHON__RUNTIME__MODE=production
 Environment=COLOPHON__SERVER__HOST=0.0.0.0
 Environment=COLOPHON__SERVER__PORT=${LISTEN_PORT}

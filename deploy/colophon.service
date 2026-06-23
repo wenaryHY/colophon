@@ -19,6 +19,7 @@ KillSignal=SIGTERM
 KillMode=mixed
 
 Environment=RUST_LOG=colophon=info
+Environment=WASMTIME_CACHE_DISABLE=1
 Environment=COLOPHON__RUNTIME__MODE=production
 Environment=COLOPHON__SERVER__HOST=127.0.0.1
 Environment=COLOPHON__SERVER__PORT=2000
