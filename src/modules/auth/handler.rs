@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::{extract::State, http::HeaderMap, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
@@ -49,7 +50,7 @@ pub async fn register(
         event = "register_request",
         client_request_id = %client_request_id,
         username = %body.username,
-        email = %body.email,
+        email_hash = %hex::encode(&Sha256::digest(body.email.as_bytes())[..4]),
         has_display_name = body.display_name.as_deref().map(|value| !value.trim().is_empty()).unwrap_or(false),
         "received registration request"
     );

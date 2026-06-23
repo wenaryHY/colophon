@@ -59,6 +59,8 @@ impl axum_governor::KeyExtractor for ForwardedIpExtractor {
 
 const LOGIN_WINDOW: Duration = Duration::from_secs(60);
 const MAX_LOGIN_ATTEMPTS: u32 = 8;
+/// 登录限流器的最大条目数，防止恶意 IP 扫描导致内存无限增长。
+const MAX_LOGIN_RATE_LIMIT_ENTRIES: usize = 10000;
 
 pub const SECURITY_PROFILE_HEADER: &str = "x-colophon-security-profile";
 pub const SECURITY_PROFILE_THEME_HTML: &str = "theme-html";
@@ -91,7 +93,19 @@ impl LoginRateLimiter {
     }
 
     fn allow(&mut self, key: String, now: Instant) -> bool {
+        // 淘汰过期条目
         self.attempts.retain(|_, window| window.expires_at > now);
+
+        // 容量上限保护：超过上限时降级放行（宁可放过，不让 OOM）
+        if self.attempts.len() >= MAX_LOGIN_RATE_LIMIT_ENTRIES
+            && !self.attempts.contains_key(&key)
+        {
+            tracing::warn!(
+                "login rate limiter at capacity ({MAX_LOGIN_RATE_LIMIT_ENTRIES} entries), allowing request for new key"
+            );
+            return true;
+        }
+
         self.attempts
             .entry(key)
             .or_insert_with(|| AttemptWindow::new(now))
