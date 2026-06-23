@@ -92,7 +92,7 @@ impl LoginRateLimiter {
         Self::default()
     }
 
-    fn allow(&mut self, key: String, now: Instant) -> bool {
+    pub fn allow(&mut self, key: String, now: Instant) -> bool {
         // 淘汰过期条目
         self.attempts.retain(|_, window| window.expires_at > now);
 
