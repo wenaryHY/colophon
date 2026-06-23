@@ -93,10 +93,12 @@ const WASM_HOOK_TIMEOUT_SECS: u64 = 5;
 impl HookHandler for WasmHookHandler {
     async fn run(&self, ctx: &mut HookContext) -> AppResult<()> {
         // 1. 序列化 HookContext 为 JSON
+        // Flatten HookData: 只发送内部数据（去掉 Rust enum 包装），
+        // 插件不需要知道宿主的序列化格式。
+        let inner_data = hook_data_to_value(&ctx.data)?;
         let request = HookRequest {
             hook_name: ctx.hook_name.clone(),
-            data: serde_json::to_value(&ctx.data)
-                .map_err(|e| AppError::Internal(format!("Wasm 请求序列化失败: {e}")))?,
+            data: inner_data,
         };
         let json_input = serde_json::to_string(&request)
             .map_err(|e| AppError::Internal(format!("Wasm 请求序列化失败: {e}")))?;
@@ -220,20 +222,58 @@ impl HookHandler for WasmHookHandler {
             return Err(AppError::Internal(format!("Wasm 插件错误: {err}")));
         }
 
-        // 6. 如果有 modified_data，反序列化回 HookData 更新 ctx
+        // 6. 如果有 modified_data，重新包装为 HookData enum 并更新 ctx
         if let Some(modified) = response.modified_data {
-            let new_data: HookData = serde_json::from_value(modified).map_err(|e| {
-                tracing::error!(
-                    module = "wasm",
-                    plugin = %self.plugin_id,
-                    error = %e,
-                    "wasm modified_data deserialization failed"
-                );
-                AppError::Internal(format!("修改后的数据反序列化失败: {e}"))
-            })?;
-            ctx.data = new_data;
+            ctx.data = value_to_hook_data(&ctx.hook_name, modified)
+                .map_err(|e| AppError::Internal(format!("修改后的数据反序列化失败: {e}")))?;
         }
 
         Ok(())
     }
+}
+
+/// 将 HookData 转换为扁平的 serde_json::Value（去掉外部 tagged enum 包装）
+fn hook_data_to_value(data: &HookData) -> Result<serde_json::Value, AppError> {
+    use super::hook::*;
+    let value = match data {
+        HookData::PostBeforeSave(d) => serde_json::to_value(d),
+        HookData::PostAfterSave(d) => serde_json::to_value(d),
+        HookData::PostAfterPublish(d) => serde_json::to_value(d),
+        HookData::PostBeforeRender(d) => serde_json::to_value(d),
+        HookData::CommentBeforeCreate(d) => serde_json::to_value(d),
+    };
+    value.map_err(|e| AppError::Internal(format!("HookData 序列化失败: {e}")))
+}
+
+/// 将扁平的 serde_json::Value 重新包装为 HookData enum
+fn value_to_hook_data(hook_name: &str, value: serde_json::Value) -> Result<HookData, AppError> {
+    use super::hook::*;
+    let data = match hook_name {
+        "post.before_save" => HookData::PostBeforeSave(
+            serde_json::from_value(value)
+                .map_err(|e| AppError::Internal(format!("PostBeforeSaveData 反序列化: {e}")))?,
+        ),
+        "post.after_save" => HookData::PostAfterSave(
+            serde_json::from_value(value)
+                .map_err(|e| AppError::Internal(format!("PostAfterSaveData 反序列化: {e}")))?,
+        ),
+        "post.after_publish" => HookData::PostAfterPublish(
+            serde_json::from_value(value)
+                .map_err(|e| AppError::Internal(format!("PostAfterPublishData 反序列化: {e}")))?,
+        ),
+        "post.before_render" => HookData::PostBeforeRender(
+            serde_json::from_value(value)
+                .map_err(|e| AppError::Internal(format!("PostBeforeRenderData 反序列化: {e}")))?,
+        ),
+        "comment.before_create" => HookData::CommentBeforeCreate(
+            serde_json::from_value(value)
+                .map_err(|e| AppError::Internal(format!("CommentBeforeCreateData 反序列化: {e}")))?,
+        ),
+        _ => {
+            return Err(AppError::Internal(format!(
+                "unknown hook for re-wrap: {hook_name}"
+            )))
+        }
+    };
+    Ok(data)
 }

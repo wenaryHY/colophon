@@ -57,20 +57,38 @@ impl HookRegistry {
             guard.get(name).cloned().unwrap_or_default()
         };
 
+        tracing::info!(
+            module = "hook",
+            hook_name = %name,
+            found = hooks.len(),
+            "dispatch_filter: found {} hooks for event", hooks.len()
+        );
+
         for hook in &hooks {
             if !matches!(hook.hook_type, HookType::Filter) {
                 continue;
             }
-            hook.handler.run(ctx).await.map_err(|e| {
-                tracing::error!(
-                    module = "hook",
-                    hook = name,
-                    plugin = hook.plugin_name,
-                    error = %e,
-                    "filter hook failed"
-                );
-                e
-            })?;
+            let result = hook.handler.run(ctx).await;
+            match &result {
+                Ok(()) => {
+                    tracing::info!(
+                        module = "hook",
+                        hook_name = %name,
+                        plugin = %hook.plugin_name,
+                        "filter hook executed successfully"
+                    );
+                }
+                Err(e) => {
+                    tracing::error!(
+                        module = "hook",
+                        hook_name = %name,
+                        plugin = %hook.plugin_name,
+                        error = %e,
+                        "filter hook failed"
+                    );
+                }
+            }
+            result?;
         }
         Ok(())
     }
@@ -82,18 +100,36 @@ impl HookRegistry {
             guard.get(name).cloned().unwrap_or_default()
         };
 
+        tracing::info!(
+            module = "hook",
+            hook_name = %name,
+            found = hooks.len(),
+            "dispatch_filter_best_effort: found {} hooks for event", hooks.len()
+        );
+
         for hook in &hooks {
             if !matches!(hook.hook_type, HookType::Filter) {
                 continue;
             }
-            if let Err(e) = hook.handler.run(ctx).await {
-                tracing::warn!(
-                    module = "hook",
-                    hook = name,
-                    plugin = hook.plugin_name,
-                    error = %e,
-                    "filter hook failed, skipping plugin"
-                );
+            let result = hook.handler.run(ctx).await;
+            match &result {
+                Ok(()) => {
+                    tracing::info!(
+                        module = "hook",
+                        hook_name = %name,
+                        plugin = %hook.plugin_name,
+                        "filter hook executed successfully (best effort)"
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        module = "hook",
+                        hook_name = %name,
+                        plugin = %hook.plugin_name,
+                        error = %e,
+                        "filter hook failed, skipping plugin"
+                    );
+                }
             }
         }
     }
@@ -104,6 +140,13 @@ impl HookRegistry {
             let guard = self.hooks.read().await;
             guard.get(name).cloned().unwrap_or_default()
         };
+
+        tracing::info!(
+            module = "hook",
+            hook_name = %name,
+            found = hooks.len(),
+            "dispatch_action: found {} hooks for event", hooks.len()
+        );
 
         let ctx = Arc::new(ctx);
         for hook in &hooks {
