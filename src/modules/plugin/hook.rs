@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -81,7 +82,7 @@ impl Clone for HookContext {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum HookData {
     PostBeforeSave(PostBeforeSaveData),
     PostAfterSave(PostAfterSaveData),
@@ -90,7 +91,7 @@ pub enum HookData {
     CommentBeforeCreate(CommentBeforeCreateData),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PostBeforeSaveData {
     pub title: String,
     pub content_html: String,
@@ -103,7 +104,7 @@ pub struct PostBeforeSaveData {
     pub user_agent: Option<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PostAfterSaveData {
     pub post_id: String,
     pub title: String,
@@ -113,7 +114,7 @@ pub struct PostAfterSaveData {
     pub old_status: Option<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PostAfterPublishData {
     pub post_id: String,
     pub title: String,
@@ -122,7 +123,7 @@ pub struct PostAfterPublishData {
     pub new_status: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PostBeforeRenderData {
     pub post_id: String,
     pub title: String,
@@ -131,7 +132,7 @@ pub struct PostBeforeRenderData {
     pub extra: HashMap<String, serde_json::Value>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CommentBeforeCreateData {
     pub content: String,
     pub author_name: String,

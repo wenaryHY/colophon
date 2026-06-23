@@ -1,0 +1,221 @@
+use extism::{Manifest, Plugin, Wasm};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::RwLock;
+use tokio::time::timeout;
+
+use super::hook::{HookContext, HookData, HookHandler};
+use crate::shared::error::{AppError, AppResult};
+
+/// Wasm 沙箱错误类型
+#[derive(Debug, thiserror::Error)]
+pub enum PluginError {
+    #[error("Wasm 编译失败: {0}")]
+    WasmCompileError(String),
+
+    #[error("Wasm 运行时错误: {0}")]
+    RuntimeError(String),
+
+    #[error("序列化/反序列化失败: {0}")]
+    SerializationError(String),
+
+    #[error("Hook 执行超时")]
+    TimeoutError,
+}
+
+/// 宿主 -> Wasm 的请求
+#[derive(Serialize)]
+struct HookRequest {
+    hook_name: String,
+    data: serde_json::Value,
+}
+
+/// Wasm -> 宿主 的响应（Filter 必须返回修改后的数据，Action 返回 null）
+#[derive(Deserialize)]
+struct HookResponse {
+    #[serde(default)]
+    modified_data: Option<serde_json::Value>,
+    #[serde(default)]
+    error: Option<String>,
+}
+
+/// 管理所有已编译的 Wasm Manifest（线程安全，可跨 tokio 任务共享）
+pub struct WasmRuntime {
+    pub manifests: HashMap<String, Manifest>,
+}
+
+impl WasmRuntime {
+    pub fn new() -> Self {
+        Self {
+            manifests: HashMap::new(),
+        }
+    }
+
+    /// 从 .wasm 文件编译 Manifest 并缓存
+    pub fn load_module(&mut self, plugin_id: &str, wasm_path: &Path) -> Result<(), PluginError> {
+        // Wasm::file 是 infallible 的（仅构造描述符，编译在 Plugin 创建时发生）
+        let wasm = Wasm::file(wasm_path);
+        let manifest = Manifest::new([wasm])
+            .with_allowed_hosts(std::iter::empty()) // 禁止网络
+            .with_allowed_paths(std::iter::empty()); // 禁止文件系统
+        self.manifests.insert(plugin_id.to_string(), manifest);
+        Ok(())
+    }
+
+    /// 检查某个插件是否已加载
+    pub fn has_module(&self, plugin_id: &str) -> bool {
+        self.manifests.contains_key(plugin_id)
+    }
+}
+
+/// Wasm 插件 Hook 处理器 — 实现 HookHandler trait，桥接 Wasm 调用
+pub struct WasmHookHandler {
+    pub plugin_id: String,
+    pub wasm_runtime: Arc<RwLock<WasmRuntime>>,
+}
+
+/// WASM_HOOK_TIMEOUT_SECS — Wasm hook 调用的最大允许执行时间
+const WASM_HOOK_TIMEOUT_SECS: u64 = 5;
+
+#[async_trait::async_trait]
+impl HookHandler for WasmHookHandler {
+    async fn run(&self, ctx: &mut HookContext) -> AppResult<()> {
+        // 1. 序列化 HookContext 为 JSON
+        let request = HookRequest {
+            hook_name: ctx.hook_name.clone(),
+            data: serde_json::to_value(&ctx.data)
+                .map_err(|e| AppError::Internal(format!("Wasm 请求序列化失败: {e}")))?,
+        };
+        let json_input = serde_json::to_string(&request)
+            .map_err(|e| AppError::Internal(format!("Wasm 请求序列化失败: {e}")))?;
+
+        // 2. 通过 spawn_blocking 调用 Wasm（extism::Plugin::call 是同步的）
+        let runtime = self.wasm_runtime.clone();
+        let plugin_id = self.plugin_id.clone();
+
+        let blocking_task = tokio::task::spawn_blocking(move || {
+            // 读取锁获取 Manifest 引用后立即克隆，释放锁
+            let manifest = {
+                let guard = runtime.blocking_read();
+                guard
+                    .manifests
+                    .get(&plugin_id)
+                    .cloned()
+                    .ok_or_else(|| PluginError::RuntimeError("plugin manifest not found".into()))?
+            };
+
+            let mut plugin = Plugin::new(&manifest, [], true)
+                .map_err(|e| PluginError::RuntimeError(e.to_string()))?;
+
+            let start = std::time::Instant::now();
+            let result: Result<String, extism::Error> =
+                plugin.call("handle_hook", &json_input);
+            let took_ms = start.elapsed().as_millis();
+
+            // RAII: 显式释放 Plugin，确保 Wasm 线性内存正确回收
+            drop(plugin);
+
+            match result {
+                Ok(output) => Ok((output, took_ms)),
+                Err(e) => Err(PluginError::RuntimeError(e.to_string())),
+            }
+        });
+
+        // 3. 带超时的 await
+        let spawn_result = timeout(
+            Duration::from_secs(WASM_HOOK_TIMEOUT_SECS),
+            blocking_task,
+        )
+        .await;
+
+        let (json_output, took_ms) = match spawn_result {
+            Ok(Ok(Ok(value))) => value,
+            Ok(Ok(Err(e))) => {
+                tracing::error!(
+                    module = "wasm",
+                    plugin = %self.plugin_id,
+                    hook = %ctx.hook_name,
+                    error = %e,
+                    "wasm execution failed"
+                );
+                return Err(AppError::Internal(format!("Wasm 插件错误: {e}")));
+            }
+            Ok(Err(join_err)) => {
+                tracing::error!(
+                    module = "wasm",
+                    plugin = %self.plugin_id,
+                    hook = %ctx.hook_name,
+                    error = %join_err,
+                    "wasm spawn_blocking join error"
+                );
+                return Err(AppError::Internal(format!(
+                    "Wasm 调用线程异常: {join_err}"
+                )));
+            }
+            Err(_elapsed) => {
+                tracing::warn!(
+                    module = "wasm",
+                    plugin = %self.plugin_id,
+                    hook = %ctx.hook_name,
+                    timeout_secs = WASM_HOOK_TIMEOUT_SECS,
+                    "wasm hook timed out"
+                );
+                return Err(AppError::Internal(format!(
+                    "Wasm hook '{0}' 执行超时（超过 {1} 秒）",
+                    ctx.hook_name, WASM_HOOK_TIMEOUT_SECS
+                )));
+            }
+        };
+
+        tracing::debug!(
+            module = "wasm",
+            plugin = %self.plugin_id,
+            hook = %ctx.hook_name,
+            took_ms = took_ms,
+            "wasm hook executed"
+        );
+
+        // 4. 反序列化响应
+        let response: HookResponse = serde_json::from_str(&json_output).map_err(|e| {
+            tracing::error!(
+                module = "wasm",
+                plugin = %self.plugin_id,
+                error = %e,
+                raw_output = %json_output,
+                "wasm response deserialization failed"
+            );
+            AppError::Internal(format!("Wasm 返回值反序列化失败: {e}"))
+        })?;
+
+        // 5. 检查 wasm 返回的错误
+        if let Some(ref err) = response.error {
+            tracing::warn!(
+                module = "wasm",
+                plugin = %self.plugin_id,
+                hook = %ctx.hook_name,
+                error = %err,
+                "wasm plugin returned error"
+            );
+            return Err(AppError::Internal(format!("Wasm 插件错误: {err}")));
+        }
+
+        // 6. 如果有 modified_data，反序列化回 HookData 更新 ctx
+        if let Some(modified) = response.modified_data {
+            let new_data: HookData = serde_json::from_value(modified).map_err(|e| {
+                tracing::error!(
+                    module = "wasm",
+                    plugin = %self.plugin_id,
+                    error = %e,
+                    "wasm modified_data deserialization failed"
+                );
+                AppError::Internal(format!("修改后的数据反序列化失败: {e}"))
+            })?;
+            ctx.data = new_data;
+        }
+
+        Ok(())
+    }
+}

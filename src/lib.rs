@@ -18,7 +18,7 @@ pub mod ws;
 #[cfg(test)]
 pub mod tests;
 
-use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
 
 use bootstrap::{config::AppConfig, router::build_router};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
@@ -91,15 +91,18 @@ pub async fn serve() -> anyhow::Result<()> {
 
     let setup_runtime = modules::setup::service::bootstrap_runtime(&pool).await?;
 
-    // Plugin registration and loading will be re-enabled in Wave 3.2 (Wasm sandbox).
+    // Wave 3.2: 扫描 plugins/ 目录下的 .wasm 文件，编译为 Manifest 并注册 Hooks
+    use crate::modules::plugin::loader::PluginLoader;
+
+    let loader = PluginLoader::new(PathBuf::from("plugins"), env!("CARGO_PKG_VERSION"));
+    let discovered = loader.discover(&pool).await?;
     let plugin_manager = Arc::new(tokio::sync::RwLock::new(
-        PluginManager::load().await,
+        PluginManager::load_with(discovered).await,
     ));
-    let discovered = plugin_manager.read().await.discovered_manifests();
     tracing::info!(
         module = "plugin",
-        discovered = discovered.len(),
-        "PluginManager created (stubbed; Wasm runtime pending)"
+        discovered = plugin_manager.read().await.discovered_manifests().len(),
+        "PluginManager initialized with Wasm runtime"
     );
 
     let state = Arc::new(AppState::new(

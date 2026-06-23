@@ -24,6 +24,8 @@ pub enum AppError {
     TooManyRequests(String),
     #[error("文件上传错误: {0}")]
     Multipart(String),
+    #[error("内部服务器错误: {0}")]
+    Internal(String),
     #[error(transparent)]
     Config(#[from] config::ConfigError),
     #[error(transparent)]
@@ -76,6 +78,19 @@ impl IntoResponse for AppError {
                 crate::shared::error_codes::BAD_REQUEST,
                 msg,
             ),
+            Self::Internal(msg) => {
+                tracing::error!(
+                    module = "shared_error",
+                    event = "internal_error",
+                    error = %msg,
+                    "内部错误"
+                );
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    crate::shared::error_codes::INTERNAL_ERROR,
+                    msg,
+                )
+            }
             Self::Sqlx(err) => {
                 tracing::error!(
                     module = "shared_error",

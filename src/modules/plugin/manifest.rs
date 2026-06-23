@@ -34,6 +34,22 @@ pub struct HooksMeta {
     pub template: Option<bool>,
     pub routes: Option<bool>,
     pub assets: Option<Vec<String>>,
+    /// Wasm 插件声明要监听的 hook 事件列表
+    #[serde(default)]
+    pub listen: Option<Vec<HookListenDef>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HookListenDef {
+    /// hook 事件名，如 "post.before_save"
+    pub event: String,
+    /// "filter" 或 "action"，默认 "filter"
+    #[serde(rename = "type", default = "default_hook_listen_type")]
+    pub hook_type: String,
+}
+
+fn default_hook_listen_type() -> String {
+    "filter".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

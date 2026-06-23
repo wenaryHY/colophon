@@ -17,8 +17,8 @@ name = "colophon"
 path = "src/main.rs"
 
 [build-dependencies]
-sha2 = "=0.10.9"
-serde_json = "=1.0.149"
+sha2 = "0.10"
+serde_json = "1"
 walkdir = "=2.5.0"
 
 [dependencies]
@@ -75,14 +75,16 @@ bytes = "=1.11.1"
 mime_guess = "=2.0.5"
 zip = "=2.4.2"
 sha2 = "=0.10.9"
-semver = "=1.0.26"
+semver = "1"
 base64 = "=0.22.1"
 hex = "=0.4.3"
 url = "=2.5.8"
 ammonia = "=4.1.2"
-async-trait = "=0.1.88"
+async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json"] }
 hmac = "0.12"
+
+extism = "1.30"
 
 tokio-cron-scheduler = "=0.9.4"
 cron = "0.12"

@@ -11,7 +11,6 @@ use crate::shared::error::AppResult;
 use crate::shared::response::ApiResponse;
 use crate::state::AppState;
 
-use super::manager::PluginManager;
 use super::settings;
 use super::status;
 
@@ -174,15 +173,32 @@ pub async fn toggle_plugin(
     status::set_enabled(&state.pool, &plugin_name, new_enabled).await?;
 
     if !new_enabled {
+        // 禁用时：移除该插件注册的所有 hook
         let hook_registry = state.plugin_manager.read().await.hook_registry().clone();
         hook_registry.unregister_all(&plugin_name).await;
+        tracing::info!(
+            module = "plugin",
+            plugin = %plugin_name,
+            "plugin disabled, hooks unregistered"
+        );
+    } else {
+        // 启用时：重新初始化该插件的 hook（调用 init_all）
+        if let Err(e) = state.plugin_manager.write().await.init_all(&state).await {
+            tracing::error!(
+                module = "plugin",
+                plugin = %plugin_name,
+                error = %e,
+                "failed to re-init plugin hooks after enabling"
+            );
+        }
     }
 
-    // TODO: Wave 3.2 — toggle Wasm module enable/disable
-    let new_manager = PluginManager::load().await;
-    let mut guard = state.plugin_manager.write().await;
-    *guard = new_manager;
-    tracing::info!("plugin toggled (stub; Wasm runtime pending)");
+    tracing::info!(
+        module = "plugin",
+        plugin = %plugin_name,
+        enabled = new_enabled,
+        "plugin toggled"
+    );
 
     Ok(Json(ApiResponse::success(serde_json::json!({
         "plugin_name": plugin_name,

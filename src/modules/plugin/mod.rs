@@ -7,5 +7,6 @@ pub mod id_strategy;
 pub mod loader;
 pub mod manager;
 pub mod manifest;
+pub mod sandbox;
 pub mod settings;
 pub mod status;
