@@ -742,7 +742,7 @@ pub async fn get_schedule(state: Arc<AppState>) -> AppResult<BackupScheduleRespo
 
 /// 将用户选择的站点时区本地时间转换为 UTC 时间，用于 cron 表达式计算
 /// 例如用户选 Asia/Shanghai 的 02:00 → UTC 18:00（前一天）
-pub(super) fn local_time_to_utc_for_cron(hour: u32, minute: u32, tz: Tz) -> (u32, u32) {
+pub fn local_time_to_utc_for_cron(hour: u32, minute: u32, tz: Tz) -> (u32, u32) {
     let now = Utc::now();
     let local_result = tz.with_ymd_and_hms(now.year(), now.month(), now.day(), hour, minute, 0);
     let utc_time = match local_result {

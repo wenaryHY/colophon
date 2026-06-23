@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use chrono_tz::Tz;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use crate::{shared::error::AppError, state::AppState};
@@ -20,7 +21,12 @@ pub async fn start_trash_scheduler(state: Arc<AppState>) -> Result<(), AppError>
     let hour = hour_str.parse::<u32>().unwrap_or(3).clamp(0, 23);
     let minute = minute_str.parse::<u32>().unwrap_or(0).clamp(0, 59);
 
-    let cron = format!("0 {} {} * * * *", minute, hour);
+    // 读取站点时区配置，转换为 UTC 时间用于 cron 表达式
+    let tz: Tz = state.config.site.site_timezone
+        .parse()
+        .unwrap_or(chrono_tz::Asia::Shanghai);
+    let (utc_hour, utc_minute) = crate::modules::backup::service::local_time_to_utc_for_cron(hour, minute, tz);
+    let cron = format!("0 {} {} * * * *", utc_minute, utc_hour);
     let mut scheduler = JobScheduler::new()
         .await
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("create trash scheduler failed: {e}")))?;
@@ -65,6 +71,12 @@ pub async fn start_trash_scheduler(state: Arc<AppState>) -> Result<(), AppError>
 
     *state.trash_scheduler_handle.lock().await = Some(handle);
 
-    tracing::info!(cron = %cron, "trash cleanup scheduler started");
+    tracing::info!(
+        cron = %cron,
+        local_time = %format!("{:02}:{:02}", hour, minute),
+        utc_time = %format!("{:02}:{:02}", utc_hour, utc_minute),
+        tz = %tz.name(),
+        "trash cleanup scheduler started"
+    );
     Ok(())
 }
