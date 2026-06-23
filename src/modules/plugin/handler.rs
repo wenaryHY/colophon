@@ -178,36 +178,11 @@ pub async fn toggle_plugin(
         hook_registry.unregister_all(&plugin_name).await;
     }
 
-    // ── 重建 PluginManager ──
-    // 1. 重新注册所有插件到全局 registry（含启用和禁用的）
-    // TODO: 等待 plugin_registry.rs 生成
-    // crate::register_all().await;
-
-    // 2. 重新发现启用插件（反映新的启用/禁用状态）
-    let loader = super::loader::PluginLoader::new(
-        std::path::PathBuf::from("plugins"),
-        env!("CARGO_PKG_VERSION"),
-    );
-    let discovered = loader.discover(&state.pool).await?;
-
-    // 3. 构建新 PluginManager
-    let new_manager = PluginManager::load_with(discovered).await;
-
-    // 4. 初始化新插件
-    new_manager.init_all(&state).await?;
-
-    // 5. 替换
-    {
-        let mut guard = state.plugin_manager.write().await;
-        *guard = new_manager;
-    }
-
-    tracing::info!(
-        module = "plugin",
-        plugin = plugin_name,
-        enabled = new_enabled,
-        "plugin toggled and PluginManager rebuilt"
-    );
+    // TODO: Wave 3.2 — toggle Wasm module enable/disable
+    let new_manager = PluginManager::load().await;
+    let mut guard = state.plugin_manager.write().await;
+    *guard = new_manager;
+    tracing::info!("plugin toggled (stub; Wasm runtime pending)");
 
     Ok(Json(ApiResponse::success(serde_json::json!({
         "plugin_name": plugin_name,

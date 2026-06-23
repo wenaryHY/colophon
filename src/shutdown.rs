@@ -17,9 +17,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use crate::state::AppState;
 
-/// 单个插件 shutdown 的超时
-const PLUGIN_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
-
 /// CancelToken 优雅退出等待时间
 const CANCEL_TOKEN_GRACE_PERIOD: Duration = Duration::from_secs(2);
 
@@ -126,22 +123,11 @@ pub async fn run_shutdown_sequence(state: &Arc<AppState>) {
         }
     }
 
-    // Step 5: 关闭插件（逐个超时保护）
+    // Step 5: 关闭插件
     tracing::info!(module = "shutdown", step = 5, "shutting down plugins...");
     let manager = state.plugin_manager.read().await;
-    for plugin in manager.plugins() {
-        let plugin_name = plugin.name().to_string();
-        match tokio::time::timeout(PLUGIN_SHUTDOWN_TIMEOUT, plugin.shutdown()).await {
-            Ok(Ok(())) => {
-                tracing::info!(module = "shutdown", plugin = %plugin_name, "plugin shut down");
-            }
-            Ok(Err(e)) => {
-                tracing::error!(module = "shutdown", plugin = %plugin_name, error = %e, "plugin shutdown failed");
-            }
-            Err(_elapsed) => {
-                tracing::error!(module = "shutdown", plugin = %plugin_name, "plugin shutdown timed out");
-            }
-        }
+    if let Err(e) = manager.shutdown_all().await {
+        tracing::error!(module = "shutdown", step = 5, error = %e, "plugin shutdown_all failed");
     }
     drop(manager);
     tracing::info!(module = "shutdown", step = 5, "all plugins processed");

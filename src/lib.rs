@@ -27,9 +27,7 @@ use state::AppState;
 use tokio::sync::broadcast;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::modules::plugin::loader::PluginLoader;
 use crate::modules::plugin::manager::PluginManager;
-use std::path::PathBuf;
 
 pub async fn serve() -> anyhow::Result<()> {
     let log_format = std::env::var("COLOPHON_LOG_FORMAT").unwrap_or_else(|_| "pretty".into());
@@ -93,18 +91,16 @@ pub async fn serve() -> anyhow::Result<()> {
 
     let setup_runtime = modules::setup::service::bootstrap_runtime(&pool).await?;
 
-    // Plugin registration is currently handled by PluginLoader at runtime
-    // (see src/modules/plugin/loader.rs). Compile-time registration via
-    // build.rs is planned but not yet implemented.
-    //
-    // TODO: 等待 plugin_registry.rs 生成
-    // register_all().await;
-
-    let loader = PluginLoader::new(PathBuf::from("plugins"), env!("CARGO_PKG_VERSION"));
-    let discovered = loader.discover(&pool).await?;
+    // Plugin registration and loading will be re-enabled in Wave 3.2 (Wasm sandbox).
     let plugin_manager = Arc::new(tokio::sync::RwLock::new(
-        PluginManager::load_with(discovered).await,
+        PluginManager::load().await,
     ));
+    let discovered = plugin_manager.read().await.discovered_manifests();
+    tracing::info!(
+        module = "plugin",
+        discovered = discovered.len(),
+        "PluginManager created (stubbed; Wasm runtime pending)"
+    );
 
     let state = Arc::new(AppState::new(
         config.clone(),
