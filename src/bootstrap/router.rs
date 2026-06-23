@@ -16,7 +16,7 @@ use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, CorsLayer},
-    trace::{DefaultOnResponse, TraceLayer},
+    trace::TraceLayer,
 };
 use utoipa::OpenApi;
 
@@ -611,12 +611,22 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                     client_request_id = %request_id,
                     method = %request.method(),
                     uri = %request.uri(),
+                    latency_ms = tracing::field::Empty,
                 )
             })
             .on_response(
-                DefaultOnResponse::new()
-                    .level(tracing::Level::INFO)
-                    .include_headers(false),
+                |response: &axum::http::Response<_>,
+                 latency: std::time::Duration,
+                 span: &tracing::Span| {
+                    let status = response.status().as_u16();
+                    span.record("latency_ms", latency.as_millis() as u64);
+                    tracing::info!(
+                        target: "colophon::http",
+                        status = status,
+                        latency_ms = latency.as_millis(),
+                        "response completed"
+                    );
+                },
             )
     };
 
