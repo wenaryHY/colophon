@@ -2,16 +2,16 @@
 id = "hello-world-a3f9b2c1"
 title = "Hello World"
 version = "0.1.0"
-description = "A demo plugin"
+description = "Wasm 插件示例：拦截 post.before_save Filter 钩子，修改标题和正文"
 author = "Colophon Team"
 
 [engine]
-colophon = ">=0.3.0"
+colophon = ">=1.0.0"
 
 [hooks]
-template = true
-routes = true
-assets = ["css"]
+listen = [
+  { event = "post.before_save", type = "filter" }
+]
 
 [[settings]]
 key = "greeting_target"
