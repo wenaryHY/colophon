@@ -60,7 +60,11 @@ impl WasmRuntime {
         let wasm = Wasm::file(wasm_path);
         let manifest = Manifest::new([wasm])
             .with_allowed_hosts(std::iter::empty()) // 禁止网络
-            .with_allowed_paths(std::iter::empty()); // 禁止文件系统
+            .with_allowed_paths(std::iter::empty()) // 禁止文件系统
+            .with_timeout(Duration::from_secs(5)) // Wasm 引擎内掐断死循环 (Fuel/epoch)
+            // with_memory_max 参数为 Wasm 页数，每页 64KB
+            // 160 页 = 10MB，限制 Wasm 线性内存防止恶意内存分配
+            .with_memory_max(160);
         self.manifests.insert(plugin_id.to_string(), manifest);
         Ok(())
     }
@@ -77,7 +81,12 @@ pub struct WasmHookHandler {
     pub wasm_runtime: Arc<RwLock<WasmRuntime>>,
 }
 
-/// WASM_HOOK_TIMEOUT_SECS — Wasm hook 调用的最大允许执行时间
+/// Wasm hook 调用的最大允许执行时间。
+///
+/// 双重防御：
+/// 1. extism Manifest 层的 `with_timeout(Duration::from_secs(5))` 在 Wasm 引擎
+///    内部掐断死循环（Fuel/epoch 机制）
+/// 2. tokio 层的 `timeout()` 在外部掐断 spawn_blocking 等待
 const WASM_HOOK_TIMEOUT_SECS: u64 = 5;
 
 #[async_trait::async_trait]
@@ -118,10 +127,19 @@ impl HookHandler for WasmHookHandler {
             // RAII: 显式释放 Plugin，确保 Wasm 线性内存正确回收
             drop(plugin);
 
-            match result {
-                Ok(output) => Ok((output, took_ms)),
-                Err(e) => Err(PluginError::RuntimeError(e.to_string())),
+            let output = result.map_err(|e| PluginError::RuntimeError(e.to_string()))?;
+
+            // 纵深防御：拒绝超大返回值，防止 serde_json 解析时 OOM
+            const MAX_WASM_OUTPUT_BYTES: usize = 1 * 1024 * 1024; // 1MB
+            if output.len() > MAX_WASM_OUTPUT_BYTES {
+                return Err(PluginError::SerializationError(format!(
+                    "Wasm 返回值过大: {} bytes (上限 {})",
+                    output.len(),
+                    MAX_WASM_OUTPUT_BYTES
+                )));
             }
+
+            Ok((output, took_ms))
         });
 
         // 3. 带超时的 await
