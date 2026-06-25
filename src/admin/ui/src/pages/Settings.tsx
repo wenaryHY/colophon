@@ -218,7 +218,26 @@ export default function Settings() {
           <Input value={kv.site_url || ''} onChange={(e) => update('site_url', e.target.value)} placeholder="https://example.com" />
         </FormRow>
         <FormRow label={t('siteTimezone')} hint={t('siteTimezoneHint')} isMobile={isMobile}>
-          <Input value={kv.site_timezone || 'UTC'} onChange={(e) => update('site_timezone', e.target.value)} placeholder="UTC" />
+          <Select value={kv.site_timezone || 'UTC'} onChange={(e) => update('site_timezone', e.target.value)}>
+            <SelectItem value="UTC">UTC</SelectItem>
+            <SelectItem value="Asia/Shanghai">Asia/Shanghai (UTC+8)</SelectItem>
+            <SelectItem value="Asia/Tokyo">Asia/Tokyo (UTC+9)</SelectItem>
+            <SelectItem value="Asia/Seoul">Asia/Seoul (UTC+9)</SelectItem>
+            <SelectItem value="Asia/Singapore">Asia/Singapore (UTC+8)</SelectItem>
+            <SelectItem value="Asia/Kolkata">Asia/Kolkata (UTC+5:30)</SelectItem>
+            <SelectItem value="Asia/Dubai">Asia/Dubai (UTC+4)</SelectItem>
+            <SelectItem value="Europe/London">Europe/London (UTC+0)</SelectItem>
+            <SelectItem value="Europe/Paris">Europe/Paris (UTC+1/+2)</SelectItem>
+            <SelectItem value="Europe/Berlin">Europe/Berlin (UTC+1/+2)</SelectItem>
+            <SelectItem value="Europe/Moscow">Europe/Moscow (UTC+3)</SelectItem>
+            <SelectItem value="America/New_York">America/New_York (UTC-5/-4)</SelectItem>
+            <SelectItem value="America/Chicago">America/Chicago (UTC-6/-5)</SelectItem>
+            <SelectItem value="America/Denver">America/Denver (UTC-7/-6)</SelectItem>
+            <SelectItem value="America/Los_Angeles">America/Los_Angeles (UTC-8/-7)</SelectItem>
+            <SelectItem value="America/Sao_Paulo">America/Sao_Paulo (UTC-3)</SelectItem>
+            <SelectItem value="Australia/Sydney">Australia/Sydney (UTC+10/+11)</SelectItem>
+            <SelectItem value="Pacific/Auckland">Pacific/Auckland (UTC+12/+13)</SelectItem>
+          </Select>
         </FormRow>
         <FormRow label={t('adminUrlLabel')} hint={t('adminUrlHint')} isMobile={isMobile}>
           <Input value={kv.admin_url || ''} disabled placeholder="https://example.com/admin" />
