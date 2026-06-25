@@ -165,6 +165,7 @@ export default function Settings() {
       payload.comment_require_login = String(kv.comment_require_login ?? true);
       payload.comment_moderation_mode = kv.comment_moderation_mode || 'all';
       payload.comment_max_length = String(kv.comment_max_length || 2000);
+      payload.site_timezone = kv.site_timezone || 'UTC';
       payload.theme_default_mode = kv.theme_default_mode || 'system';
 
       await apiData(`${API_PREFIX}/admin/settings/batch`, {
@@ -215,6 +216,9 @@ export default function Settings() {
         </FormRow>
         <FormRow label={t('siteUrl')} hint={t('siteUrlHintFull')} isMobile={isMobile}>
           <Input value={kv.site_url || ''} onChange={(e) => update('site_url', e.target.value)} placeholder="https://example.com" />
+        </FormRow>
+        <FormRow label={t('siteTimezone')} hint={t('siteTimezoneHint')} isMobile={isMobile}>
+          <Input value={kv.site_timezone || 'UTC'} onChange={(e) => update('site_timezone', e.target.value)} placeholder="UTC" />
         </FormRow>
         <FormRow label={t('adminUrlLabel')} hint={t('adminUrlHint')} isMobile={isMobile}>
           <Input value={kv.admin_url || ''} disabled placeholder="https://example.com/admin" />

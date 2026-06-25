@@ -110,8 +110,10 @@ async fn update_run_times_after_backup(
     minute: u32,
 ) -> Result<(), AppError> {
     let now = Utc::now();
-    let tz: Tz = state.config.site.site_timezone.parse()
-        .unwrap_or(chrono_tz::UTC);
+    let tz_str = crate::modules::setting::repository::get_string(&state.pool, "site_timezone", "UTC")
+        .await
+        .unwrap_or_else(|_| "UTC".into());
+    let tz: Tz = tz_str.parse().unwrap_or(chrono_tz::UTC);
     let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(hour, minute, tz);
     let cron_expr = frequency.cron_expression(utc_hour, utc_minute);
     let next = calculate_next_run_at_from_cron_expression(&cron_expr);

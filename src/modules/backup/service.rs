@@ -792,8 +792,10 @@ pub async fn update_schedule(
     // last_run_at is only updated when a backup actually executes).
     // 将用户选择的站点时区本地时间转为 UTC，确保 cron 在正确时刻触发
     if request.enabled {
-        let tz: Tz = state.config.site.site_timezone.parse()
-            .unwrap_or(chrono_tz::UTC);
+        let tz_str = crate::modules::setting::repository::get_string(&state.pool, "site_timezone", "UTC")
+            .await
+            .unwrap_or_else(|_| "UTC".into());
+        let tz: Tz = tz_str.parse().unwrap_or(chrono_tz::UTC);
         let (utc_hour, utc_minute) = local_time_to_utc_for_cron(request.hour, request.minute, tz);
         let cron = frequency.cron_expression(utc_hour, utc_minute);
         let next_run_at = calculate_next_run_at_from_cron_expression(&cron);

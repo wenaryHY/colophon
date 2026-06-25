@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use chrono_tz::Tz;
+
 use crate::{
     shared::error::{AppError, AppResult},
     state::AppState,
@@ -26,6 +28,7 @@ const ALLOWED_SETTINGS: &[&str] = &[
     "comment_max_length",
     "active_theme",
     "theme_default_mode",
+    "site_timezone",
 ];
 
 pub async fn list_settings(state: Arc<AppState>) -> AppResult<Vec<SettingItem>> {
@@ -74,6 +77,7 @@ fn normalize_setting_value(key: &str, value: &str) -> AppResult<String> {
         "trash_retention_days" => normalize_i64_range(value, key, 1, 90),
         "trash_cleanup_hour" => normalize_i64_range(value, key, 0, 23),
         "trash_cleanup_minute" => normalize_i64_range(value, key, 0, 59),
+        "site_timezone" => normalize_timezone(value),
         _ => Ok(value.trim().to_string()),
     }
 }
@@ -89,4 +93,17 @@ fn normalize_i64_range(value: &str, key: &str, min: i64, max: i64) -> AppResult<
     Err(AppError::BadRequest(format!(
         "{key} must be between {min} and {max}"
     )))
+}
+
+fn normalize_timezone(value: &str) -> AppResult<String> {
+    let tz_str = value.trim();
+    // 验证是否为有效的 IANA 时区名称
+    tz_str
+        .parse::<Tz>()
+        .map_err(|_| {
+            AppError::BadRequest(format!(
+                "无效的时区: {tz_str}。请使用 IANA 时区标识符，如 UTC、Asia/Shanghai、America/New_York"
+            ))
+        })?;
+    Ok(tz_str.to_string())
 }

@@ -12,6 +12,8 @@ export const settingsDict = {
     siteDescription: '站点描述',
     siteUrl: '站点 URL',
     siteDescHint: '用于 SEO 和页面 meta 描述，建议不超过 160 字符',
+    siteTimezone: '站点时区',
+    siteTimezoneHint: 'IANA 时区标识符，如 UTC、Asia/Shanghai、America/New_York',
     siteUrlHint: '博客的完整访问地址，包含协议前缀',
 
     // 评论与注册
@@ -82,6 +84,8 @@ export const settingsDict = {
     siteDescription: 'Site Description',
     siteUrl: 'Site URL',
     siteDescHint: 'Used for SEO and meta description, recommended max 160 characters',
+    siteTimezone: 'Site Timezone',
+    siteTimezoneHint: 'IANA timezone identifier, e.g. UTC, Asia/Shanghai, America/New_York',
     siteUrlHint: 'Full blog URL including protocol',
 
     // Comments & Registration
