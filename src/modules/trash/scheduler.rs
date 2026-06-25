@@ -24,7 +24,7 @@ pub async fn start_trash_scheduler(state: Arc<AppState>) -> Result<(), AppError>
     // 读取站点时区配置，转换为 UTC 时间用于 cron 表达式
     let tz: Tz = state.config.site.site_timezone
         .parse()
-        .unwrap_or(chrono_tz::Asia::Shanghai);
+        .unwrap_or(chrono_tz::UTC);
     let (utc_hour, utc_minute) = crate::modules::backup::service::local_time_to_utc_for_cron(hour, minute, tz);
     let cron = format!("0 {} {} * * * *", utc_minute, utc_hour);
     let mut scheduler = JobScheduler::new()

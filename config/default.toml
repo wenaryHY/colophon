@@ -131,10 +131,10 @@ admin_dist_dir = "src/admin/dist"
 
 [site]
 # 站点时区（IANA 时区标识符），用于计算备份 Cron 表达式
-# 默认 Asia/Shanghai（北京时间 UTC+8）
+# 默认 UTC
 # 示例：Asia/Shanghai、America/New_York、Europe/London
 # 环境变量：COLOPHON__SITE__SITE_TIMEZONE
-site_timezone = "Asia/Shanghai"
+site_timezone = "UTC"
 
 [runtime]
 # 运行模式

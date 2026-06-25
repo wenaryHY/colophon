@@ -111,7 +111,7 @@ async fn update_run_times_after_backup(
 ) -> Result<(), AppError> {
     let now = Utc::now();
     let tz: Tz = state.config.site.site_timezone.parse()
-        .unwrap_or(chrono_tz::Asia::Shanghai);
+        .unwrap_or(chrono_tz::UTC);
     let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(hour, minute, tz);
     let cron_expr = frequency.cron_expression(utc_hour, utc_minute);
     let next = calculate_next_run_at_from_cron_expression(&cron_expr);

@@ -95,7 +95,7 @@ pub struct SiteConfig {
 }
 
 fn default_site_timezone() -> String {
-    "Asia/Shanghai".to_string()
+    "UTC".to_string()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -162,7 +162,7 @@ impl AppConfig {
             .set_default("theme.theme_dir", "themes")?
             .set_default("theme.active_theme_fallback", "default")?
             .set_default("theme.default_mode", "system")?
-            .set_default("site.site_timezone", "Asia/Shanghai")?
+            .set_default("site.site_timezone", "UTC")?
             .set_default("paths.admin_dist_dir", "src/admin/dist")?
             .set_default("runtime.mode", "development")?
             .set_default("webhook.max_concurrency", 5)?
