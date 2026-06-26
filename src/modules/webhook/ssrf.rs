@@ -1,8 +1,8 @@
 //! SSRF 防护：URL / IP 地址安全检查
 //!
 //! 由两个调用方共享：
-//! - `service` 在创建 / 更新 webhook 时校验目标 URL（拒绝内网地址）
-//! - `dispatcher` 在投递时做 DNS 重绑定与重定向二次检查
+//! - service 在创建 / 更新 webhook 时校验目标 URL（拒绝内网地址）
+//! - dispatcher 在投递时做 DNS 重绑定与重定向二次检查
 //!
 //! 集中于此，使安全敏感的 IP 段判定逻辑只有一处来源。
 
@@ -13,82 +13,88 @@ use crate::shared::error::AppError;
 /// 检查 URL 是否指向私有 IP 或 localhost
 ///
 /// 防止 SSRF 攻击：拒绝 webhook 指向内网地址
-/// 设置 `COLOPHON_TEST_MODE=true` 环境变量可跳过检查（仅供集成测试使用）
+/// 编译时启用 	est-mode feature 可跳过检查（仅供集成测试使用）
 pub(super) fn is_private_or_local_url(url: &str) -> Result<bool, AppError> {
     // 集成测试模式下跳过 SSRF 检查，允许 webhook 使用 localhost 进行端到端测试
-    if std::env::var("COLOPHON_TEST_MODE").is_ok() {
+    // 使用编译期 feature flag 而非运行时环境变量，防止生产环境被绕过
+    #[cfg(feature = "test-mode")]
+    {
+        let _ = url; // 抑制未使用变量警告
         return Ok(false);
     }
 
-    let parsed =
-        url::Url::parse(url).map_err(|_| AppError::BadRequest("无效的 URL 格式".into()))?;
+    #[cfg(not(feature = "test-mode"))]
+    {
+        let parsed =
+            url::Url::parse(url).map_err(|_| AppError::BadRequest("无效的 URL 格式".into()))?;
 
-    // url::Host 枚举区分 Domain / Ipv4 / Ipv6，避免手动处理 IPv6 的方括号
-    let host = parsed
-        .host()
-        .ok_or_else(|| AppError::BadRequest("URL 缺少 host".into()))?;
+        // url::Host 枚举区分 Domain / Ipv4 / Ipv6，避免手动处理 IPv6 的方括号
+        let host = parsed
+            .host()
+            .ok_or_else(|| AppError::BadRequest("URL 缺少 host".into()))?;
 
-    match host {
-        url::Host::Domain(domain) => {
-            let lowered = domain.to_ascii_lowercase();
-            // localhost 及其子域
-            if lowered == "localhost" || lowered.ends_with(".localhost") {
-                return Ok(true);
+        match host {
+            url::Host::Domain(domain) => {
+                let lowered = domain.to_ascii_lowercase();
+                // localhost 及其子域
+                if lowered == "localhost" || lowered.ends_with(".localhost") {
+                    return Ok(true);
+                }
+                // 域名走 DNS，无法在此判定是否解析到内网；交给后续传输层即可
+                // 注：理想方案是 resolve 后再比对 IP，但 DNS 重绑定攻击需要更深防御
+                Ok(false)
             }
-            // 域名走 DNS，无法在此判定是否解析到内网；交给后续传输层即可
-            // 注：理想方案是 resolve 后再比对 IP，但 DNS 重绑定攻击需要更深防御
-            Ok(false)
-        }
-        url::Host::Ipv4(ipv4) => {
-            // 0.0.0.0/8
-            if ipv4.octets()[0] == 0 {
-                return Ok(true);
+            url::Host::Ipv4(ipv4) => {
+                // 0.0.0.0/8
+                if ipv4.octets()[0] == 0 {
+                    return Ok(true);
+                }
+                // 10.0.0.0/8
+                if ipv4.octets()[0] == 10 {
+                    return Ok(true);
+                }
+                // 127.0.0.0/8 (loopback)
+                if ipv4.octets()[0] == 127 {
+                    return Ok(true);
+                }
+                // 169.254.0.0/16 (链路本地)
+                if ipv4.octets()[0] == 169 && ipv4.octets()[1] == 254 {
+                    return Ok(true);
+                }
+                // 172.16.0.0/12
+                if ipv4.octets()[0] == 172 && (ipv4.octets()[1] >= 16 && ipv4.octets()[1] <= 31) {
+                    return Ok(true);
+                }
+                // 192.168.0.0/16
+                if ipv4.octets()[0] == 192 && ipv4.octets()[1] == 168 {
+                    return Ok(true);
+                }
+                Ok(false)
             }
-            // 10.0.0.0/8
-            if ipv4.octets()[0] == 10 {
-                return Ok(true);
+            url::Host::Ipv6(ipv6) => {
+                // ::1 (loopback)
+                if ipv6 == Ipv6Addr::LOCALHOST {
+                    return Ok(true);
+                }
+                // :: (unspecified)
+                if ipv6.is_unspecified() {
+                    return Ok(true);
+                }
+                // fe80::/10 (链路本地)
+                if ipv6.segments()[0] & 0xffc0 == 0xfe80 {
+                    return Ok(true);
+                }
+                // fc00::/7 (唯一本地)
+                if ipv6.segments()[0] & 0xfe00 == 0xfc00 {
+                    return Ok(true);
+                }
+                // ::ffff:0:0/96 (IPv4-mapped) — 转回 IPv4 检查
+                if let Some(v4) = ipv6.to_ipv4_mapped() {
+                    let mapped = format!("http://{}/", v4);
+                    return is_private_or_local_url(&mapped);
+                }
+                Ok(false)
             }
-            // 127.0.0.0/8 (loopback)
-            if ipv4.octets()[0] == 127 {
-                return Ok(true);
-            }
-            // 169.254.0.0/16 (链路本地)
-            if ipv4.octets()[0] == 169 && ipv4.octets()[1] == 254 {
-                return Ok(true);
-            }
-            // 172.16.0.0/12
-            if ipv4.octets()[0] == 172 && (ipv4.octets()[1] >= 16 && ipv4.octets()[1] <= 31) {
-                return Ok(true);
-            }
-            // 192.168.0.0/16
-            if ipv4.octets()[0] == 192 && ipv4.octets()[1] == 168 {
-                return Ok(true);
-            }
-            Ok(false)
-        }
-        url::Host::Ipv6(ipv6) => {
-            // ::1 (loopback)
-            if ipv6 == Ipv6Addr::LOCALHOST {
-                return Ok(true);
-            }
-            // :: (unspecified)
-            if ipv6.is_unspecified() {
-                return Ok(true);
-            }
-            // fe80::/10 (链路本地)
-            if ipv6.segments()[0] & 0xffc0 == 0xfe80 {
-                return Ok(true);
-            }
-            // fc00::/7 (唯一本地)
-            if ipv6.segments()[0] & 0xfe00 == 0xfc00 {
-                return Ok(true);
-            }
-            // ::ffff:0:0/96 (IPv4-mapped) — 转回 IPv4 检查
-            if let Some(v4) = ipv6.to_ipv4_mapped() {
-                let mapped = format!("http://{}/", v4);
-                return is_private_or_local_url(&mapped);
-            }
-            Ok(false)
         }
     }
 }

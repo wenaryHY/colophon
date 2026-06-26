@@ -4,15 +4,12 @@ use slug::slugify;
 use uuid::Uuid;
 
 use crate::{
-    modules::plugin::hook::{
-        HookContext, HookData, PostAfterPublishData, PostAfterSaveData, PostBeforeSaveData,
-    },
     shared::{
         auth::AuthUser,
         content::{markdown_to_html, sanitize_html},
         error::{AppError, AppResult},
-        pagination::PaginationQuery,
         response::{deleted_json, PaginatedResponse},
+        http::require_non_empty,
     },
     state::AppState,
 };
@@ -23,6 +20,7 @@ use super::{
         AdminPostResponse, CreatePostRequest, PostQuery, PublicPostResponse, SearchQuery,
         UpdatePostRequest,
     },
+    hook_dispatcher,
     post_types::{ContentType, NewPostParams, PostStatus, UpdatePostParams, Visibility},
     repository,
 };
@@ -89,11 +87,7 @@ pub async fn list_public_posts(
     state: Arc<AppState>,
     query: PostQuery,
 ) -> AppResult<PaginatedResponse<PublicPostSummary>> {
-    let pagination = PaginationQuery {
-        page: query.page,
-        page_size: query.page_size,
-    };
-    let (page, page_size, offset) = pagination.normalized(10, 100);
+    let (page, page_size, offset) = query.pagination.normalized(10, 100);
     let items =
         repository::list_public_posts(&state.pool, query.keyword.as_deref(), page_size, offset)
             .await?;
@@ -106,11 +100,7 @@ pub async fn search_posts(
     state: Arc<AppState>,
     query: SearchQuery,
 ) -> AppResult<PaginatedResponse<PublicPostSummary>> {
-    let pagination = PaginationQuery {
-        page: query.page,
-        page_size: query.page_size,
-    };
-    let (page, page_size, offset) = pagination.normalized(10, 100);
+    let (page, page_size, offset) = query.pagination.normalized(10, 100);
     let items = repository::search_posts(
         &state.pool,
         &query.keyword,
@@ -142,11 +132,7 @@ pub async fn list_admin_posts(
     state: Arc<AppState>,
     query: PostQuery,
 ) -> AppResult<PaginatedResponse<AdminPostResponse>> {
-    let pagination = PaginationQuery {
-        page: query.page,
-        page_size: query.page_size,
-    };
-    let (page, page_size, offset) = pagination.normalized(10, 100);
+    let (page, page_size, offset) = query.pagination.normalized(10, 100);
     let posts = repository::list_admin_posts(
         &state.pool,
         query.status,
@@ -189,9 +175,7 @@ pub async fn create_post(
     auth: &AuthUser,
     body: CreatePostRequest,
 ) -> AppResult<AdminPostResponse> {
-    if body.title.trim().is_empty() {
-        return Err(AppError::BadRequest("title is required".into()));
-    }
+    require_non_empty(&body.title, "title")?;
 
     let mut title = body.title.trim().to_string();
     let mut content_type = normalize_content_type(body.content_type)?;
@@ -228,35 +212,24 @@ pub async fn create_post(
     let has_original_tags = body.tag_ids.is_some();
 
     // =============== Hook: post.before_save (Filter) ===============
-    let hook_registry = state.plugin_manager.read().await.hook_registry().clone();
-    let mut save_ctx = HookContext {
-        hook_name: "post.before_save".into(),
-        data: HookData::PostBeforeSave(PostBeforeSaveData {
-            title: title.clone(),
-            content_html: content_html.clone(),
-            excerpt: excerpt.clone(),
-            slug: slug.clone(),
-            tags: tags.clone(),
-            category_id: category_id.clone(),
-            content_type: content_type.to_string(),
-            request_ip: None,
-            user_agent: None,
-        }),
-    };
-    hook_registry
-        .dispatch_filter("post.before_save", &mut save_ctx)
-        .await?;
-
-    // Extract potentially modified fields from the filter
-    if let HookData::PostBeforeSave(ref data) = save_ctx.data {
-        title = data.title.clone();
-        content_html = data.content_html.clone();
-        excerpt = data.excerpt.clone();
-        slug = data.slug.clone();
-        tags = data.tags.clone();
-        category_id = data.category_id.clone();
-        content_type = data.content_type.parse()?;
-    }
+    let hook_result = hook_dispatcher::dispatch_post_before_save(
+        state.as_ref(),
+        title,
+        content_html,
+        excerpt,
+        slug,
+        tags,
+        category_id,
+        content_type,
+    )
+    .await?;
+    title = hook_result.title;
+    content_html = hook_result.content_html;
+    excerpt = hook_result.excerpt;
+    slug = hook_result.slug;
+    tags = hook_result.tags;
+    category_id = hook_result.category_id;
+    content_type = hook_result.content_type;
 
     slug = resolve_unique_post_slug(&state.pool, &slug, None).await?;
 
@@ -287,41 +260,32 @@ pub async fn create_post(
         repository::replace_tags(&state.pool, &id, &tags).await?;
     }
 
-    // =============== Hook: post.after_save (Action) ===============
+    // =============== Hooks: post.after_save + post.after_publish (Action) ===============
     let post = repository::get_admin_post(&state.pool, &id)
         .await?
         .ok_or(AppError::NotFound("文章未找到".to_string()))?;
     let old_status = PostStatus::Draft.to_string();
-    let after_save_ctx = HookContext {
-        hook_name: "post.after_save".into(),
-        data: HookData::PostAfterSave(PostAfterSaveData {
-            post_id: id.clone(),
-            title: post.title.clone(),
-            slug: post.slug.clone(),
-            is_new: true,
-            status: post.status.to_string(),
-            old_status: Some(old_status.clone()),
-        }),
-    };
-    hook_registry
-        .dispatch_action("post.after_save", after_save_ctx)
-        .await;
+    hook_dispatcher::dispatch_post_after_save(
+        state.as_ref(),
+        id.clone(),
+        post.title.clone(),
+        post.slug.clone(),
+        true,
+        post.status.to_string(),
+        old_status.clone(),
+    )
+    .await;
 
-    // =============== Hook: post.after_publish (Action) ===============
     if post.status == PostStatus::Published {
-        let publish_ctx = HookContext {
-            hook_name: "post.after_publish".into(),
-            data: HookData::PostAfterPublish(PostAfterPublishData {
-                post_id: id.clone(),
-                title: post.title.clone(),
-                slug: post.slug.clone(),
-                old_status,
-                new_status: PostStatus::Published.to_string(),
-            }),
-        };
-        hook_registry
-            .dispatch_action("post.after_publish", publish_ctx)
-            .await;
+        hook_dispatcher::dispatch_post_after_publish(
+            state.as_ref(),
+            id.clone(),
+            post.title.clone(),
+            post.slug.clone(),
+            old_status,
+            PostStatus::Published.to_string(),
+        )
+        .await;
     }
 
     get_admin_post(state, &id).await
@@ -393,35 +357,24 @@ pub async fn update_post(
     let has_original_tags = body.tag_ids.is_some();
 
     // =============== Hook: post.before_save (Filter) ===============
-    let hook_registry = state.plugin_manager.read().await.hook_registry().clone();
-    let mut save_ctx = HookContext {
-        hook_name: "post.before_save".into(),
-        data: HookData::PostBeforeSave(PostBeforeSaveData {
-            title: title.clone(),
-            content_html: content_html.clone(),
-            excerpt: excerpt.clone(),
-            slug: slug.clone(),
-            tags: tags.clone(),
-            category_id: category_id.clone(),
-            content_type: content_type.to_string(),
-            request_ip: None,
-            user_agent: None,
-        }),
-    };
-    hook_registry
-        .dispatch_filter("post.before_save", &mut save_ctx)
-        .await?;
-
-    // Extract potentially modified fields from the filter
-    if let HookData::PostBeforeSave(ref data) = save_ctx.data {
-        title = data.title.clone();
-        content_html = data.content_html.clone();
-        excerpt = data.excerpt.clone();
-        slug = data.slug.clone();
-        tags = data.tags.clone();
-        category_id = data.category_id.clone();
-        content_type = data.content_type.parse()?;
-    }
+    let hook_result = hook_dispatcher::dispatch_post_before_save(
+        state.as_ref(),
+        title,
+        content_html,
+        excerpt,
+        slug,
+        tags,
+        category_id,
+        content_type,
+    )
+    .await?;
+    title = hook_result.title;
+    content_html = hook_result.content_html;
+    excerpt = hook_result.excerpt;
+    slug = hook_result.slug;
+    tags = hook_result.tags;
+    category_id = hook_result.category_id;
+    content_type = hook_result.content_type;
 
     slug = resolve_unique_post_slug(&state.pool, &slug, Some(id)).await?;
 
@@ -453,40 +406,31 @@ pub async fn update_post(
         repository::replace_tags(&state.pool, id, &tags).await?;
     }
 
-    // =============== Hook: post.after_save (Action) ===============
+    // =============== Hooks: post.after_save + post.after_publish (Action) ===============
     let post = repository::get_admin_post(&state.pool, id)
         .await?
         .ok_or(AppError::NotFound("文章未找到".to_string()))?;
-    let after_save_ctx = HookContext {
-        hook_name: "post.after_save".into(),
-        data: HookData::PostAfterSave(PostAfterSaveData {
-            post_id: id.to_string(),
-            title: post.title.clone(),
-            slug: post.slug.clone(),
-            is_new: false,
-            status: post.status.to_string(),
-            old_status: Some(old_status.to_string()),
-        }),
-    };
-    hook_registry
-        .dispatch_action("post.after_save", after_save_ctx)
-        .await;
+    hook_dispatcher::dispatch_post_after_save(
+        state.as_ref(),
+        id.to_string(),
+        post.title.clone(),
+        post.slug.clone(),
+        false,
+        post.status.to_string(),
+        old_status.to_string(),
+    )
+    .await;
 
-    // =============== Hook: post.after_publish (Action) ===============
     if post.status == PostStatus::Published && old_status != PostStatus::Published {
-        let publish_ctx = HookContext {
-            hook_name: "post.after_publish".into(),
-            data: HookData::PostAfterPublish(PostAfterPublishData {
-                post_id: id.to_string(),
-                title: post.title.clone(),
-                slug: post.slug.clone(),
-                old_status: old_status.to_string(),
-                new_status: PostStatus::Published.to_string(),
-            }),
-        };
-        hook_registry
-            .dispatch_action("post.after_publish", publish_ctx)
-            .await;
+        hook_dispatcher::dispatch_post_after_publish(
+            state.as_ref(),
+            id.to_string(),
+            post.title.clone(),
+            post.slug.clone(),
+            old_status.to_string(),
+            PostStatus::Published.to_string(),
+        )
+        .await;
     }
 
     get_admin_post(state, id).await

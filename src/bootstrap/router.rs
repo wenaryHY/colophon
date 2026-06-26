@@ -203,9 +203,13 @@ fn matches_cached_origin(cache: &Arc<tokio::sync::RwLock<String>>, origin: &Head
     false
 }
 
-pub async fn build_router(state: Arc<AppState>) -> Router {
-    let port = state.config.server.port;
+// ---------------------------------------------------------------------------
+// 子函数：CORS 配置
+// ---------------------------------------------------------------------------
 
+/// 构建 CORS 层 — 允许 localhost / 127.0.0.1 / 配置中的 site_url / admin_url
+fn configure_cors(state: &AppState) -> CorsLayer {
+    let port = state.config.server.port;
     let is_production = state.config.is_production();
 
     let base_origins: Vec<HeaderValue> = {
@@ -248,7 +252,7 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             false
         });
 
-    let cors_layer = CorsLayer::new()
+    CorsLayer::new()
         .allow_origin(allow_origin)
         .allow_credentials(true)
         .allow_methods([
@@ -277,41 +281,68 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "x-request-id"
                 .parse()
                 .expect("hardcoded header name must be valid"),
-        ]);
+        ])
+}
 
-    let register_governor_config = AxumGovernorConfigBuilder::default()
-        .with_extractor(ForwardedIpExtractor)
+// ---------------------------------------------------------------------------
+// 子函数：限流配置
+// ---------------------------------------------------------------------------
 
-        .quota_default(Quota::requests_per_second(nz!(1u32)).burst(nz!(3u32)))
-        .finish()
-        .expect("governor config with valid quota must succeed");
+/// 三种限流级别的 Governor layer。
+struct RateLimitLayers {
+    /// 注册接口：每秒 1 次，突发 3 次
+    register: AxumGovernorLayer<std::net::IpAddr>,
+    /// 登录接口：极严苛（Argon2 极度耗费 CPU）— 每 10 秒 1 次，突发 3 次
+    login: AxumGovernorLayer<std::net::IpAddr>,
+    /// 普通 API 接口：防爬虫 — 每秒 10 次，突发 50 次
+    api: AxumGovernorLayer<std::net::IpAddr>,
+}
 
-    // 登录接口：极严苛限流（Argon2 极度耗费 CPU）
-    // 每个 IP 每 10 秒最多 1 次，突发 3 次
-    let login_rate_limit = AxumGovernorConfigBuilder::default()
-        .with_extractor(ForwardedIpExtractor)
+fn configure_rate_limits(trusted_proxies: Vec<std::net::IpAddr>) -> RateLimitLayers {
+    let register = AxumGovernorLayer::new(
+        AxumGovernorConfigBuilder::default()
+            .with_extractor(ForwardedIpExtractor { trusted_proxies: trusted_proxies.clone() })
+            .quota_default(Quota::requests_per_second(nz!(1u32)).burst(nz!(3u32)))
+            .finish()
+            .expect("governor config with valid quota must succeed"),
+    );
 
-        .quota_default(Quota::seconds_per_request(nz!(10u32)).burst(nz!(3u32)))
-        .finish()
-        .unwrap();
+    let login = AxumGovernorLayer::new(
+        AxumGovernorConfigBuilder::default()
+            .with_extractor(ForwardedIpExtractor { trusted_proxies: trusted_proxies.clone() })
+            .quota_default(Quota::seconds_per_request(nz!(10u32)).burst(nz!(3u32)))
+            .finish()
+            .unwrap(),
+    );
 
-    // 普通 API 接口：防爬虫
-    // 每个 IP 每秒最多 10 次，突发 50 次
-    let api_rate_limit = AxumGovernorConfigBuilder::default()
-        .with_extractor(ForwardedIpExtractor)
+    let api = AxumGovernorLayer::new(
+        AxumGovernorConfigBuilder::default()
+            .with_extractor(ForwardedIpExtractor { trusted_proxies })
+            .quota_default(Quota::requests_per_second(nz!(10u32)).burst(nz!(50u32)))
+            .finish()
+            .unwrap(),
+    );
 
-        .quota_default(Quota::requests_per_second(nz!(10u32)).burst(nz!(50u32)))
-        .finish()
-        .unwrap();
+    RateLimitLayers { register, login, api }
+}
 
-    let auth_v1 = Router::new()
-        // Register: 仅绑定 register_governor_config
+// ---------------------------------------------------------------------------
+// 子函数：认证路由
+// ---------------------------------------------------------------------------
+
+/// 认证相关路由 — register / login / logout / refresh
+fn auth_routes(
+    cors: CorsLayer,
+    state: Arc<AppState>,
+    register_limit: AxumGovernorLayer<std::net::IpAddr>,
+    login_limit: AxumGovernorLayer<std::net::IpAddr>,
+) -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/auth/register",
             post(modules::auth::handler::register)
-                .route_layer(AxumGovernorLayer::new(register_governor_config)),
+                .route_layer(register_limit),
         )
-        // Login: 双重保护——内存限流（from_fn）+ governor 限流
         .route(
             "/api/v1/auth/login",
             post(modules::auth::handler::login)
@@ -319,18 +350,23 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                     state.clone(),
                     crate::shared::security::login_rate_limit,
                 ))
-                .route_layer(AxumGovernorLayer::new(login_rate_limit)),
+                .route_layer(login_limit),
         )
-        // Logout: 无限流（幂等操作，无资源消耗）
         .route("/api/v1/auth/logout", post(modules::auth::handler::logout))
-        // Refresh: 无限流（频繁调用，不应限流）
         .route(
             "/api/v1/auth/refresh",
             post(modules::auth::handler::refresh_token),
         )
-        .layer(cors_layer.clone());
+        .layer(cors)
+}
 
-    let v1 = Router::new()
+// ---------------------------------------------------------------------------
+// 子函数：公共 API 路由
+// ---------------------------------------------------------------------------
+
+/// 公共 API — 用户信息、文章、分类、标签
+fn public_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route("/api/v1/me", get(modules::user::handler::me))
         .route(
             "/api/v1/me/profile",
@@ -362,6 +398,15 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             get(modules::category::handler::list_categories),
         )
         .route("/api/v1/tags", get(modules::tag::handler::list_tags))
+}
+
+// ---------------------------------------------------------------------------
+// 子函数：管理后台路由（按领域拆分，每个子函数 ≤ 40 行）
+// ---------------------------------------------------------------------------
+
+/// 分类与标签管理
+fn admin_category_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/admin/categories",
             post(modules::category::handler::create_category),
@@ -377,8 +422,14 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         )
         .route(
             "/api/v1/admin/tags/{id}",
-            patch(modules::tag::handler::update_tag).delete(modules::tag::handler::delete_tag),
+            patch(modules::tag::handler::update_tag)
+                .delete(modules::tag::handler::delete_tag),
         )
+}
+
+/// 文章与评论（帖子级别）
+fn admin_post_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/posts/{slug}/comments",
             get(modules::comment::handler::list_post_comments)
@@ -390,7 +441,8 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         )
         .route(
             "/api/v1/admin/posts",
-            get(modules::post::handler::list_admin_posts).post(modules::post::handler::create_post),
+            get(modules::post::handler::list_admin_posts)
+                .post(modules::post::handler::create_post),
         )
         .route(
             "/api/v1/admin/posts/{id}",
@@ -402,6 +454,11 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/admin/pages/upload",
             post(modules::post::handler::upload_custom_page),
         )
+}
+
+/// 评论管理（审核、删除、恢复、彻底删除）
+fn admin_comment_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/admin/comments",
             get(modules::comment::handler::list_admin_comments),
@@ -426,9 +483,15 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/admin/comments/{id}/purge",
             delete(modules::comment::handler::purge_comment),
         )
+}
+
+/// 媒体资源管理
+fn admin_media_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/admin/media",
-            get(modules::media::handler::list_media).post(modules::media::handler::upload_media),
+            get(modules::media::handler::list_media)
+                .post(modules::media::handler::upload_media),
         )
         .route(
             "/api/v1/admin/media/{id}",
@@ -450,6 +513,11 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             patch(modules::media::handler::update_media_category_crud)
                 .delete(modules::media::handler::delete_media_category),
         )
+}
+
+/// 主题管理与预览
+fn admin_theme_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/admin/themes",
             get(modules::theme::handler::list_themes),
@@ -482,6 +550,11 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/preview/theme",
             post(modules::theme::handler::preview_theme),
         )
+}
+
+/// 站点设置
+fn admin_settings_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/admin/settings",
             get(modules::setting::handler::list_settings)
@@ -491,6 +564,11 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/admin/settings/batch",
             patch(modules::setting::handler::update_settings_batch),
         )
+}
+
+/// 备份管理
+fn admin_backup_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/admin/backup",
             post(modules::backup::handler::create_backup),
@@ -517,6 +595,11 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/admin/backups/{id}/merge-restore",
             post(modules::backup::handler::merge_restore_backup),
         )
+}
+
+/// 回收站
+fn admin_trash_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/admin/trash",
             get(modules::trash::handler::list_trash),
@@ -533,6 +616,11 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/admin/trash/{item_type}/{id}",
             delete(modules::trash::handler::purge_item),
         )
+}
+
+/// 插件管理
+fn admin_plugin_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/admin/plugins/{name}/settings",
             get(crate::modules::plugin::handler::get_settings)
@@ -550,6 +638,11 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/admin/plugins/{name}/toggle",
             post(crate::modules::plugin::handler::toggle_plugin),
         )
+}
+
+/// Webhook 管理
+fn admin_webhook_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/admin/webhooks",
             get(crate::modules::webhook::handler::list_webhooks)
@@ -565,6 +658,11 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             "/api/v1/admin/webhooks/{id}/deliveries",
             get(crate::modules::webhook::handler::list_deliveries),
         )
+}
+
+/// API Key 管理
+fn admin_apikey_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route(
             "/api/v1/admin/api-keys",
             get(crate::modules::api_key::handler::list_api_keys)
@@ -575,18 +673,41 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             patch(crate::modules::api_key::handler::update_api_key)
                 .delete(crate::modules::api_key::handler::revoke_api_key),
         )
-        .route(
-            "/api/v1/admin/sysinfo",
-            get(crate::modules::setting::sysinfo::sysinfo),
-        )
-        .merge(state.plugin_manager.read().await.collect_routes(&state))
-        .layer(AxumGovernorLayer::new(api_rate_limit))
-        .layer(axum::middleware::from_fn(crate::shared::security::log_rate_limited))
-        .layer(cors_layer.clone());
+}
 
-    // 绕过 rate limit 的公共端点：health、version、turnstile-config、setup
-    // 这些端点直连 localhost 时无 X-Forwarded-For，ForwardedIpExtractor 不应拦截
-    let unguarded = Router::new()
+/// 系统信息
+fn admin_sysinfo_routes() -> Router<Arc<AppState>> {
+    Router::new().route(
+        "/api/v1/admin/sysinfo",
+        get(crate::modules::setting::sysinfo::sysinfo),
+    )
+}
+
+/// 合并所有管理后台路由（不含插件动态路由，插件路由在 build_router 中合并）
+fn admin_routes() -> Router<Arc<AppState>> {
+    Router::new()
+        .merge(admin_category_routes())
+        .merge(admin_post_routes())
+        .merge(admin_comment_routes())
+        .merge(admin_media_routes())
+        .merge(admin_theme_routes())
+        .merge(admin_settings_routes())
+        .merge(admin_backup_routes())
+        .merge(admin_trash_routes())
+        .merge(admin_plugin_routes())
+        .merge(admin_webhook_routes())
+        .merge(admin_apikey_routes())
+        .merge(admin_sysinfo_routes())
+}
+
+// ---------------------------------------------------------------------------
+// 子函数：绕过限流的公共端点
+// ---------------------------------------------------------------------------
+
+/// 无需限流的公共端点：health、version、turnstile-config、setup
+/// 这些端点直连 localhost 时无 X-Forwarded-For，ForwardedIpExtractor 不应拦截
+fn unguarded_routes() -> Router<Arc<AppState>> {
+    Router::new()
         .route("/api/v1/health", get(health_check))
         .route("/api/v1/version", get(version_info))
         .route(
@@ -597,47 +718,32 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
         .route(
             "/api/v1/setup/initialize",
             post(modules::setup::handler::initialize),
-        );
+        )
+}
 
-    let trace_layer = {
-        use crate::shared::request_id::current_request_id;
+// ---------------------------------------------------------------------------
+// 子函数：主题渲染路由
+// ---------------------------------------------------------------------------
 
-        TraceLayer::new_for_http()
-            .make_span_with(|request: &axum::http::Request<axum::body::Body>| {
-                let request_id =
-                    current_request_id().unwrap_or_else(|| "unknown".into());
-                tracing::info_span!(
-                    "http_request",
-                    client_request_id = %request_id,
-                    method = %request.method(),
-                    uri = %request.uri(),
-                    latency_ms = tracing::field::Empty,
-                )
-            })
-            .on_response(
-                |response: &axum::http::Response<_>,
-                 latency: std::time::Duration,
-                 span: &tracing::Span| {
-                    let status = response.status().as_u16();
-                    span.record("latency_ms", latency.as_millis() as u64);
-                    tracing::info!(
-                        target: "colophon::http",
-                        status = status,
-                        latency_ms = latency.as_millis(),
-                        "response completed"
-                    );
-                },
-            )
-    };
-
+/// 前台页面渲染、静态资源、管理后台 SPA 入口
+fn theme_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(render_home_entry))
         .route("/preview", get(modules::theme::handler::preview_page))
         .route("/posts/{slug}", get(modules::theme::handler::render_post))
-        .route("/author/{username}", get(modules::theme::handler::render_author_archive))
+        .route(
+            "/author/{username}",
+            get(modules::theme::handler::render_author_archive),
+        )
         .route("/tags", get(modules::theme::handler::render_tags_list))
-        .route("/categories", get(modules::theme::handler::render_categories_list))
-        .route("/tags/{slug}", get(modules::theme::handler::render_tag_archive))
+        .route(
+            "/categories",
+            get(modules::theme::handler::render_categories_list),
+        )
+        .route(
+            "/tags/{slug}",
+            get(modules::theme::handler::render_tag_archive),
+        )
         .route("/search", get(modules::theme::handler::render_search))
         .route(
             "/cookie-policy",
@@ -690,18 +796,102 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
                 ))
         })
         .route("/admin/", get(redirect_admin_with_trailing_slash))
-        .route("/sitemap.xml", get(modules::seo::sitemap::serve_sitemap))
-        .route("/rss.xml", get(modules::post::feed::render_atom_feed))
-        .route("/feed", get(modules::post::feed::redirect_feed_to_rss))
-        .route("/robots.txt", get(modules::seo::robots::serve_robots))
+        .route(
+            "/sitemap.xml",
+            get(modules::seo::sitemap::serve_sitemap),
+        )
+        .route(
+            "/rss.xml",
+            get(modules::post::feed::render_atom_feed),
+        )
+        .route(
+            "/feed",
+            get(modules::post::feed::redirect_feed_to_rss),
+        )
+        .route(
+            "/robots.txt",
+            get(modules::seo::robots::serve_robots),
+        )
         .route(
             "/favicon.ico",
             get(|| async { axum::http::StatusCode::NO_CONTENT }),
         )
         .route("/ws/admin", get(ws::ws_admin_handler))
         .route("/ws/public", get(ws::ws_public_handler))
+}
+
+// ---------------------------------------------------------------------------
+// 组装函数
+// ---------------------------------------------------------------------------
+
+pub async fn build_router(state: Arc<AppState>) -> Router {
+    let cors = configure_cors(&state);
+
+    // M-1: 解析可信代理 IP 列表
+    let trusted_proxies: Vec<std::net::IpAddr> = state
+        .config
+        .server
+        .trusted_proxies
+        .iter()
+        .filter_map(|s| s.parse().ok())
+        .collect();
+
+    let RateLimitLayers {
+        register,
+        login,
+        api,
+    } = configure_rate_limits(trusted_proxies);
+
+    let auth = auth_routes(cors.clone(), state.clone(), register, login);
+    let unguarded = unguarded_routes();
+    let theme = theme_routes(state.clone());
+
+    // HTTP tracing 层 — 闭包类型无法具名，内联于此
+    let trace_layer = {
+        use crate::shared::request_id::current_request_id;
+
+        TraceLayer::new_for_http()
+            .make_span_with(|request: &axum::http::Request<axum::body::Body>| {
+                let request_id = current_request_id().unwrap_or_else(|| "unknown".into());
+                tracing::info_span!(
+                    "http_request",
+                    client_request_id = %request_id,
+                    method = %request.method(),
+                    uri = %request.uri(),
+                    latency_ms = tracing::field::Empty,
+                )
+            })
+            .on_response(
+                |response: &axum::http::Response<_>,
+                 latency: std::time::Duration,
+                 span: &tracing::Span| {
+                    let status = response.status().as_u16();
+                    span.record("latency_ms", latency.as_millis() as u64);
+                    tracing::info!(
+                        target: "colophon::http",
+                        status = status,
+                        latency_ms = latency.as_millis(),
+                        "response completed"
+                    );
+                },
+            )
+    };
+
+    // v1 API：公共路由 + 管理路由 + 插件动态路由，共享同一套限流和 CORS
+    // 插件路由在此处合并（而非 admin_routes 内），因为 collect_routes 返回
+    // Router<Arc<AppState>>，需要与子函数的返回类型保持一致。
+    let v1 = public_routes()
+        .merge(admin_routes())
+        .merge(state.plugin_manager.read().await.collect_routes(&state))
+        .layer(api)
+        .layer(axum::middleware::from_fn(
+            crate::shared::security::log_rate_limited,
+        ))
+        .layer(cors.clone());
+
+    let router = theme
         .merge(unguarded)
-        .merge(auth_v1)
+        .merge(auth)
         .merge(v1)
         .layer(
             ServiceBuilder::new()
@@ -719,9 +909,15 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
             crate::infra::i18n_middleware::inject_language,
         ))
         .fallback(get(modules::theme::handler::fallback_404))
-        .with_state(state)
-        .merge(
+        .with_state(state.clone());
+
+    // M-2: Swagger UI 仅在非生产环境启用，防止泄露 API 端点
+    if state.config.is_production() {
+        router
+    } else {
+        router.merge(
             utoipa_swagger_ui::SwaggerUi::new("/api/docs")
                 .url("/api-docs/openapi.json", crate::bootstrap::openapi::ApiDoc::openapi()),
         )
+    }
 }

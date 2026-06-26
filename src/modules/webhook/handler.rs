@@ -7,7 +7,7 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{
-    shared::{auth::AdminUser, error::AppResult, response::ApiResponse},
+    shared::{auth::AdminUser, error::AppResult, pagination::PaginationQuery, response::ApiResponse},
     state::AppState,
 };
 
@@ -20,17 +20,8 @@ use super::{
 /// 投递记录查询参数
 #[derive(Debug, Deserialize)]
 pub struct DeliveryQuery {
-    #[serde(default = "default_page")]
-    pub page: i64,
-    #[serde(default = "default_page_size")]
-    pub page_size: i64,
-}
-
-fn default_page() -> i64 {
-    1
-}
-fn default_page_size() -> i64 {
-    20
+    #[serde(flatten)]
+    pub pagination: PaginationQuery,
 }
 
 /// GET /admin/webhooks — 列出所有 webhook
@@ -95,12 +86,13 @@ pub async fn list_deliveries(
     Path(id): Path<String>,
     Query(query): Query<DeliveryQuery>,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
+    let (page, page_size, _offset) = query.pagination.normalized(20, 100);
     let (deliveries, total) =
-        service::list_deliveries(state, &id, query.page, query.page_size).await?;
+        service::list_deliveries(state, &id, page, page_size).await?;
     Ok(Json(ApiResponse::success(serde_json::json!({
         "items": deliveries,
         "total": total,
-        "page": query.page,
-        "page_size": query.page_size,
+        "page": page,
+        "page_size": page_size,
     }))))
 }

@@ -1,7 +1,8 @@
 use serde::Serialize;
 use utoipa::ToSchema;
 
-use crate::shared::{error::AppResult, request_id::current_or_generate_request_id};
+use crate::shared::error::AppResult;
+use super::request_id::current_or_generate_request_id;
 
 /// 通用 API 响应包装。
 ///

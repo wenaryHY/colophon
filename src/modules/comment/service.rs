@@ -12,8 +12,8 @@ use crate::{
     shared::{
         auth::AuthUser,
         error::{AppError, AppResult},
-        pagination::PaginationQuery,
         response::{action_json, deleted_json, PaginatedResponse},
+        http::require_non_empty,
     },
     state::AppState,
     ws::ServerEvent,
@@ -54,7 +54,7 @@ pub async fn create_comment(
     slug: &str,
     body: CreateCommentRequest,
 ) -> AppResult<serde_json::Value> {
-    if body.content.trim().is_empty() {
+    require_non_empty(&body.content, "comment content").map_err(|e| {
         tracing::warn!(
             module = "comment",
             event = "create_rejected_empty",
@@ -62,8 +62,8 @@ pub async fn create_comment(
             slug = %slug,
             "comment creation rejected"
         );
-        return Err(AppError::BadRequest("comment content is required".into()));
-    }
+        e
+    })?;
 
     let allow_comment = setting_repository::get_bool(&state.pool, "allow_comment", true).await?;
     // 注意：handler 层已通过 AuthUser extractor 强制要求登录，
@@ -229,15 +229,11 @@ pub async fn my_comments(
         module = "comment",
         event = "list_my_comments",
         user_id = %auth.id,
-        page = query.page.unwrap_or(1),
-        page_size = query.page_size.unwrap_or(20),
+        page = query.pagination.page.unwrap_or(1),
+        page_size = query.pagination.page_size.unwrap_or(20),
         "listing user comments"
     );
-    let pagination = PaginationQuery {
-        page: query.page,
-        page_size: query.page_size,
-    };
-    let (page, page_size, offset) = pagination.normalized(20, 100);
+    let (page, page_size, offset) = query.pagination.normalized(20, 100);
     let items = repository::list_by_user(&state.pool, &auth.id, page_size, offset).await?;
     let total = repository::count_by_user(&state.pool, &auth.id).await?;
     Ok(PaginatedResponse::new(items, page, page_size, total))
@@ -273,11 +269,7 @@ pub async fn list_admin_comments(
     state: Arc<AppState>,
     query: CommentQuery,
 ) -> AppResult<PaginatedResponse<AdminCommentItem>> {
-    let pagination = PaginationQuery {
-        page: query.page,
-        page_size: query.page_size,
-    };
-    let (page, page_size, offset) = pagination.normalized(20, 100);
+    let (page, page_size, offset) = query.pagination.normalized(20, 100);
     let items =
         repository::list_admin(&state.pool, query.status.as_deref(), page_size, offset).await?;
     let total = repository::count_admin(&state.pool, query.status.as_deref()).await?;

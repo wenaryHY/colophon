@@ -5,6 +5,7 @@ use crate::{
         error::{AppError, AppResult},
         response::deleted_json,
         slug::generate_slug,
+        http::require_non_empty,
     },
     state::AppState,
 };
@@ -23,9 +24,7 @@ pub async fn create_category(
     state: Arc<AppState>,
     body: CreateCategoryRequest,
 ) -> AppResult<Category> {
-    if body.name.trim().is_empty() {
-        return Err(AppError::BadRequest("category name is required".into()));
-    }
+    require_non_empty(&body.name, "category name")?;
     let slug = generate_slug(&body.name, body.slug.as_deref());
     if repository::category_slug_or_name_exists(&state.pool, &slug, body.name.trim(), None).await? {
         return Err(AppError::Conflict(

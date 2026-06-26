@@ -14,6 +14,9 @@ struct SessionCookie {
 }
 
 /// 启动测试服务器并等待健康检查通过
+///
+/// 注意：此测试需要使用 --features test-mode 编译，以绕过 SSRF 检查
+/// 运行方式：cargo test --test webhook_integration_test --features test-mode
 async fn start_server_and_wait_ready(port: u16) -> reqwest::Client {
     std::env::set_var("COLOPHON__DATABASE__URL", "sqlite::memory:");
     std::env::set_var("COLOPHON__SERVER__PORT", port.to_string());
@@ -25,7 +28,6 @@ async fn start_server_and_wait_ready(port: u16) -> reqwest::Client {
         "COLOPHON__THEME__THEME_DIR",
         "target_tmp_test_webhook_themes",
     );
-    std::env::set_var("COLOPHON_TEST_MODE", "true");
 
     tokio::spawn(async {
         if let Err(e) = serve().await {

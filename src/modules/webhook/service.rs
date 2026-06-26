@@ -9,6 +9,7 @@ use crate::{
     shared::{
         error::{AppError, AppResult},
         response::deleted_json,
+        http::require_non_empty,
     },
     state::AppState,
 };
@@ -37,9 +38,7 @@ pub async fn create_webhook(
     state: Arc<AppState>,
     body: CreateWebhookRequest,
 ) -> AppResult<Webhook> {
-    if body.name.trim().is_empty() {
-        return Err(AppError::BadRequest("webhook name is required".into()));
-    }
+    require_non_empty(&body.name, "webhook name")?;
     if body.url.trim().is_empty() {
         return Err(AppError::BadRequest("webhook url is required".into()));
     }

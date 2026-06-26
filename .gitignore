@@ -20,6 +20,7 @@ backups/
 
 # Environment
 .env
+.env.deploy
 *.log
 
 # sqlx offline cache (add after migration complete)

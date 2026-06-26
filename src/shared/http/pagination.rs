@@ -1,8 +1,10 @@
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize, utoipa::ToSchema)]
 pub struct PaginationQuery {
+    #[serde(default)]
     pub page: Option<i64>,
+    #[serde(default)]
     pub page_size: Option<i64>,
 }
 

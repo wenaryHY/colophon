@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{extract::State, http::HeaderMap, response::IntoResponse, Json};
 
 use crate::{
-    shared::{auth_constants, error::AppResult, json::AppJson, response::ApiResponse},
+    shared::{auth::cookie::*, error::AppResult, json::AppJson, response::ApiResponse},
     state::AppState,
 };
 
@@ -11,9 +11,6 @@ use super::{
     dto::{SetupInitializeRequest, SetupStatusResponse},
     service,
 };
-
-/// 7 天，setup 初始化必然对应管理员，属于"记住我"场景
-const SETUP_REFRESH_MAX_AGE: u64 = 604800;
 
 pub async fn status(
     State(state): State<Arc<AppState>>,
@@ -30,7 +27,11 @@ pub async fn initialize(
     let (payload, refresh_token) = service::initialize(state.clone(), body).await?;
 
     let cookie_secure = state.config.cookie_secure();
-    let refresh_cookie = build_refresh_cookie(&refresh_token, cookie_secure);
+    let refresh_cookie = build_refresh_cookie(
+        &refresh_token,
+        REMEMBER_ME_MAX_AGE_SECONDS,
+        cookie_secure,
+    );
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
         .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
     let session_cookie = build_session_cookie(
@@ -47,20 +48,4 @@ pub async fn initialize(
     headers.insert(axum::http::header::SET_COOKIE, refresh_header);
     headers.append(axum::http::header::SET_COOKIE, session_header);
     Ok((headers, json).into_response())
-}
-
-fn build_session_cookie(token: &str, max_age_seconds: u64, cookie_secure: bool) -> String {
-    let secure = if cookie_secure { "; Secure" } else { "" };
-    format!(
-        "{name}={token}; Path=/; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}",
-        name = auth_constants::SESSION_COOKIE_NAME_FOR_JWT_ACCESS_TOKEN,
-    )
-}
-
-fn build_refresh_cookie(token: &str, cookie_secure: bool) -> String {
-    let secure = if cookie_secure { "; Secure" } else { "" };
-    format!(
-        "{name}={token}; Path=/api/v1/auth/refresh; Max-Age={SETUP_REFRESH_MAX_AGE}; HttpOnly; SameSite=Strict{secure}",
-        name = auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN,
-    )
 }

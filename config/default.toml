@@ -57,6 +57,12 @@ turnstile_site_key = ""
 # 环境变量：COLOPHON__AUTH__COOKIE_SECURE
 cookie_secure = false
 
+# M-7: Refresh token 过期时间（秒）
+# 默认 604800 = 7 天
+# 范围建议：86400（1 天）到 2592000（30 天）
+# 环境变量：COLOPHON__AUTH__REFRESH_TOKEN_TTL_SECONDS
+refresh_token_ttl_seconds = 604800
+
 [storage]
 # 上传文件存储目录
 # 相对路径基于当前工作目录

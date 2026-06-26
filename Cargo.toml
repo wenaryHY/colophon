@@ -95,6 +95,7 @@ sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 
 [features]
 default = []
+test-mode = []
 s3 = ["aws-config", "aws-sdk-s3"]
 
 

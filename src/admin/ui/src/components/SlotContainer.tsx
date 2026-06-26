@@ -12,16 +12,20 @@ export function SlotContainer({ slot, context }: SlotContainerProps) {
   const tokenRef = useRef(crypto.randomUUID());
   const [height, setHeight] = useState(slot.height || 200);
 
+  // targetOrigin 用 "*"：移除 allow-same-origin 后 iframe 获得 opaque origin，
+  // 无法用具体 origin 匹配；token 握手机制已保证消息不会被非目标 iframe 接收
   const sendToIframe = useCallback((msg: Record<string, unknown>) => {
     iframeRef.current?.contentWindow?.postMessage(
       { ...msg, token: tokenRef.current },
-      window.location.origin,
+      '*',
     );
   }, []);
 
   useEffect(() => {
+    // 移除 allow-same-origin 后 iframe 获得 opaque origin，event.origin 为 "null"；
+    // 放行 "null" origin，由 token 保证消息来源可信
     const handler = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
+      if (event.origin !== window.location.origin && event.origin !== 'null') return;
       const msg = event.data;
       if (!msg || msg.token !== tokenRef.current) return;
 
@@ -66,7 +70,7 @@ export function SlotContainer({ slot, context }: SlotContainerProps) {
         border: 'none',
         overflow: 'hidden',
       }}
-      sandbox="allow-scripts allow-same-origin"
+      sandbox="allow-scripts"
       title={slot.label}
     />
   );

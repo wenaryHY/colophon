@@ -36,6 +36,7 @@ mod tests {
                 host: "127.0.0.1".to_string(),
                 port: 8080,
                 graceful_shutdown_timeout_seconds: 30,
+                trusted_proxies: vec!["127.0.0.1".to_string()],
             },
             database: DatabaseConfig {
                 url: "sqlite::memory:".to_string(),
@@ -46,6 +47,7 @@ mod tests {
                 turnstile_secret: String::new(),
                 turnstile_site_key: String::new(),
                 cookie_secure: false,
+                refresh_token_ttl_seconds: Some(604800),
             },
             storage: StorageConfig {
                 upload_dir: "uploads".to_string(),
@@ -251,6 +253,75 @@ mod tests {
         let result = service::register(state.clone(), req, 3600, 7 * 86400).await;
 
         assert!(result.is_err());
+    }
+
+
+    /// M-6: 密码策略测试 - 全小写字母应被拒绝
+    #[tokio::test]
+    async fn security_fix_m6_rejects_all_lowercase_password() {
+        let state = setup_test_state().await;
+        enable_registration(&state).await;
+
+        let req = RegisterRequest {
+            username: "testuser1".to_string(),
+            email: "test1@example.com".to_string(),
+            password: "abcdefgh".to_string(), // 全小写，无大写和数字
+            display_name: None,
+            turnstile_token: None,
+        };
+        let result = service::register(state.clone(), req, 3600, 7 * 86400).await;
+        assert!(result.is_err(), "all lowercase password should be rejected");
+    }
+
+    /// M-6: 密码策略测试 - 全数字应被拒绝
+    #[tokio::test]
+    async fn security_fix_m6_rejects_all_digits_password() {
+        let state = setup_test_state().await;
+        enable_registration(&state).await;
+
+        let req = RegisterRequest {
+            username: "testuser2".to_string(),
+            email: "test2@example.com".to_string(),
+            password: "12345678".to_string(), // 全数字
+            display_name: None,
+            turnstile_token: None,
+        };
+        let result = service::register(state.clone(), req, 3600, 7 * 86400).await;
+        assert!(result.is_err(), "all digits password should be rejected");
+    }
+
+    /// M-6: 密码策略测试 - 太短应被拒绝
+    #[tokio::test]
+    async fn security_fix_m6_rejects_short_password() {
+        let state = setup_test_state().await;
+        enable_registration(&state).await;
+
+        let req = RegisterRequest {
+            username: "testuser3".to_string(),
+            email: "test3@example.com".to_string(),
+            password: "Ab1".to_string(), // 太短
+            display_name: None,
+            turnstile_token: None,
+        };
+        let result = service::register(state.clone(), req, 3600, 7 * 86400).await;
+        assert!(result.is_err(), "short password should be rejected");
+    }
+
+    /// M-6: 密码策略测试 - 有效密码应被接受
+    #[tokio::test]
+    async fn security_fix_m6_accepts_valid_password() {
+        let state = setup_test_state().await;
+        enable_registration(&state).await;
+
+        let req = RegisterRequest {
+            username: "testuser4".to_string(),
+            email: "test4@example.com".to_string(),
+            password: "Abcdef1g".to_string(), // 有大写、小写、数字，长度>=8
+            display_name: None,
+            turnstile_token: None,
+        };
+        let result = service::register(state.clone(), req, 3600, 7 * 86400).await;
+        assert!(result.is_ok(), "valid password should be accepted");
     }
 
     // ── 2. 用户登录测试 ──
@@ -870,3 +941,4 @@ mod tests {
         ));
     }
 }
+

@@ -4,7 +4,6 @@ use crate::{
     shared::{
         auth::AuthUser,
         error::{AppError, AppResult},
-        pagination::PaginationQuery,
         response::{deleted_json, PaginatedResponse},
     },
     state::AppState,
@@ -110,11 +109,7 @@ pub async fn list_media(
     state: Arc<AppState>,
     query: MediaQuery,
 ) -> AppResult<PaginatedResponse<MediaItem>> {
-    let pagination = PaginationQuery {
-        page: query.page,
-        page_size: query.page_size,
-    };
-    let (page, page_size, offset) = pagination.normalized(20, 100);
+    let (page, page_size, offset) = query.pagination.normalized(20, 100);
     let kind = query.kind.as_deref();
     let keyword = query.keyword.as_deref().filter(|k| !k.trim().is_empty());
     let category = query.category.as_deref().filter(|k| !k.trim().is_empty());

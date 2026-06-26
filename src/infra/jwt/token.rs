@@ -32,8 +32,11 @@ pub fn issue_token(
         token_version,
     };
 
+    // 显式指定 HS256 算法，与 decode_token 保持一致
+    let mut header = Header::new(jsonwebtoken::Algorithm::HS256);
+    header.typ = Some("JWT".to_string());
     encode(
-        &Header::default(),
+        &header,
         &claims,
         &EncodingKey::from_secret(secret.as_bytes()),
     )
@@ -41,11 +44,14 @@ pub fn issue_token(
 }
 
 /// 验证 JWT，不依赖 AppState
+/// 显式指定 HS256 算法，防止算法混淆攻击（alg:none / RS256 公钥混淆）
 pub fn decode_token(token: &str, secret: &str) -> Result<Claims, AppError> {
+    let mut validation = Validation::new(jsonwebtoken::Algorithm::HS256);
+    validation.set_issuer(&["colophon"]);
     decode::<Claims>(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
-        &Validation::default(),
+        &validation,
     )
     .map(|data| data.claims)
     .map_err(|_| AppError::Unauthorized)
@@ -160,5 +166,88 @@ mod tests {
         let claims = decode_token(&token, TEST_SECRET).unwrap();
         assert!(claims.exp >= before + lifetime as i64);
         assert!(claims.exp <= after + lifetime as i64);
+    }
+
+    /// H-2: JWT 算法混淆攻击测试 — 攻击者用 HS384 替代 HS256 签名
+    /// 当前漏洞：Validation::default() 允许 HS256/HS384/HS512
+    /// 期望修复后：仅允许 HS256
+    #[test]
+    fn security_fix_h2_rejects_hs384_algorithm_confusion() {
+        use jsonwebtoken::{Header, encode};
+        // 构造一个使用 HS384 的恶意 token
+        let mut header = Header::default();
+        header.alg = jsonwebtoken::Algorithm::HS384;
+        let claims = Claims {
+            sub: "attacker".into(),
+            username: "evil".into(),
+            role: Role::Admin,
+            exp: chrono::Utc::now().timestamp() + 3600,
+            token_version: 1,
+        };
+        let malicious_token = encode(
+            &header,
+            &claims,
+            &EncodingKey::from_secret(TEST_SECRET.as_bytes()),
+        )
+        .unwrap();
+        // 期望：decode_token 应拒绝非 HS256 算法
+        let result = decode_token(&malicious_token, TEST_SECRET);
+        assert!(result.is_err(), "HS384 token should be rejected");
+    }
+
+    /// H-2: JWT 算法混淆攻击测试 — HS512
+    #[test]
+    fn security_fix_h2_rejects_hs512_algorithm_confusion() {
+        use jsonwebtoken::{Header, encode};
+        let mut header = Header::default();
+        header.alg = jsonwebtoken::Algorithm::HS512;
+        let claims = Claims {
+            sub: "attacker".into(),
+            username: "evil".into(),
+            role: Role::Admin,
+            exp: chrono::Utc::now().timestamp() + 3600,
+            token_version: 1,
+        };
+        let malicious_token = encode(
+            &header,
+            &claims,
+            &EncodingKey::from_secret(TEST_SECRET.as_bytes()),
+        )
+        .unwrap();
+        let result = decode_token(&malicious_token, TEST_SECRET);
+        assert!(result.is_err(), "HS512 token should be rejected");
+    }
+
+    /// H-2: JWT issuer 校验测试 — 错误的 issuer 应被拒绝
+    #[test]
+    fn security_fix_h2_rejects_wrong_issuer() {
+        // 手动构造 iss = "evil.com" 的 token
+        let header = Header::new(jsonwebtoken::Algorithm::HS256);
+        #[derive(serde::Serialize)]
+        struct MaliciousClaims {
+            sub: String,
+            username: String,
+            role: Role,
+            exp: i64,
+            token_version: i32,
+            iss: String,
+        }
+        let claims = MaliciousClaims {
+            sub: "attacker".into(),
+            username: "evil".into(),
+            role: Role::Admin,
+            exp: chrono::Utc::now().timestamp() + 3600,
+            token_version: 1,
+            iss: "evil.com".into(),
+        };
+        let malicious_token = encode(
+            &header,
+            &claims,
+            &EncodingKey::from_secret(TEST_SECRET.as_bytes()),
+        )
+        .unwrap();
+        // 期望：decode_token 应拒绝 issuer 不匹配的 token
+        let result = decode_token(&malicious_token, TEST_SECRET);
+        assert!(result.is_err(), "token with wrong issuer should be rejected");
     }
 }

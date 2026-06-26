@@ -6,7 +6,7 @@ use axum::{
 use std::error::Error as StdError;
 use thiserror::Error;
 
-use super::response::ApiResponse;
+use crate::shared::http::response::ApiResponse;
 
 #[derive(Debug, Error)]
 pub enum AppError {
@@ -45,37 +45,37 @@ impl IntoResponse for AppError {
         let (status, code, message) = match self {
             Self::NotFound(msg) => (
                 StatusCode::NOT_FOUND,
-                crate::shared::error_codes::NOT_FOUND,
+                super::codes::NOT_FOUND,
                 msg,
             ),
             Self::Unauthorized => (
                 StatusCode::UNAUTHORIZED,
-                crate::shared::error_codes::UNAUTHORIZED,
+                super::codes::UNAUTHORIZED,
                 "未授权访问".to_string(),
             ),
             Self::Forbidden => (
                 StatusCode::FORBIDDEN,
-                crate::shared::error_codes::FORBIDDEN,
+                super::codes::FORBIDDEN,
                 "禁止访问".to_string(),
             ),
             Self::BadRequest(msg) => (
                 StatusCode::BAD_REQUEST,
-                crate::shared::error_codes::BAD_REQUEST,
+                super::codes::BAD_REQUEST,
                 msg,
             ),
             Self::Conflict(msg) => (
                 StatusCode::CONFLICT,
-                crate::shared::error_codes::CONFLICT,
+                super::codes::CONFLICT,
                 msg,
             ),
             Self::TooManyRequests(msg) => (
                 StatusCode::TOO_MANY_REQUESTS,
-                crate::shared::error_codes::TOO_MANY_REQUESTS,
+                super::codes::TOO_MANY_REQUESTS,
                 msg,
             ),
             Self::Multipart(msg) => (
                 StatusCode::BAD_REQUEST,
-                crate::shared::error_codes::BAD_REQUEST,
+                super::codes::BAD_REQUEST,
                 msg,
             ),
             Self::Internal(msg) => {
@@ -87,7 +87,7 @@ impl IntoResponse for AppError {
                 );
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    crate::shared::error_codes::INTERNAL_ERROR,
+                    super::codes::INTERNAL_ERROR,
                     msg,
                 )
             }
@@ -106,7 +106,7 @@ impl IntoResponse for AppError {
                         return (
                             StatusCode::CONFLICT,
                             Json(ApiResponse::<()>::error(
-                                crate::shared::error_codes::RESOURCE_ALREADY_EXISTS,
+                                super::codes::RESOURCE_ALREADY_EXISTS,
                                 "资源已存在".to_string(),
                             )),
                         )
@@ -116,7 +116,7 @@ impl IntoResponse for AppError {
                         return (
                             StatusCode::BAD_REQUEST,
                             Json(ApiResponse::<()>::error(
-                                crate::shared::error_codes::BAD_REQUEST,
+                                super::codes::BAD_REQUEST,
                                 "关联资源不存在".to_string(),
                             )),
                         )
@@ -126,7 +126,7 @@ impl IntoResponse for AppError {
                         return (
                             StatusCode::BAD_REQUEST,
                             Json(ApiResponse::<()>::error(
-                                crate::shared::error_codes::BAD_REQUEST,
+                                super::codes::BAD_REQUEST,
                                 "数据校验失败".to_string(),
                             )),
                         )
@@ -139,7 +139,7 @@ impl IntoResponse for AppError {
                     return (
                         StatusCode::NOT_FOUND,
                         Json(ApiResponse::<()>::error(
-                            crate::shared::error_codes::NOT_FOUND,
+                            super::codes::NOT_FOUND,
                             "资源未找到".to_string(),
                         )),
                     )
@@ -148,7 +148,7 @@ impl IntoResponse for AppError {
 
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    crate::shared::error_codes::DATABASE_ERROR,
+                    super::codes::DATABASE_ERROR,
                     "数据库错误".to_string(),
                 )
             }
@@ -161,7 +161,7 @@ impl IntoResponse for AppError {
                 );
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    crate::shared::error_codes::CONFIG_ERROR,
+                    super::codes::CONFIG_ERROR,
                     "配置错误".to_string(),
                 )
             }
@@ -174,7 +174,7 @@ impl IntoResponse for AppError {
                 );
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    crate::shared::error_codes::INTERNAL_ERROR,
+                    super::codes::INTERNAL_ERROR,
                     "内部服务器错误".to_string(),
                 )
             }
@@ -187,7 +187,7 @@ impl IntoResponse for AppError {
                 );
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    crate::shared::error_codes::INTERNAL_ERROR,
+                    super::codes::INTERNAL_ERROR,
                     "内部服务器错误".to_string(),
                 )
             }
@@ -200,7 +200,7 @@ impl IntoResponse for AppError {
                 );
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    crate::shared::error_codes::INTERNAL_ERROR,
+                    super::codes::INTERNAL_ERROR,
                     "内部服务器错误".to_string(),
                 )
             }

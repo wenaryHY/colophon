@@ -12,7 +12,10 @@ use axum_extra::{
 use sha2::{Digest, Sha256};
 use std::convert::Infallible;
 
-use crate::{shared::auth_constants, shared::error::AppError, shared::role::Role, state::AppState};
+use super::constants as auth_constants;
+use crate::shared::error::AppError;
+use super::role::Role;
+use crate::state::AppState;
 
 // Re-export hash and jwt functions for convenience
 pub use crate::infra::hash::*;
@@ -282,7 +285,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shared::role::Role;
+    use super::Role;
 
     fn make_user(role: Role) -> AuthUser {
         AuthUser {

@@ -5,6 +5,7 @@ use crate::{
         error::{AppError, AppResult},
         response::deleted_json,
         slug::generate_slug,
+        http::require_non_empty,
     },
     state::AppState,
 };
@@ -20,9 +21,7 @@ pub async fn list_tags(state: Arc<AppState>) -> AppResult<Vec<Tag>> {
 }
 
 pub async fn create_tag(state: Arc<AppState>, body: CreateTagRequest) -> AppResult<Tag> {
-    if body.name.trim().is_empty() {
-        return Err(AppError::BadRequest("tag name is required".into()));
-    }
+    require_non_empty(&body.name, "tag name")?;
 
     let slug = generate_slug(&body.name, body.slug.as_deref());
 

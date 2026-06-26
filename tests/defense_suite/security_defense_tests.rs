@@ -9,21 +9,46 @@ mod forwarded_ip_extractor_tests {
     use axum_governor::KeyExtractor;
     use colophon::shared::security::ForwardedIpExtractor;
 
-    /// 用给定的 Header 列表构造一个 Parts。Parts 不支持 Default，
-    /// 因此通过 `http::Request::builder()` 构建然后解构获取。
-    fn make_parts_with_headers(header_pairs: Vec<(&str, &str)>) -> Parts {
+    /// 创建默认的 ForwardedIpExtractor（信任本机）
+    fn make_extractor() -> ForwardedIpExtractor {
+        ForwardedIpExtractor {
+            trusted_proxies: vec!["127.0.0.1".parse().unwrap()],
+        }
+    }
+
+    /// 创建一个非可信代理的提取器
+    fn make_extractor_no_trust() -> ForwardedIpExtractor {
+        ForwardedIpExtractor {
+            trusted_proxies: vec![],
+        }
+    }
+
+    /// 用给定的 Header 列表构造一个 Parts，带 ConnectInfo
+    fn make_parts_with_headers_and_connect_info(
+        header_pairs: Vec<(&str, &str)>,
+        peer_ip: &str,
+    ) -> Parts {
         let mut builder = axum::http::Request::builder();
         for (k, v) in &header_pairs {
             builder = builder.header(*k, *v);
         }
-        let (parts, _body) = builder.body(()).expect("failed to build request").into_parts();
+        let addr: SocketAddr = format!("{}:12345", peer_ip).parse().unwrap();
+        let (mut parts, _body) = builder.body(()).expect("failed to build request").into_parts();
+        parts.extensions.insert(ConnectInfo(addr));
+        parts
+    }
+
+    /// 构造没有 Header 但有 ConnectInfo 的 Parts
+    fn make_parts_with_connect_info(peer_ip: &str) -> Parts {
+        let addr: SocketAddr = format!("{}:12345", peer_ip).parse().unwrap();
+        let (mut parts, _body) = axum::http::Request::new(()).into_parts();
+        parts.extensions.insert(ConnectInfo(addr));
         parts
     }
 
     /// 构造没有任何 Header 和 Extensions 的 Parts
     fn make_empty_parts() -> Parts {
-        let (parts, _body) = axum::http::Request::new(())
-            .into_parts();
+        let (parts, _body) = axum::http::Request::new(()).into_parts();
         parts
     }
 
@@ -31,78 +56,100 @@ mod forwarded_ip_extractor_tests {
         s.parse().unwrap()
     }
 
+    /// M-1: 来自可信代理（127.0.0.1）时，应使用 X-Forwarded-For
     #[test]
     fn extracts_first_ip_from_x_forwarded_for() {
-        let parts = make_parts_with_headers(vec![("x-forwarded-for", "1.2.3.4")]);
-        let extractor = ForwardedIpExtractor;
+        let parts = make_parts_with_headers_and_connect_info(
+            vec![("x-forwarded-for", "1.2.3.4")],
+            "127.0.0.1", // 可信代理
+        );
+        let extractor = make_extractor();
         let result = extractor.extract(&parts).unwrap();
         assert_eq!(result.key, parse_ip("1.2.3.4"));
     }
 
+    /// M-1: 来自可信代理时，应使用 X-Forwarded-For 第一个 IP
     #[test]
     fn extracts_first_ip_from_x_forwarded_for_list() {
-        let parts = make_parts_with_headers(vec![("x-forwarded-for", "1.2.3.4, 5.6.7.8")]);
-        let extractor = ForwardedIpExtractor;
+        let parts = make_parts_with_headers_and_connect_info(
+            vec![("x-forwarded-for", "1.2.3.4, 5.6.7.8")],
+            "127.0.0.1",
+        );
+        let extractor = make_extractor();
         let result = extractor.extract(&parts).unwrap();
         assert_eq!(result.key, parse_ip("1.2.3.4"));
     }
 
+    /// M-1: 来自可信代理时，应使用 X-Real-IP
     #[test]
     fn extracts_real_ip_from_x_real_ip_fallback() {
-        let parts = make_parts_with_headers(vec![("x-real-ip", "5.6.7.8")]);
-        let extractor = ForwardedIpExtractor;
+        let parts = make_parts_with_headers_and_connect_info(
+            vec![("x-real-ip", "5.6.7.8")],
+            "127.0.0.1",
+        );
+        let extractor = make_extractor();
         let result = extractor.extract(&parts).unwrap();
         assert_eq!(result.key, parse_ip("5.6.7.8"));
     }
 
+    /// 无代理头时，应使用 ConnectInfo
     #[test]
     fn falls_back_to_connect_info_when_no_headers() {
-        let mut parts = make_empty_parts();
-        let addr: SocketAddr = "10.0.0.1:12345".parse().unwrap();
-        parts.extensions.insert(ConnectInfo(addr));
-
-        let extractor = ForwardedIpExtractor;
+        let parts = make_parts_with_connect_info("10.0.0.1");
+        let extractor = make_extractor();
         let result = extractor.extract(&parts).unwrap();
         assert_eq!(result.key, parse_ip("10.0.0.1"));
     }
 
+    /// 无任何 IP 来源时，应返回错误
     #[test]
     fn returns_error_when_no_ip_source_available() {
         let parts = make_empty_parts();
-        let extractor = ForwardedIpExtractor;
+        let extractor = make_extractor();
         assert!(extractor.extract(&parts).is_err());
     }
 
+    /// M-1: 来自可信代理时，X-Forwarded-For 优先于 X-Real-IP
     #[test]
     fn x_forwarded_for_takes_priority_over_x_real_ip() {
-        let parts = make_parts_with_headers(vec![
-            ("x-forwarded-for", "1.1.1.1"),
-            ("x-real-ip", "2.2.2.2"),
-        ]);
-        let extractor = ForwardedIpExtractor;
+        let parts = make_parts_with_headers_and_connect_info(
+            vec![
+                ("x-forwarded-for", "1.1.1.1"),
+                ("x-real-ip", "2.2.2.2"),
+            ],
+            "127.0.0.1",
+        );
+        let extractor = make_extractor();
         let result = extractor.extract(&parts).unwrap();
         assert_eq!(result.key, parse_ip("1.1.1.1"));
     }
 
+    /// M-1: 空的 X-Forwarded-For 应被忽略，回退到 X-Real-IP
     #[test]
     fn ignores_empty_x_forwarded_for() {
-        let parts = make_parts_with_headers(vec![
-            ("x-forwarded-for", ""),
-            ("x-real-ip", "3.3.3.3"),
-        ]);
-        let extractor = ForwardedIpExtractor;
+        let parts = make_parts_with_headers_and_connect_info(
+            vec![
+                ("x-forwarded-for", ""),
+                ("x-real-ip", "3.3.3.3"),
+            ],
+            "127.0.0.1",
+        );
+        let extractor = make_extractor();
         let result = extractor.extract(&parts).unwrap();
         assert_eq!(result.key, parse_ip("3.3.3.3"));
     }
 
+    /// M-1: 非可信代理的 X-Forwarded-For 应被忽略，使用 ConnectInfo
     #[test]
-    fn connect_info_takes_priority_when_forwarded_for_has_private_ip() {
-        // X-Forwarded-For 可能被伪造为内网 IP，但提取器本身不做过滤。
-        // 这里验证即使 IP 是私有地址，提取器仍然返回它（不做判断）。
-        let parts = make_parts_with_headers(vec![("x-forwarded-for", "192.168.1.1")]);
-        let extractor = ForwardedIpExtractor;
+    fn untrusted_proxy_uses_connect_info_not_forwarded_for() {
+        let parts = make_parts_with_headers_and_connect_info(
+            vec![("x-forwarded-for", "192.168.1.1")],
+            "8.8.8.8", // 非可信代理
+        );
+        let extractor = make_extractor();
         let result = extractor.extract(&parts).unwrap();
-        assert_eq!(result.key, parse_ip("192.168.1.1"));
+        // 期望：使用 ConnectInfo 中的真实对端 IP
+        assert_eq!(result.key, parse_ip("8.8.8.8"));
     }
 }
 

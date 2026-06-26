@@ -205,7 +205,7 @@ pub async fn serve() -> anyhow::Result<()> {
 
     // axum serve 放在 tokio task 中以获取 JoinHandle 实现超时控制
     let serve_task = tokio::spawn(async move {
-        axum::serve(listener, app)
+        axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
             .with_graceful_shutdown(async {
                 let _ = shutdown_rx.await;
             })

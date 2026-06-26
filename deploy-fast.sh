@@ -6,6 +6,10 @@ set -euo pipefail
 # 用法: 在 WSL 中执行 bash deploy-fast.sh
 # ============================================================
 
+# ── 脚本路径推导 ────────────────────────────────────────────
+# 脚本放在项目根目录，SCRIPT_DIR 即 PROJECT_DIR
+readonly PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # ── 颜色定义 ────────────────────────────────────────────────
 readonly COLOR_RESET='\033[0m'
 readonly COLOR_RED='\033[0;31m'
@@ -14,29 +18,32 @@ readonly COLOR_YELLOW='\033[0;33m'
 readonly COLOR_CYAN='\033[0;36m'
 readonly COLOR_BOLD='\033[1m'
 
-# ── 配置常量 ────────────────────────────────────────────────
-readonly SSH_KEY_PATH="${HOME}/.ssh/id_ed25519"
-readonly SERVER_IP="162.243.28.76"
-readonly SERVER_USER="root"
-readonly REMOTE_BINARY_PATH="/opt/colophon/colophon"
-readonly REMOTE_DIST_PATH="/opt/colophon/src/admin/dist"
-readonly REMOTE_ADMIN_HTML_PATH="/opt/colophon/src/admin/admin.html"
-readonly REMOTE_THEME_TEMPLATES_PATH="/opt/colophon/themes"
-readonly REMOTE_THEME_STATIC_PATH="/opt/colophon/themes"
-readonly REMOTE_BACKUP_DIR="/root/colophon-backups"
-readonly HEALTH_CHECK_URL="http://127.0.0.1:2000/api/v1/health"
-readonly SERVICE_NAME="colophon"
-
-# ── 脚本路径推导 ────────────────────────────────────────────
-# 脚本放在项目根目录，SCRIPT_DIR 即 PROJECT_DIR
-readonly PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 # ── 工具函数 ────────────────────────────────────────────────
 log_info()    { echo -e "${COLOR_CYAN}[INFO]${COLOR_RESET}  $*"; }
 log_success() { echo -e "${COLOR_GREEN}[OK]${COLOR_RESET}    $*"; }
 log_warn()    { echo -e "${COLOR_YELLOW}[WARN]${COLOR_RESET}  $*"; }
 log_error()   { echo -e "${COLOR_RED}[ERROR]${COLOR_RESET} $*"; }
 log_step()    { echo -e "\n${COLOR_BOLD}${COLOR_CYAN}── 步骤 $1: $2 ──${COLOR_RESET}"; }
+
+# ── 加载部署配置 ──────────────────────────────────────────────
+if [ -f "${PROJECT_DIR}/.env.deploy" ]; then
+    source "${PROJECT_DIR}/.env.deploy"
+    log_info "已加载 .env.deploy"
+fi
+
+# ── 配置常量（支持环境变量覆盖）────────────────────────────────
+readonly SSH_KEY_PATH="${DEPLOY_SSH_KEY_PATH:-${HOME}/.ssh/id_ed25519}"
+readonly SERVER_IP="${DEPLOY_SERVER_IP:?错误: 未设置 DEPLOY_SERVER_IP，请在 .env.deploy 或环境变量中配置}"
+readonly SERVER_USER="${DEPLOY_SERVER_USER:-root}"
+readonly SERVER_PATH="${DEPLOY_SERVER_PATH:-/opt/colophon}"
+readonly REMOTE_BINARY_PATH="${SERVER_PATH}/colophon"
+readonly REMOTE_DIST_PATH="${SERVER_PATH}/src/admin/dist"
+readonly REMOTE_ADMIN_HTML_PATH="${SERVER_PATH}/src/admin/admin.html"
+readonly REMOTE_THEME_TEMPLATES_PATH="${SERVER_PATH}/themes"
+readonly REMOTE_THEME_STATIC_PATH="${SERVER_PATH}/themes"
+readonly REMOTE_BACKUP_DIR="/root/colophon-backups"
+readonly HEALTH_CHECK_URL="${DEPLOY_HEALTH_CHECK_URL:-http://127.0.0.1:2000/api/v1/health}"
+readonly SERVICE_NAME="colophon"
 
 ssh_cmd() {
     ssh -i "${SSH_KEY_PATH}" \

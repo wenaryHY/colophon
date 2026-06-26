@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::shared::pagination::PaginationQuery;
+
 #[derive(Debug, Deserialize)]
 pub struct CreateCommentRequest {
     pub content: String,
@@ -8,7 +10,7 @@ pub struct CreateCommentRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct CommentQuery {
-    pub page: Option<i64>,
-    pub page_size: Option<i64>,
+    #[serde(flatten)]
+    pub pagination: PaginationQuery,
     pub status: Option<String>,
 }

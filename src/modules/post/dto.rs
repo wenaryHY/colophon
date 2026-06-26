@@ -1,13 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-use crate::modules::tag::domain::Tag;
+use crate::{
+    modules::tag::domain::Tag,
+    shared::pagination::PaginationQuery,
+};
 
 use super::post_types::{ContentType, PostStatus, Visibility};
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct PostQuery {
-    pub page: Option<i64>,
-    pub page_size: Option<i64>,
+    #[serde(flatten)]
+    pub pagination: PaginationQuery,
     pub keyword: Option<String>,
     pub status: Option<PostStatus>,
     pub content_type: Option<ContentType>,
@@ -18,8 +21,8 @@ pub struct SearchQuery {
     pub keyword: String,
     pub category_id: Option<String>,
     pub tag_id: Option<String>,
-    pub page: Option<i64>,
-    pub page_size: Option<i64>,
+    #[serde(flatten)]
+    pub pagination: PaginationQuery,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]

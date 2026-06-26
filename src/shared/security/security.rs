@@ -14,44 +14,56 @@ use axum::{
 
 use crate::{shared::error::AppError, state::AppState};
 
+/// M-1: 可信代理 IP 提取器 — 仅当连接来源 IP 是可信代理时，才信任 X-Forwarded-For
 #[derive(Clone, Debug)]
-pub struct ForwardedIpExtractor;
+pub struct ForwardedIpExtractor {
+    /// 可信代理 IP 列表
+    pub trusted_proxies: Vec<IpAddr>,
+}
 
 impl axum_governor::KeyExtractor for ForwardedIpExtractor {
     type Key = IpAddr;
 
     fn extract(&self, parts: &Parts) -> Result<axum_governor::KeyOutcome<Self::Key>, axum_governor::ExtractionError> {
-        // 1. 尝试从代理头提取 (X-Forwarded-For 或 X-Real-IP)
-        if let Some(ip) = forwarded_ip(&parts.headers)
-            .or_else(|| {
-                parts.headers
-                    .get("x-real-ip")
-                    .and_then(|v| v.to_str().ok())
-                    .map(str::trim)
-                    .filter(|v| !v.is_empty())
-                    .map(ToOwned::to_owned)
-            })
-            .and_then(|s| s.parse::<IpAddr>().ok())
-        {
+        // 获取真实 TCP 对端 IP
+        let peer_ip = parts
+            .extensions
+            .get::<ConnectInfo<std::net::SocketAddr>>()
+            .map(|addr| addr.0.ip());
+
+        // M-1: 仅当连接来源是可信代理时，才信任代理头
+        if let Some(ip) = peer_ip {
+            if self.trusted_proxies.contains(&ip) {
+                // 来源是可信代理，尝试从代理头提取真实客户端 IP
+                if let Some(client_ip) = forwarded_ip(&parts.headers)
+                    .or_else(|| {
+                        parts.headers
+                            .get("x-real-ip")
+                            .and_then(|v| v.to_str().ok())
+                            .map(str::trim)
+                            .filter(|v| !v.is_empty())
+                            .map(ToOwned::to_owned)
+                    })
+                    .and_then(|s| s.parse::<IpAddr>().ok())
+                {
+                    return Ok(axum_governor::KeyOutcome {
+                        key: client_ip,
+                        quota_override: None,
+                    });
+                }
+            }
+            // 来源不是可信代理，或代理头缺失，使用真实 TCP 对端 IP
             return Ok(axum_governor::KeyOutcome {
                 key: ip,
                 quota_override: None,
             });
         }
 
-        // 2. 回退到 ConnectInfo（真实 TCP 对端 IP）
-        if let Some(addr) = parts.extensions.get::<ConnectInfo<std::net::SocketAddr>>() {
-            return Ok(axum_governor::KeyOutcome {
-                key: addr.0.ip(),
-                quota_override: None,
-            });
-        }
-
-        // 3. 底线：无法确定客户端 IP，拒绝限流（拒绝比给假 key 更安全）
+        // 无 ConnectInfo，拒绝限流
         Err(axum_governor::ExtractionError::Other(Box::new(
             std::io::Error::new(
                 std::io::ErrorKind::Other,
-                "无法提取客户端 IP：X-Forwarded-For、X-Real-IP 和 ConnectInfo 均缺失",
+                "无法提取客户端 IP：ConnectInfo 缺失",
             ),
         )))
     }
@@ -96,14 +108,14 @@ impl LoginRateLimiter {
         // 淘汰过期条目
         self.attempts.retain(|_, window| window.expires_at > now);
 
-        // 容量上限保护：超过上限时降级放行（宁可放过，不让 OOM）
+        // M-3: 容量上限保护：超过上限时拒绝新 IP（防止 OOM 攻击）
         if self.attempts.len() >= MAX_LOGIN_RATE_LIMIT_ENTRIES
             && !self.attempts.contains_key(&key)
         {
             tracing::warn!(
-                "login rate limiter at capacity ({MAX_LOGIN_RATE_LIMIT_ENTRIES} entries), allowing request for new key"
+                "login rate limiter at capacity ({MAX_LOGIN_RATE_LIMIT_ENTRIES} entries), rejecting new key"
             );
-            return true;
+            return false;
         }
 
         self.attempts
@@ -268,6 +280,7 @@ pub async fn log_rate_limited(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum_governor::KeyExtractor;
     use std::time::{Duration, Instant};
 
     #[test]
@@ -365,5 +378,76 @@ mod tests {
     fn csp_theme_html_contains_self() {
         let csp = csp_for_profile(SECURITY_PROFILE_THEME_HTML).unwrap();
         assert!(csp.contains("'self'"));
+    }
+
+    /// M-1: 验证 ForwardedIpExtractor 拒绝非可信代理的 X-Forwarded-For
+    /// 当前漏洞：客户端可伪造 X-Forwarded-For 绕过限流
+    /// 期望修复后：仅当来源 IP 是可信代理时才信任代理头
+    #[test]
+    fn security_fix_m1_forwarded_ip_extractor_uses_peer_ip_for_untrusted_proxy() {
+        use axum::extract::ConnectInfo;
+        use std::net::SocketAddr;
+
+        let extractor = ForwardedIpExtractor {
+            trusted_proxies: vec!["127.0.0.1".parse().unwrap()],
+        };
+
+        // 模拟非可信代理（8.8.8.8）发来的请求，带有伪造的 X-Forwarded-For
+        let mut request = axum::http::Request::new(());
+        request
+            .headers_mut()
+            .insert("x-forwarded-for", "1.2.3.4".parse().unwrap());
+        request
+            .extensions_mut()
+            .insert(ConnectInfo(SocketAddr::new("8.8.8.8".parse().unwrap(), 12345)));
+
+        let (parts, _) = request.into_parts();
+        let result = extractor.extract(&parts).unwrap();
+        // 期望：使用真实对端 IP（8.8.8.8），而非伪造的 1.2.3.4
+        assert_eq!(result.key, "8.8.8.8".parse::<IpAddr>().unwrap());
+    }
+
+    /// M-1: 验证可信代理的 X-Forwarded-For 被正确解析
+    #[test]
+    fn security_fix_m1_forwarded_ip_extractor_trusts_authorized_proxy() {
+        use axum::extract::ConnectInfo;
+        use std::net::SocketAddr;
+
+        let extractor = ForwardedIpExtractor {
+            trusted_proxies: vec!["127.0.0.1".parse().unwrap()],
+        };
+
+        // 模拟可信代理（127.0.0.1）发来的请求
+        let mut request = axum::http::Request::new(());
+        request
+            .headers_mut()
+            .insert("x-forwarded-for", "10.0.0.1".parse().unwrap());
+        request
+            .extensions_mut()
+            .insert(ConnectInfo(SocketAddr::new("127.0.0.1".parse().unwrap(), 8080)));
+
+        let (parts, _) = request.into_parts();
+        let result = extractor.extract(&parts).unwrap();
+        // 期望：使用 X-Forwarded-For 中的客户端 IP
+        assert_eq!(result.key, "10.0.0.1".parse::<IpAddr>().unwrap());
+    }
+
+    /// M-3: 限流器达到容量上限时应拒绝新 IP，而非降级放行
+    /// 当前漏洞：超过 MAX_LOGIN_RATE_LIMIT_ENTRIES 时，新 IP 直接放行
+    /// 期望修复后：返回 false（拒绝）
+    #[test]
+    fn security_fix_m3_rate_limiter_rejects_when_at_capacity() {
+        let mut limiter = LoginRateLimiter::new();
+        let now = Instant::now();
+
+        // 填满限流器到上限
+        for i in 0..MAX_LOGIN_RATE_LIMIT_ENTRIES {
+            let key = format!("ip_{}", i);
+            limiter.allow(key, now);
+        }
+
+        // 新 IP 应被拒绝，而非降级放行
+        let result = limiter.allow("new_ip_attacker".into(), now);
+        assert!(!result, "rate limiter should reject new IP when at capacity");
     }
 }

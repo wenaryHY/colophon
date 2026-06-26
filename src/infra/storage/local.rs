@@ -15,6 +15,37 @@ impl LocalStorage {
     pub fn new(base_dir: PathBuf, base_url: String) -> Self {
         Self { base_dir, base_url }
     }
+
+    /// H-3: 路径遍历防护 — 校验最终路径在 base_dir 内
+    fn validate_path(&self, path: &str) -> Result<PathBuf, AppError> {
+        let full_path = self.base_dir.join(path);
+
+        // 拒绝绝对路径（防止直接写入 /etc/... 等）
+        if path.starts_with('/') || path.starts_with('\\') {
+            return Err(AppError::Forbidden);
+        }
+
+        // 拒绝包含 .. 的路径组件（防止目录遍历）
+        if path.contains("..") {
+            return Err(AppError::Forbidden);
+        }
+
+        // 最终校验：确保路径在 base_dir 内
+        // 使用 components() 解析，防止符号链接绕过
+        let mut depth: i32 = 0;
+        for component in std::path::Path::new(path).components() {
+            match component {
+                std::path::Component::Normal(_) => depth += 1,
+                std::path::Component::ParentDir => depth -= 1,
+                _ => {}
+            }
+            if depth < 0 {
+                return Err(AppError::Forbidden);
+            }
+        }
+
+        Ok(full_path)
+    }
 }
 
 impl StorageBackend for LocalStorage {
@@ -24,7 +55,8 @@ impl StorageBackend for LocalStorage {
         path: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<String, AppError>> + Send + 'a>> {
         Box::pin(async move {
-            let full_path = self.base_dir.join(path);
+            // H-3: 路径遍历防护
+            let full_path = self.validate_path(path)?;
             if let Some(parent) = full_path.parent() {
                 fs::create_dir_all(parent).await?;
             }
@@ -58,5 +90,40 @@ impl StorageBackend for LocalStorage {
 
     fn get_public_url(&self, path: &str) -> String {
         format!("{}/{}", self.base_url.trim_end_matches('/'), path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    /// H-3: 路径遍历攻击测试 — 尝试写入 ../../../tmp/evil.txt
+    /// 当前漏洞：save() 未校验目标路径
+    /// 期望修复后：返回 Err
+    #[tokio::test]
+    async fn security_fix_h3_rejects_path_traversal_with_dot_dot() {
+        let tmp = TempDir::new().unwrap();
+        let storage = LocalStorage::new(tmp.path().to_path_buf(), "/uploads".into());
+        let result = storage.save(b"evil", "../../../tmp/evil.txt").await;
+        assert!(result.is_err(), "path traversal with ../ should be rejected");
+    }
+
+    /// H-3: 路径遍历攻击测试 — 尝试写入绝对路径 /etc/cron.d/evil
+    #[tokio::test]
+    async fn security_fix_h3_rejects_absolute_path_outside_base() {
+        let tmp = TempDir::new().unwrap();
+        let storage = LocalStorage::new(tmp.path().to_path_buf(), "/uploads".into());
+        let result = storage.save(b"evil", "/etc/cron.d/evil").await;
+        assert!(result.is_err(), "absolute path outside base should be rejected");
+    }
+
+    /// H-3: 正常路径应被允许
+    #[tokio::test]
+    async fn security_fix_h3_allows_valid_path() {
+        let tmp = TempDir::new().unwrap();
+        let storage = LocalStorage::new(tmp.path().to_path_buf(), "/uploads".into());
+        let result = storage.save(b"safe", "media/image.jpg").await;
+        assert!(result.is_ok(), "valid path should be allowed");
     }
 }

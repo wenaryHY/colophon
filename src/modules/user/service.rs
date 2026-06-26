@@ -14,6 +14,18 @@ use super::{
     repository,
 };
 
+pub async fn get_current_user(state: &Arc<AppState>, user_id: &str) -> AppResult<CurrentUser> {
+    repository::find_current(&state.pool, user_id)
+        .await?
+        .ok_or(AppError::NotFound("用户未找到".into()))
+}
+
+pub async fn get_token_version(state: &Arc<AppState>, user_id: &str) -> AppResult<i32> {
+    Ok(repository::find_token_version(&state.pool, user_id)
+        .await?
+        .unwrap_or(1))
+}
+
 pub async fn me(state: Arc<AppState>, auth: &AuthUser) -> AppResult<CurrentUser> {
     repository::find_current(&state.pool, &auth.id)
         .await?

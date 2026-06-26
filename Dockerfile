@@ -24,6 +24,8 @@ RUN apt-get update && apt-get install -y pkg-config libsqlite3-dev && \
 FROM debian:bookworm-slim
 ARG LITESTREAM_VERSION=0.5.11
 
+RUN groupadd -r colophon && useradd -r -g colophon -d /app -s /sbin/nologin colophon
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates libsqlite3-0 curl gettext-base && \
     curl -fsSL "https://github.com/benbjohnson/litestream/releases/download/v${LITESTREAM_VERSION}/litestream-${LITESTREAM_VERSION}-linux-x86_64.deb" -o /tmp/litestream.deb && \
@@ -44,7 +46,8 @@ COPY --from=frontend /app/dist /app/src/admin/dist
 COPY docker/entrypoint.sh /app/entrypoint.sh
 
 RUN mkdir -p /app/uploads /app/backups /app/data && \
-    chmod +x /app/entrypoint.sh
+    chmod +x /app/entrypoint.sh && \
+    chown -R colophon:colophon /app/uploads /app/backups /app/data
 
 ENV RUST_LOG=info
 ENV COLOPHON__SERVER__PORT=3000
@@ -56,4 +59,5 @@ ENV LITESTREAM_ENABLED=1
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:3000/api/v1/health || exit 1
 VOLUME ["/app/uploads", "/app/backups", "/app/data"]
+USER colophon
 ENTRYPOINT ["/app/entrypoint.sh"]

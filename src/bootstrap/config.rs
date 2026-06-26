@@ -24,6 +24,9 @@ pub struct ServerConfig {
     /// 等待现有请求在该时间内完成，超时后强制退出。
     #[serde(default = "default_graceful_shutdown_timeout_seconds")]
     pub graceful_shutdown_timeout_seconds: u64,
+    /// M-1: 可信代理 IP 列表，仅这些来源的 X-Forwarded-For 会被信任
+    #[serde(default = "default_trusted_proxies")]
+    pub trusted_proxies: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -45,6 +48,9 @@ pub struct AuthConfig {
     /// 是否给 cookie 加 Secure 标记（默认 false；ACME 成功后自动改 true，或手动设环境变量）
     #[serde(default)]
     pub cookie_secure: bool,
+    /// M-7: Refresh token 过期时间（秒），默认 604800（7 天）
+    /// 环境变量：COLOPHON__AUTH__REFRESH_TOKEN_TTL_SECONDS
+    pub refresh_token_ttl_seconds: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -127,6 +133,11 @@ fn default_graceful_shutdown_timeout_seconds() -> u64 {
     30
 }
 
+/// M-1: 默认可信代理 — 仅本机
+fn default_trusted_proxies() -> Vec<String> {
+    vec!["127.0.0.1".to_string(), "::1".to_string()]
+}
+
 impl AppConfig {
     /// 是否为生产模式（运行时判断，非编译期）
     pub fn is_production(&self) -> bool {
@@ -152,6 +163,7 @@ impl AppConfig {
             .set_default("auth.turnstile_secret", "")?
             .set_default("auth.turnstile_site_key", "")?
             .set_default("auth.cookie_secure", false)?
+            .set_default("auth.refresh_token_ttl_seconds", 604800)?
             .set_default("storage.upload_dir", "uploads")?
             .set_default("storage.max_upload_size_mb", 10)?
             .set_default("storage.static_dir", "static")?
@@ -202,5 +214,45 @@ impl AppConfig {
         }
 
         Ok(std::env::current_dir()?.join(path))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// M-7: AuthConfig 应有 refresh_token_ttl_seconds 字段
+    /// 默认值应为 604800（7 天），不应硬编码在 handler 中
+    #[test]
+    fn security_fix_m7_auth_config_has_refresh_token_ttl() {
+        // 确保环境变量不存在，测试默认值
+        std::env::remove_var("COLOPHON__AUTH__REFRESH_TOKEN_TTL_SECONDS");
+        let config = AppConfig::load().expect("failed to load config");
+        // 字段应存在且有默认值
+        let ttl = config.auth.refresh_token_ttl_seconds;
+        assert!(
+            ttl.is_some(),
+            "AuthConfig should have refresh_token_ttl_seconds field"
+        );
+        assert_eq!(
+            ttl.unwrap(),
+            604800,
+            "refresh_token_ttl_seconds should default to 604800 (7 days)"
+        );
+    }
+
+    /// M-7: 环境变量应能覆盖 refresh_token_ttl_seconds
+    #[test]
+    fn security_fix_m7_refresh_token_ttl_from_env() {
+        // 设置环境变量
+        std::env::set_var("COLOPHON__AUTH__REFRESH_TOKEN_TTL_SECONDS", "86400");
+        let config = AppConfig::load().expect("failed to load config");
+        assert_eq!(
+            config.auth.refresh_token_ttl_seconds,
+            Some(86400),
+            "refresh_token_ttl_seconds should be overridable via env var"
+        );
+        // 清理
+        std::env::remove_var("COLOPHON__AUTH__REFRESH_TOKEN_TTL_SECONDS");
     }
 }

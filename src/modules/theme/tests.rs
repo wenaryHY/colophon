@@ -59,6 +59,7 @@ mod delete_theme_tests {
                 host: "127.0.0.1".to_string(),
                 port: 8080,
                 graceful_shutdown_timeout_seconds: 30,
+                trusted_proxies: vec!["127.0.0.1".to_string()],
             },
             database: DatabaseConfig {
                 url: "sqlite::memory:".to_string(),
@@ -69,6 +70,7 @@ mod delete_theme_tests {
                 turnstile_secret: String::new(),
                 turnstile_site_key: String::new(),
                 cookie_secure: false,
+                refresh_token_ttl_seconds: Some(604800),
             },
             storage: StorageConfig {
                 upload_dir: "uploads".to_string(),

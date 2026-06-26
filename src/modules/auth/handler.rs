@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     infra::jwt,
-    shared::{auth_constants, error::AppResult, json::AppJson, response::ApiResponse},
+    shared::{auth::cookie::*, error::AppResult, json::AppJson, response::ApiResponse},
     state::AppState,
 };
 
@@ -24,26 +24,13 @@ pub async fn register(
     let client_request_id =
         crate::shared::request_id::extract_or_generate_client_request_id(&headers);
 
-    // Turnstile 验证：配置了 secret 时强制校验，token 缺失或无效均拒绝
-    if !state.config.auth.turnstile_secret.is_empty() {
-        let token = body
-            .turnstile_token
-            .as_ref()
-            .ok_or_else(|| crate::shared::error::AppError::BadRequest("请完成人机验证".into()))?;
-        if !crate::shared::turnstile::verify_turnstile(token, &state.config.auth.turnstile_secret)
-            .await
-        {
-            tracing::warn!(
-                module = "auth",
-                event = "register_turnstile_failed",
-                client_request_id = %client_request_id,
-                "Turnstile verification failed"
-            );
-            return Err(crate::shared::error::AppError::BadRequest(
-                "验证失败，请刷新页面重试".into(),
-            ));
-        }
-    }
+    crate::shared::turnstile::verify_turnstile_from_request(
+        &headers,
+        &state.config.auth.turnstile_secret,
+        &state.config.auth.turnstile_site_key,
+        "register",
+    )
+    .await?;
 
     tracing::info!(
         module = "auth",
@@ -60,13 +47,13 @@ pub async fn register(
         state,
         body,
         expires_in_seconds,
-        REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS,
+        REGISTER_DEFAULT_REFRESH_MAX_AGE_SECONDS,
     )
     .await?;
     let access_token = login_data.access_token.clone();
     let refresh_cookie = build_refresh_cookie(
         &refresh_token,
-        REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS,
+        REGISTER_DEFAULT_REFRESH_MAX_AGE_SECONDS,
         cookie_secure,
     );
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
@@ -103,26 +90,13 @@ pub async fn login(
     let client_request_id =
         crate::shared::request_id::extract_or_generate_client_request_id(&headers);
 
-    // Turnstile 验证：配置了 secret 时强制校验，token 缺失或无效均拒绝
-    if !state.config.auth.turnstile_secret.is_empty() {
-        let token = body
-            .turnstile_token
-            .as_ref()
-            .ok_or_else(|| crate::shared::error::AppError::BadRequest("请完成人机验证".into()))?;
-        if !crate::shared::turnstile::verify_turnstile(token, &state.config.auth.turnstile_secret)
-            .await
-        {
-            tracing::warn!(
-                module = "auth",
-                event = "login_turnstile_failed",
-                client_request_id = %client_request_id,
-                "Turnstile verification failed"
-            );
-            return Err(crate::shared::error::AppError::BadRequest(
-                "验证失败，请刷新页面重试".into(),
-            ));
-        }
-    }
+    crate::shared::turnstile::verify_turnstile_from_request(
+        &headers,
+        &state.config.auth.turnstile_secret,
+        &state.config.auth.turnstile_site_key,
+        "login",
+    )
+    .await?;
 
     tracing::info!(
         module = "auth",
@@ -135,9 +109,9 @@ pub async fn login(
     let remember_me = body.remember_me.unwrap_or(false);
 
     let (session_max_age, refresh_max_age) = if remember_me {
-        (REMEMBER_ME_MAX_AGE, REMEMBER_ME_MAX_AGE)
+        (REMEMBER_ME_MAX_AGE_SECONDS, REMEMBER_ME_MAX_AGE_SECONDS)
     } else {
-        (expires_in_seconds, SHORT_MAX_AGE)
+        (expires_in_seconds, SHORT_MAX_AGE_SECONDS)
     };
 
     let cookie_secure = state.config.cookie_secure();
@@ -176,7 +150,7 @@ pub async fn logout(
     );
 
     // 撤销 refresh token（如果存在）
-    if let Some(cookie) = jar.get(auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN) {
+    if let Some(cookie) = jar.get(crate::shared::auth::constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN) {
         let token_hash = jwt::hash_token(cookie.value());
         if let Err(e) = repository::revoke_refresh_token(&state.pool, &token_hash).await {
             tracing::warn!(
@@ -224,7 +198,7 @@ pub async fn refresh_token(
     );
 
     let token = jar
-        .get(auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN)
+        .get(crate::shared::auth::constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN)
         .map(|c| c.value().to_string())
         .ok_or_else(|| {
             tracing::warn!(
@@ -267,7 +241,15 @@ pub async fn refresh_token(
     let new_hash = jwt::hash_token(&new_token);
     let new_id = Uuid::new_v4().to_string();
     let family = family_id.unwrap_or_else(|| new_id.clone());
-    let expires_at = (chrono::Utc::now() + chrono::Duration::days(7)).to_rfc3339();
+    // M-7: 从配置读取 refresh token 过期时间，而非硬编码 7 天
+    let refresh_ttl_seconds = state
+        .config
+        .auth
+        .refresh_token_ttl_seconds
+        .unwrap_or(604800);
+    let expires_at =
+        (chrono::Utc::now() + chrono::Duration::seconds(refresh_ttl_seconds as i64))
+            .to_rfc3339();
 
     repository::save_refresh_token(
         &state.pool,
@@ -280,21 +262,9 @@ pub async fn refresh_token(
     .await?;
 
     // 签发新 access_token
-    let user = crate::modules::user::repository::find_current(&state.pool, &user_id)
-        .await?
-        .ok_or_else(|| {
-            tracing::warn!(
-                module = "auth",
-                event = "refresh_token_user_not_found",
-                user_id = %user_id,
-                "user for refresh token not found"
-            );
-            crate::shared::error::AppError::Unauthorized
-        })?;
+    let user = crate::modules::user::service::get_current_user(&state, &user_id).await?;
 
-    let token_version = crate::modules::user::repository::find_token_version(&state.pool, &user.id)
-        .await?
-        .unwrap_or(1);
+    let token_version = crate::modules::user::service::get_token_version(&state, &user.id).await?;
 
     let access_token = jwt::issue_token(
         &state.config.auth.secret,
@@ -315,7 +285,7 @@ pub async fn refresh_token(
 
     // 设置新 refresh_token cookie + 返回 access_token JSON
     let cookie_secure = state.config.cookie_secure();
-    let refresh_cookie = build_refresh_cookie(&new_token, REMEMBER_ME_MAX_AGE, cookie_secure);
+    let refresh_cookie = build_refresh_cookie(&new_token, REMEMBER_ME_MAX_AGE_SECONDS, cookie_secure);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
         .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
     let json = Json(ApiResponse::success(serde_json::json!({
@@ -337,51 +307,4 @@ pub async fn refresh_token(
             .expect("JWT cookie must be ASCII-only; if this fails, check token encoding"),
     );
     Ok((resp_headers, json).into_response())
-}
-
-// ── 时间常量 ──
-
-/// 7 天（秒），用于"记住我"场景
-const REMEMBER_ME_MAX_AGE: u64 = 604800;
-/// 15 分钟（秒），用于未勾选"记住我"的短期会话
-const SHORT_MAX_AGE: u64 = 900;
-/// 1 天（秒），注册用户 refresh cookie 默认存活时长
-const REGISTER_DEFAULT_REFRESH_MAX_AGE_IN_SECONDS: u64 = 86400;
-
-// ── Cookie helpers ──
-
-/// 构建 refresh_token 的 HttpOnly Secure SameSite=Strict cookie
-fn build_refresh_cookie(token: &str, max_age_seconds: u64, cookie_secure: bool) -> String {
-    let secure = if cookie_secure { "; Secure" } else { "" };
-    format!(
-        "{name}={token}; Path=/api/v1/auth/refresh; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}",
-        name = auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN,
-    )
-}
-
-/// 清除 refresh_token cookie
-fn build_clear_refresh_cookie(cookie_secure: bool) -> String {
-    let secure = if cookie_secure { "; Secure" } else { "" };
-    format!(
-        "{name}=; Path=/api/v1/auth/refresh; Max-Age=0; HttpOnly; SameSite=Strict{secure}",
-        name = auth_constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN,
-    )
-}
-
-/// 构建 session cookie（access_token），Path=/
-fn build_session_cookie(access_token: &str, max_age_seconds: u64, cookie_secure: bool) -> String {
-    let secure = if cookie_secure { "; Secure" } else { "" };
-    format!(
-        "{name}={access_token}; Path=/; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}",
-        name = auth_constants::SESSION_COOKIE_NAME_FOR_JWT_ACCESS_TOKEN,
-    )
-}
-
-/// 清除 session cookie（access_token）
-fn build_clear_session_cookie(cookie_secure: bool) -> String {
-    let secure = if cookie_secure { "; Secure" } else { "" };
-    format!(
-        "{name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict{secure}",
-        name = auth_constants::SESSION_COOKIE_NAME_FOR_JWT_ACCESS_TOKEN,
-    )
 }

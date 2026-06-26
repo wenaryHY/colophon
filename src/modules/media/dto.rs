@@ -1,9 +1,11 @@
 use serde::Deserialize;
 
+use crate::shared::pagination::PaginationQuery;
+
 #[derive(Debug, Deserialize)]
 pub struct MediaQuery {
-    pub page: Option<i64>,
-    pub page_size: Option<i64>,
+    #[serde(flatten)]
+    pub pagination: PaginationQuery,
     pub kind: Option<String>,
     pub keyword: Option<String>,
     pub category: Option<String>,

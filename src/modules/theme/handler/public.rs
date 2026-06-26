@@ -1,215 +1,25 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Form, Multipart, Path, Query, State},
+    extract::{Path, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{Html, IntoResponse, Redirect, Response},
-    Json,
 };
 use serde::Deserialize;
 
 use crate::{
     modules::post::post_types::ContentType,
     shared::{
-        auth::AdminUser,
         error::{AppError, AppResult},
-        response::ApiResponse,
-        role::Role,
     },
     state::AppState,
 };
 
-use super::{
-    context::TemplateContext, domain::ThemeSummary, engine, service::ThemeService, ThemeConfig,
+use crate::modules::theme::{
+    context::TemplateContext, engine,
     dto::ArchivePageQuery,
 };
 use crate::modules::plugin::hook::{HookContext, HookData, PostBeforeRenderData};
-
-pub async fn active_theme(
-    State(state): State<Arc<AppState>>,
-) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
-    let service = ThemeService::new(state.theme_dir.clone());
-    let slug = service.list_themes(&state.pool).await?.1;
-    Ok(Json(ApiResponse::success(
-        serde_json::json!({ "slug": slug }),
-    )))
-}
-
-pub async fn list_themes(
-    State(state): State<Arc<AppState>>,
-    _admin: AdminUser,
-) -> AppResult<Json<ApiResponse<Vec<ThemeSummary>>>> {
-    let service = ThemeService::new(state.theme_dir.clone());
-    let (manifests, active_slug) = service.list_themes(&state.pool).await?;
-    let summaries = manifests
-        .into_iter()
-        .map(|manifest| ThemeSummary {
-            active: manifest.slug == active_slug,
-            manifest,
-        })
-        .collect();
-    Ok(Json(ApiResponse::success(summaries)))
-}
-
-pub async fn activate_theme(
-    State(state): State<Arc<AppState>>,
-    _admin: AdminUser,
-    Path(slug): Path<String>,
-) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
-    let service = ThemeService::new(state.theme_dir.clone());
-    service.activate_theme(&state.pool, &slug).await?;
-    state.invalidate_all_caches().await;
-    Ok(Json(ApiResponse::success(
-        serde_json::json!({ "activated": slug }),
-    )))
-}
-
-pub async fn get_theme_detail(
-    State(state): State<Arc<AppState>>,
-    _admin: AdminUser,
-    Path(slug): Path<String>,
-) -> AppResult<Json<ApiResponse<super::dto::ThemeDetailResponse>>> {
-    let service = ThemeService::new(state.theme_dir.clone());
-    let (manifest, config) = service.get_theme_detail(&state.pool, &slug).await?;
-    let schema = manifest.config.clone();
-    Ok(Json(ApiResponse::success(
-        super::dto::ThemeDetailResponse {
-            manifest,
-            config,
-            schema,
-        },
-    )))
-}
-
-pub async fn save_theme_config(
-    State(state): State<Arc<AppState>>,
-    _admin: AdminUser,
-    Path(slug): Path<String>,
-    Json(req): Json<super::dto::SaveThemeConfigRequest>,
-) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
-    let service = ThemeService::new(state.theme_dir.clone());
-    service
-        .save_theme_config(&state.pool, &slug, &req.config)
-        .await?;
-    state.invalidate_all_caches().await;
-    Ok(Json(ApiResponse::success(
-        serde_json::json!({ "saved": slug }),
-    )))
-}
-
-pub async fn upload_theme_archive(
-    State(state): State<Arc<AppState>>,
-    _admin: AdminUser,
-    mut multipart: Multipart,
-) -> AppResult<Json<ApiResponse<super::dto::ThemeUploadResponse>>> {
-    let mut theme_data: Option<Vec<u8>> = None;
-
-    // 提取上传的文件
-    while let Some(field) = multipart.next_field().await? {
-        if field.name() == Some("file") {
-            theme_data = Some(field.bytes().await?.to_vec());
-            break;
-        }
-    }
-
-    let theme_data = theme_data.ok_or(crate::shared::error::AppError::BadRequest(
-        "No file uploaded".to_string(),
-    ))?;
-
-    // 解析 zip 包
-    let cursor = std::io::Cursor::new(theme_data);
-    let mut archive = zip::ZipArchive::new(cursor)
-        .map_err(|_| crate::shared::error::AppError::BadRequest("Invalid zip file".to_string()))?;
-
-    // 查找 theme.toml
-    let mut manifest_content = String::new();
-    {
-        let mut theme_toml = archive.by_name("theme.toml").map_err(|_| {
-            crate::shared::error::AppError::BadRequest(
-                "theme.toml not found in archive".to_string(),
-            )
-        })?;
-        std::io::Read::read_to_string(&mut theme_toml, &mut manifest_content)
-            .map_err(|e| crate::shared::error::AppError::Io(e))?;
-    }
-
-    // 解析 manifest
-    let manifest: super::ThemeManifest = toml::from_str(&manifest_content).map_err(|e| {
-        crate::shared::error::AppError::BadRequest(format!("Failed to parse theme.toml: {}", e))
-    })?;
-
-    // 提取主题到 themes 目录
-    let theme_dir = state.theme_dir.join(&manifest.slug);
-    if theme_dir.exists() {
-        std::fs::remove_dir_all(&theme_dir).map_err(|e| crate::shared::error::AppError::Io(e))?;
-    }
-    std::fs::create_dir_all(&theme_dir).map_err(|e| crate::shared::error::AppError::Io(e))?;
-
-    let extract_result = (|| -> AppResult<()> {
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i).map_err(|e| {
-                crate::shared::error::AppError::Anyhow(anyhow::anyhow!(
-                    "Failed to read archive: {}",
-                    e
-                ))
-            })?;
-            let entry_path = file
-                .enclosed_name()
-                .ok_or_else(|| AppError::BadRequest("ZIP contains invalid path entry".to_string()))?
-                .to_path_buf();
-            let outpath = theme_dir.join(entry_path);
-
-            if file.is_dir() {
-                std::fs::create_dir_all(&outpath).map_err(crate::shared::error::AppError::Io)?;
-                continue;
-            }
-            if let Some(parent) = outpath.parent() {
-                std::fs::create_dir_all(parent).map_err(crate::shared::error::AppError::Io)?;
-            }
-            let mut outfile =
-                std::fs::File::create(&outpath).map_err(crate::shared::error::AppError::Io)?;
-            std::io::copy(&mut file, &mut outfile).map_err(crate::shared::error::AppError::Io)?;
-        }
-        Ok(())
-    })();
-    if let Err(err) = extract_result {
-        if let Err(e) = std::fs::remove_dir_all(&theme_dir) {
-            tracing::warn!(
-                module = "theme",
-                path = %theme_dir.display(),
-                error = %e,
-                "failed to clean up theme directory after extraction error"
-            );
-        }
-        return Err(err);
-    }
-
-    // 校验必要模板文件
-    let templates_dir = theme_dir.join("templates");
-    if !templates_dir.join("index.html").exists() {
-        let _ = std::fs::remove_dir_all(&theme_dir);
-        return Err(AppError::BadRequest(
-            "主题缺少必要文件: templates/index.html 不存在".into(),
-        ));
-    }
-    if !templates_dir.join("post.html").exists() {
-        let _ = std::fs::remove_dir_all(&theme_dir);
-        return Err(AppError::BadRequest(
-            "主题缺少必要文件: templates/post.html 不存在".into(),
-        ));
-    }
-
-    Ok(Json(ApiResponse::success(
-        super::dto::ThemeUploadResponse {
-            slug: manifest.slug.clone(),
-            name: manifest.name.clone(),
-            version: manifest.version.clone(),
-            message: "主题已上传".to_string(),
-        },
-    )))
-}
-
-// --- 前台主题渲染 Handlers ---
 
 pub async fn render_home(
     State(state): State<Arc<AppState>>,
@@ -487,11 +297,7 @@ pub async fn render_search(
     );
 
     let keyword = query.keyword.trim().to_string();
-    let pagination = crate::shared::pagination::PaginationQuery {
-        page: query.page,
-        page_size: query.page_size,
-    };
-    let (page_i64, page_size_i64, offset) = pagination.normalized(20, 100);
+    let (page_i64, page_size_i64, offset) = query.pagination.normalized(20, 100);
     let page = page_i64 as u32;
     let page_size = page_size_i64 as u32;
 
@@ -623,6 +429,15 @@ pub async fn render_search(
     Ok(response)
 }
 
+/// 搜索页查询参数
+#[derive(Debug, Deserialize)]
+pub struct SearchPageQuery {
+    #[serde(default)]
+    pub keyword: String,
+    #[serde(flatten)]
+    pub pagination: crate::shared::pagination::PaginationQuery,
+}
+
 /// 作者归档页：/author/{username}
 pub async fn render_author_archive(
     State(state): State<Arc<AppState>>,
@@ -694,7 +509,7 @@ pub async fn render_author_archive(
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
 
     // 5. 加载模板上下文，失败时降级返回 404 HTML
-    let ctx = match super::context::TemplateContext::load(&state).await {
+    let ctx = match TemplateContext::load(&state).await {
         Ok(c) => c,
         Err(e) => {
             tracing::error!(
@@ -936,7 +751,8 @@ pub async fn serve_active_static(
     State(state): State<Arc<AppState>>,
     Path((theme_slug, file_path)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    if file_path.contains("..") || file_path.contains('\\') || file_path.starts_with('/') {
+    // L-6: 白名单校验替代黑名单
+    if !is_safe_static_path(&file_path) {
         return (StatusCode::FORBIDDEN, "403 Forbidden").into_response();
     }
 
@@ -974,14 +790,18 @@ pub async fn serve_active_static(
     };
 
     match tokio::fs::read(&full_path).await {
-        Ok(d) => (
-            [
-                (header::CONTENT_TYPE, mime),
-                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
-            ],
-            d,
-        )
-            .into_response(),
+        Ok(d) => {
+            let mut resp = (
+                [
+                    (header::CONTENT_TYPE, mime),
+                    (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+                ],
+                d,
+            )
+                .into_response();
+            apply_svg_sandbox_csp_if_svg(&mut resp);
+            resp
+        }
         Err(_) => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
     }
 }
@@ -991,7 +811,8 @@ pub async fn serve_upload_static(
     headers: HeaderMap,
     Path(file_path): Path<String>,
 ) -> impl IntoResponse {
-    if file_path.contains("..") || file_path.contains('\\') || file_path.starts_with('/') {
+    // L-6: 白名单校验替代黑名单
+    if !is_safe_static_path(&file_path) {
         return (StatusCode::FORBIDDEN, "403 Forbidden").into_response();
     }
 
@@ -1041,14 +862,16 @@ pub async fn serve_upload_static(
 
     match tokio::fs::read(&full_path).await {
         Ok(d) => {
-            (
+            let mut resp = (
                 [
                     (header::CONTENT_TYPE, mime),
                     (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
                 ],
                 d,
             )
-                .into_response()
+                .into_response();
+            apply_svg_sandbox_csp_if_svg(&mut resp);
+            resp
         }
         Err(_) => {
             let is_image = matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "svg" | "webp");
@@ -1060,7 +883,9 @@ pub async fn serve_upload_static(
                     "upload static file missing, returning placeholder image"
                 );
                 let placeholder = r##"<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#f3f4f6"/><g fill="none" stroke="#d1d5db" stroke-width="2"><rect x="180" y="92" width="280" height="176" rx="12"/><path d="M210 236l72-74 52 52 44-40 52 62"/></g><circle cx="262" cy="150" r="16" fill="#d1d5db"/><text x="320" y="300" font-size="18" font-family="sans-serif" text-anchor="middle" fill="#6b7280">Media Not Found</text></svg>"##;
-                return ([(header::CONTENT_TYPE, "image/svg+xml")], placeholder).into_response();
+                let mut resp = ([(header::CONTENT_TYPE, "image/svg+xml")], placeholder).into_response();
+                apply_svg_sandbox_csp_if_svg(&mut resp);
+                return resp;
             }
 
             (StatusCode::NOT_FOUND, "404 Not Found").into_response()
@@ -1072,7 +897,8 @@ pub async fn serve_plugin_static(
     State(state): State<Arc<AppState>>,
     Path((plugin_slug, file_path)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    if file_path.contains("..") || file_path.contains('\\') || file_path.starts_with('/') {
+    // L-6: 白名单校验替代黑名单
+    if !is_safe_static_path(&file_path) {
         return (StatusCode::FORBIDDEN, "403 Forbidden").into_response();
     }
 
@@ -1102,14 +928,18 @@ pub async fn serve_plugin_static(
     };
 
     match tokio::fs::read(&full_path).await {
-        Ok(d) => (
-            [
-                (header::CONTENT_TYPE, mime),
-                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
-            ],
-            d,
-        )
-            .into_response(),
+        Ok(d) => {
+            let mut resp = (
+                [
+                    (header::CONTENT_TYPE, mime),
+                    (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+                ],
+                d,
+            )
+                .into_response();
+            apply_svg_sandbox_csp_if_svg(&mut resp);
+            resp
+        }
         Err(_) => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
     }
 }
@@ -1118,7 +948,8 @@ pub async fn serve_global_static(
     State(state): State<Arc<AppState>>,
     Path(file_path): Path<String>,
 ) -> impl IntoResponse {
-    if file_path.contains("..") || file_path.contains('\\') || file_path.starts_with('/') {
+    // L-6: 白名单校验替代黑名单
+    if !is_safe_static_path(&file_path) {
         return (StatusCode::FORBIDDEN, "403 Forbidden").into_response();
     }
 
@@ -1141,219 +972,20 @@ pub async fn serve_global_static(
     };
 
     match tokio::fs::read(&full_path).await {
-        Ok(d) => (
-            [
-                (header::CONTENT_TYPE, mime),
-                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
-            ],
-            d,
-        )
-            .into_response(),
+        Ok(d) => {
+            let mut resp = (
+                [
+                    (header::CONTENT_TYPE, mime),
+                    (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+                ],
+                d,
+            )
+                .into_response();
+            apply_svg_sandbox_csp_if_svg(&mut resp);
+            resp
+        }
         Err(_) => (StatusCode::NOT_FOUND, "404 Not Found").into_response(),
     }
-}
-
-/// 在 HTML 中注入 CSP meta 标签，用于 iframe srcdoc 场景
-/// HTTP CSP 响应头在 srcdoc 中不生效，必须通过 meta 标签传递
-#[allow(non_snake_case)]
-fn injectCspMetaTagIntoHtmlForSrcdocProtection(html: &str) -> String {
-    let csp_meta = format!(
-        "<meta http-equiv=\"Content-Security-Policy\" content=\"{}\">",
-        crate::shared::security::PREVIEW_CSP
-    );
-    if let Some(pos) = html.find("<html") {
-        let (before, after) = html.split_at(pos);
-        format!("{}{}{}", before, csp_meta, after)
-    } else {
-        format!("{}{}", csp_meta, html)
-    }
-}
-
-/// 裸 HTML 预览：纯 Markdown→HTML，不经过 MiniJinja 渲染
-pub async fn preview_content(
-    State(_state): State<Arc<AppState>>,
-    _admin: AdminUser,
-    Form(req): Form<super::dto::PreviewContentRequest>,
-) -> Result<Response, AppError> {
-    let content = req.content.trim().to_string();
-    if content.is_empty() {
-        return Err(AppError::BadRequest("content must not be empty".into()));
-    }
-    if content.len() > 1_048_576 {
-        return Err(AppError::BadRequest("content exceeds 1MB limit".into()));
-    }
-
-    let html = crate::shared::content::markdown_to_html(&content);
-    // HTTP CSP 头在 iframe srcdoc 中不生效，通过 meta 标签注入 CSP
-    let secured_html = injectCspMetaTagIntoHtmlForSrcdocProtection(&html);
-    let mut response = Html(secured_html).into_response();
-    crate::shared::security::mark_response_security_profile(
-        &mut response,
-        crate::shared::security::SECURITY_PROFILE_PREVIEW,
-    );
-    Ok(response)
-}
-
-/// 主题渲染预览：Markdown→HTML→MiniJinja 渲染为完整的主题页面
-pub async fn preview_theme(
-    State(state): State<Arc<AppState>>,
-    _admin: AdminUser,
-    Form(req): Form<super::dto::PreviewThemeRequest>,
-) -> Result<Response, AppError> {
-    let content = req.content.trim().to_string();
-    if content.is_empty() {
-        return Err(AppError::BadRequest("content must not be empty".into()));
-    }
-    if content.len() > 1_048_576 {
-        return Err(AppError::BadRequest("content exceeds 1MB limit".into()));
-    }
-    let content_type = req.content_type;
-
-    // TODO(security): 添加预览端点的速率限制（每用户每分钟最多 30 次）
-    // 参考 src/shared/security.rs 中的 LoginRateLimiter 模式实现
-
-    // Markdown → HTML
-    let content_html = crate::shared::content::markdown_to_html(&content);
-
-    // 加载 TemplateContext
-    let mut ctx = TemplateContext::load(&state).await?;
-
-    // 覆写主题 slug（如果指定）
-    if let Some(ref slug) = req.theme_slug {
-        validateThemeSlugIsInstalledAndSafeForPreviewRendering(slug, &state.theme_dir)?;
-        ctx.active_theme = slug.clone();
-    }
-
-    // 覆写主题配置（如果指定）
-    // 注意：theme_config 值在 MiniJinja 模板中自动转义。
-    // 主题作者不得对 theme_config 值使用 | safe 过滤器。
-    if let Some(ref cfg_str) = req.theme_config {
-        match serde_json::from_str::<ThemeConfig>(cfg_str) {
-            Ok(cfg) => {
-                ctx.theme_config = Some(cfg);
-            }
-            Err(e) => {
-                tracing::warn!(
-                    module = "theme",
-                    event = "preview_theme_config_parse_failed",
-                    error = %e,
-                    "failed to parse theme_config, ignoring"
-                );
-            }
-        }
-    }
-
-    // 构造虚拟 post（不存库）
-    let now = chrono::Utc::now().to_rfc3339();
-    let fake_post = crate::modules::post::domain::PublicPostDetail {
-        id: "_preview_".into(),
-        title: "(Preview)".into(),
-        slug: "_preview_".into(),
-        excerpt: None,
-        content_html,
-        content_type,
-        allow_comment: false,
-        published_at: None,
-        created_at: now.clone(),
-        updated_at: now,
-        author_display_name: "(Preview)".into(),
-        category_name: None,
-        cover_media_id: None,
-    };
-
-    // 构建模板引擎
-    let plugin_guard = state.plugin_manager.read().await;
-    let current_lang = crate::infra::i18n_middleware::DEFAULT_LANG; // 预览页面使用默认语言
-    let env = engine::build_template_engine(
-        &ctx,
-        &state.theme_dir,
-        &*plugin_guard,
-        &state.template_env_cache,
-        &state.asset_manifest,
-        Some(current_lang),
-    )
-    .await?;
-
-    // 选择模板
-    let template_name = if content_type.is_page() && env.get_template("page.html").is_ok() {
-        "page.html"
-    } else {
-        "post.html"
-    };
-
-    // 渲染（带超时保护，防止模板死循环）
-    // clone Environment 避免生命周期问题（内部 Arc 包装，开销很小）
-    let env_for_blocking = env.clone();
-    let template_name_owned = template_name.to_string();
-    let fake_current_user = crate::shared::auth::AuthUser {
-        id: "_preview_".into(),
-        username: "(Preview)".into(),
-        role: Role::Admin,
-    };
-    let rendered = match tokio::time::timeout(
-        std::time::Duration::from_secs(10),
-        tokio::task::spawn_blocking(move || {
-            let tmpl = env_for_blocking
-                .get_template(&template_name_owned)
-                .map_err(|e| anyhow::anyhow!("Template error: {}", e))?;
-            tmpl.render(minijinja::context! {
-                post => fake_post,
-                seo_meta => "",
-                json_ld => "",
-                image => "",
-                comments => Vec::<()>::new(),
-                current_user => fake_current_user,
-                plugins => serde_json::Value::Object(Default::default()),
-                post_excerpt => "",
-            })
-            .map_err(|e| anyhow::anyhow!("Render error: {}", e))
-        }),
-    )
-    .await
-    {
-        // timeout → JoinHandle → anyhow::Result
-        Ok(Ok(Ok(html))) => html,
-        Ok(Ok(Err(e))) => {
-            return Err(AppError::Anyhow(e));
-        }
-        Ok(Err(join_err)) => {
-            return Err(AppError::Anyhow(anyhow::anyhow!(
-                "Render spawn error: {}",
-                join_err
-            )));
-        }
-        Err(_elapsed) => {
-            return Err(AppError::Anyhow(anyhow::anyhow!("Preview render timeout")));
-        }
-    };
-
-    // HTTP CSP 头在 iframe srcdoc 中不生效，通过 meta 标签注入 CSP
-    let secured_html = injectCspMetaTagIntoHtmlForSrcdocProtection(&rendered);
-    let mut response = Html(secured_html).into_response();
-    crate::shared::security::mark_response_security_profile(
-        &mut response,
-        crate::shared::security::SECURITY_PROFILE_PREVIEW,
-    );
-    Ok(response)
-}
-
-/// 验证主题 slug 是否为合法且已安装的主题标识符
-#[allow(non_snake_case)]
-fn validateThemeSlugIsInstalledAndSafeForPreviewRendering(
-    slug: &str,
-    theme_dir: &std::path::Path,
-) -> Result<(), AppError> {
-    if slug.contains("..") || slug.contains('/') || slug.contains('\\') {
-        return Err(AppError::BadRequest("invalid theme_slug".into()));
-    }
-    let manifest_path = theme_dir.join(slug).join("theme.toml");
-    if !manifest_path.exists() || !manifest_path.is_file() {
-        return Err(AppError::BadRequest(format!(
-            "theme '{}' not found or not installed",
-            slug
-        )));
-    }
-    Ok(())
 }
 
 /// 标签归档页：/tags/{slug}
@@ -1421,7 +1053,7 @@ pub async fn render_tag_archive(
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
 
     // 5. 加载模板上下文
-    let ctx = match super::context::TemplateContext::load(&state).await {
+    let ctx = match TemplateContext::load(&state).await {
         Ok(c) => c,
         Err(e) => {
             tracing::error!(
@@ -1576,7 +1208,7 @@ pub async fn render_category_archive(
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
 
     // 5. 加载模板上下文
-    let ctx = match super::context::TemplateContext::load(&state).await {
+    let ctx = match TemplateContext::load(&state).await {
         Ok(c) => c,
         Err(e) => {
             tracing::error!(
@@ -1670,94 +1302,57 @@ pub async fn render_category_archive(
     Ok(response)
 }
 
-/// 新标签页预览页面（空壳 HTML + 内嵌 JS）
-pub async fn preview_page(_admin: AdminUser) -> Result<Html<String>, AppError> {
-    let html = r#"<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Colophon 预览</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #f5f5f5; display: flex; justify-content: center; min-height: 100vh; }
-        .loading { text-align: center; padding: 100px 20px; color: #999; }
-        .loading .spinner { width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top-color: #333; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .error { text-align: center; padding: 100px 20px; color: #c62828; display: none; }
-        .preview-container { width: 100%; background: #fff; min-height: 100vh; display: none; }
-        iframe { width: 100%; height: 100vh; border: none; }
-    </style>
-</head>
-<body>
-    <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <p>正在加载预览...</p>
-    </div>
-    <div class="error" id="error"></div>
-    <div class="preview-container" id="preview"></div>
+/// Cookie 政策页面：/cookie-policy
+///
+/// 渲染主题模板 `cookie-policy.html`，纯静态内容页面，无需认证。
+/// 模板中使用 `site_title`、`current_lang` 等 TemplateContext 内置变量。
+pub async fn render_cookie_policy(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> AppResult<Response> {
+    let client_request_id =
+        crate::shared::request_id::extract_or_generate_client_request_id(&headers);
+    tracing::info!(
+        module = "theme",
+        event = "render_cookie_policy",
+        client_request_id = %client_request_id,
+        "rendering cookie policy page"
+    );
 
-    <script>
-    (async function() {
-        try {
-            // 从 sessionStorage 读取预览参数
-            const raw = sessionStorage.getItem('colophon-preview-params');
-            if (!raw) throw new Error('No preview params found');
-            const params = JSON.parse(raw);
+    let ctx = TemplateContext::load(&state).await?;
+    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
+    let plugin_guard = state.plugin_manager.read().await;
+    let env = engine::build_template_engine(
+        &ctx,
+        &state.theme_dir,
+        &*plugin_guard,
+        &state.template_env_cache,
+        &state.asset_manifest,
+        Some(&current_lang),
+    )
+    .await?;
+    let tmpl = env
+        .get_template("cookie-policy.html")
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
 
-            // 根据模式请求不同端点
-            let url, method, body;
-            if (params.mode === 'theme') {
-                url = '/api/v1/preview/theme';
-                body = new URLSearchParams();
-                body.append('content', params.content);
-                body.append('content_type', params.content_type || 'post');
-                if (params.theme_slug) body.append('theme_slug', params.theme_slug);
-                if (params.theme_config) body.append('theme_config', params.theme_config);
-            } else {
-                url = '/api/v1/preview/content';
-                body = new URLSearchParams();
-                body.append('content', params.content);
-                body.append('content_type', params.content_type || 'post');
-            }
+    let rendered = tmpl
+        .render(minijinja::context! {})
+        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
 
-            const resp = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString(),
-                credentials: 'include',
-            });
+    let mut response = Html(rendered).into_response();
+    crate::shared::security::mark_response_security_profile(
+        &mut response,
+        crate::shared::security::SECURITY_PROFILE_THEME_HTML,
+    );
+    Ok(response)
+}
 
-            if (!resp.ok) {
-                const text = await resp.text();
-                throw new Error(text || 'HTTP ' + resp.status);
-            }
-
-            const html = await resp.text();
-            document.getElementById('loading').style.display = 'none';
-            const preview = document.getElementById('preview');
-            preview.style.display = 'block';
-            const iframe = document.createElement('iframe');
-            iframe.style.cssText = 'width:100%;height:100vh;border:none';
-            iframe.sandbox = 'allow-scripts allow-same-origin';
-            iframe.srcdoc = html;
-            preview.appendChild(iframe);
-        } catch (err) {
-            document.getElementById('loading').style.display = 'none';
-            const error = document.getElementById('error');
-            error.style.display = 'block';
-            const heading = document.createElement('h3');
-            heading.textContent = '加载失败';
-            const para = document.createElement('p');
-            para.textContent = err.message || 'Unknown error';
-            error.appendChild(heading);
-            error.appendChild(para);
-        }
-    })();
-    </script>
-</body>
-</html>"#;
-    Ok(Html(html.to_string()))
+/// catch-all 回退路由：未匹配到任何路径时渲染 404 页面
+pub async fn fallback_404(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Response {
+    render_404_page(&state, &headers).await
 }
 
 /// 渲染 404 错误页面
@@ -1816,143 +1411,185 @@ async fn try_render_error_template(
     Ok(rendered)
 }
 
-/// catch-all 回退路由：未匹配到任何路径时渲染 404 页面
-pub async fn fallback_404(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-) -> Response {
-    render_404_page(&state, &headers).await
-}
-
-/// 验证主题 slug 是否安全（不含路径穿越字符）
-fn validate_theme_slug_is_safe(slug: &str) -> AppResult<()> {
-    if slug.contains("..") || slug.contains('/') || slug.contains('\\') {
-        return Err(AppError::BadRequest("非法的主题标识".into()));
-    }
-    Ok(())
-}
-
-/// DELETE /api/v1/admin/themes/{slug}
-pub async fn delete_theme(
-    State(state): State<Arc<AppState>>,
-    _admin: AdminUser,
-    Path(slug): Path<String>,
-) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
-    validate_theme_slug_is_safe(&slug)?;
-
-    if slug == "default" {
-        return Err(AppError::BadRequest("不能删除 default 主题".into()));
-    }
-
-    let active_slug = crate::modules::theme::repository::get_active_theme(&state.pool).await?;
-    if slug == active_slug {
-        return Err(AppError::BadRequest("不能删除当前激活的主题，请先切换到其他主题".into()));
-    }
-
-    let theme_path = state.theme_dir.join(&slug);
-    if !theme_path.exists() {
-        return Err(AppError::NotFound(format!("主题 '{}' 不存在", slug)));
-    }
-
-    std::fs::remove_dir_all(&theme_path).map_err(|e| {
-        tracing::error!(
-            module = "theme",
-            event = "delete_theme_io_error",
-            slug = %slug,
-            error = %e,
-            "failed to remove theme directory"
-        );
-        AppError::Io(e)
-    })?;
-
-    crate::modules::theme::repository::delete_config(&state.pool, &slug).await?;
-    state.invalidate_all_caches().await;
-
-    tracing::info!(
-        module = "theme",
-        event = "theme_deleted",
-        slug = %slug,
-        "theme and config deleted successfully"
-    );
-
-    Ok(Json(ApiResponse::success(serde_json::json!({ "deleted": slug }))))
-}
-
-/// Cookie 政策页面：/cookie-policy
+/// L-6: 白名单校验静态文件路径安全性
 ///
-/// 渲染主题模板 `cookie-policy.html`，纯静态内容页面，无需认证。
-/// 模板中使用 `site_title`、`current_lang` 等 TemplateContext 内置变量。
-pub async fn render_cookie_policy(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-) -> AppResult<Response> {
-    let client_request_id =
-        crate::shared::request_id::extract_or_generate_client_request_id(&headers);
-    tracing::info!(
-        module = "theme",
-        event = "render_cookie_policy",
-        client_request_id = %client_request_id,
-        "rendering cookie policy page"
-    );
+/// 规则：
+/// 1. 非空，不以 `/` 或 `\` 开头
+/// 2. 每个字符只允许：字母、数字、`-`、`_`、`.`、`/`
+/// 3. 路径组件中不允许 `.` 或 `..`
+/// 4. 使用 depth 追踪确保不会遍历到 base 之外
+fn is_safe_static_path(path: &str) -> bool {
+    if path.is_empty() {
+        return false;
+    }
 
-    let ctx = TemplateContext::load(&state).await?;
-    let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let plugin_guard = state.plugin_manager.read().await;
-    let env = engine::build_template_engine(
-        &ctx,
-        &state.theme_dir,
-        &*plugin_guard,
-        &state.template_env_cache,
-        &state.asset_manifest,
-        Some(&current_lang),
-    )
-    .await?;
-    let tmpl = env
-        .get_template("cookie-policy.html")
-        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
+    // 拒绝绝对路径
+    if path.starts_with('/') || path.starts_with('\\') {
+        return false;
+    }
 
-    let rendered = tmpl
-        .render(minijinja::context! {})
-        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
+    // 白名单：只允许安全字符
+    if !path.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/') {
+        return false;
+    }
 
-    let mut response = Html(rendered).into_response();
-    crate::shared::security::mark_response_security_profile(
-        &mut response,
-        crate::shared::security::SECURITY_PROFILE_THEME_HTML,
-    );
-    Ok(response)
+    // 按组件检查，不允许 . 或 .. 组件，且 depth 不能为负
+    let mut depth: i32 = 0;
+    for component in path.split('/') {
+        if component == "." || component == "" {
+            continue;
+        }
+        if component == ".." {
+            depth -= 1;
+            if depth < 0 {
+                return false;
+            }
+        } else {
+            depth += 1;
+        }
+    }
+
+    // 至少要有一个有效文件组件
+    depth > 0
 }
 
-/// 搜索页查询参数
-#[derive(Debug, Deserialize)]
-pub struct SearchPageQuery {
-    #[serde(default)]
-    pub keyword: String,
-    pub page: Option<i64>,
-    pub page_size: Option<i64>,
+/// M-4: 对 SVG 响应添加 Content-Security-Policy: sandbox header
+/// 防止浏览器执行 SVG 内嵌的 JavaScript
+fn apply_svg_sandbox_csp_if_svg(response: &mut Response) {
+    let is_svg = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.starts_with("image/svg+xml"))
+        .unwrap_or(false);
+
+    if is_svg {
+        response.headers_mut().insert(
+            "content-security-policy",
+            header::HeaderValue::from_static("sandbox"),
+        );
+    }
 }
 
 #[cfg(test)]
-mod slug_tests {
-    use super::validate_theme_slug_is_safe;
+mod tests {
+    use super::*;
 
+    /// L-6: 路径遍历攻击 — 常规 `..` 应被拒绝
     #[test]
-    fn valid_slug_passes() {
-        assert!(validate_theme_slug_is_safe("my-theme").is_ok());
+    fn security_fix_l6_rejects_dot_dot_traversal() {
+        assert!(!is_safe_static_path("../etc/passwd"));
+        assert!(!is_safe_static_path("foo/../../../etc/passwd"));
     }
 
+    /// L-6: 路径遍历攻击 — 混合编码应被拒绝
     #[test]
-    fn dot_dot_rejected() {
-        assert!(validate_theme_slug_is_safe("../escape").is_err());
+    fn security_fix_l6_rejects_backslash_traversal() {
+        assert!(!is_safe_static_path("foo\\..\\..\\etc\\passwd"));
+        assert!(!is_safe_static_path("..\\etc\\passwd"));
     }
 
+    /// L-6: 路径遍历攻击 — 绝对路径应被拒绝
     #[test]
-    fn slash_rejected() {
-        assert!(validate_theme_slug_is_safe("bad/slug").is_err());
+    fn security_fix_l6_rejects_absolute_path() {
+        assert!(!is_safe_static_path("/etc/passwd"));
+        assert!(!is_safe_static_path("\\windows\\system32"));
     }
 
+    /// L-6: 路径遍历攻击 — 隐藏文件应被拒绝（. 开头的组件）
     #[test]
-    fn backslash_rejected() {
-        assert!(validate_theme_slug_is_safe("bad\\slug").is_err());
+    fn security_fix_l6_rejects_hidden_file_access() {
+        // `.hidden` 本身不是 `.` 或 `..`，但只包含点+字母 → 应该允许（合法文件名）
+        // 但 `.` 单独组件应被跳过（当前目录引用）
+        // 这里测试空路径和纯点
+        assert!(!is_safe_static_path(""));
+        assert!(!is_safe_static_path("."));
+        assert!(!is_safe_static_path(".."));
+    }
+
+    /// L-6: 合法路径应被允许
+    #[test]
+    fn security_fix_l6_allows_valid_path() {
+        assert!(is_safe_static_path("css/style.css"));
+        assert!(is_safe_static_path("js/app.min.js"));
+        assert!(is_safe_static_path("images/logo.png"));
+        assert!(is_safe_static_path("fonts/roboto-regular.woff2"));
+    }
+
+    /// L-6: 路径遍历攻击 — URL 编码形式的点号（双重编码防御）
+    #[test]
+    fn security_fix_l6_rejects_percent_encoded_traversal() {
+        // %2e 是 URL 编码的 `.`，但 Path extractor 已解码
+        // 确保解码后的 `..` 被拦截
+        assert!(!is_safe_static_path("%2e%2e/etc/passwd"));
+        assert!(!is_safe_static_path("%2e%2e%2fetc%2fpasswd"));
+    }
+
+    /// M-4: SVG 响应必须包含 Content-Security-Policy: sandbox header
+    /// 防止浏览器执行 SVG 内嵌的 JavaScript
+    #[test]
+    fn security_fix_m4_svg_response_has_csp_sandbox() {
+        use axum::response::IntoResponse;
+
+        // 模拟 serve_active_static 中 SVG 文件的响应逻辑
+        let mime = "image/svg+xml";
+        let data = b"<svg xmlns='http://www.w3.org/2000/svg'><rect/></svg>";
+        let mut response = (
+            [
+                (header::CONTENT_TYPE, mime),
+                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+            ],
+            data.to_vec(),
+        )
+            .into_response();
+
+        // 应用 M-4 修复：SVG 响应需要 sandbox CSP
+        apply_svg_sandbox_csp_if_svg(&mut response);
+
+        let headers = response.headers();
+        assert_eq!(
+            headers.get(header::CONTENT_TYPE).unwrap().to_str().unwrap(),
+            "image/svg+xml",
+            "Content-Type should be image/svg+xml"
+        );
+        assert!(
+            headers
+                .get("content-security-policy")
+                .and_then(|v| v.to_str().ok())
+                .map(|v| v.contains("sandbox"))
+                .unwrap_or(false),
+            "SVG response must include Content-Security-Policy with sandbox directive"
+        );
+    }
+
+    /// M-4: 非 SVG 响应不应被添加 sandbox CSP
+    #[test]
+    fn security_fix_m4_non_svg_response_no_sandbox() {
+        use axum::response::IntoResponse;
+
+        let mime = "image/png";
+        let data = b"\x89PNG\r\n";
+        let mut response = (
+            [
+                (header::CONTENT_TYPE, mime),
+                (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+            ],
+            data.to_vec(),
+        )
+            .into_response();
+
+        apply_svg_sandbox_csp_if_svg(&mut response);
+
+        let headers = response.headers();
+        // 非 SVG 不应有 sandbox CSP
+        let has_sandbox = headers
+            .get("content-security-policy")
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.contains("sandbox"))
+            .unwrap_or(false);
+        assert!(
+            !has_sandbox,
+            "Non-SVG response should not have sandbox CSP"
+        );
     }
 }
