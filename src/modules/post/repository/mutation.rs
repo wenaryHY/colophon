@@ -1,6 +1,7 @@
 use uuid::Uuid;
 
 use crate::modules::post::post_types::{NewPostParams, PostStatus, UpdatePostParams};
+use crate::modules::post::service::SQLITE_DATETIME_FORMAT;
 
 pub async fn insert_post<'e, E>(
     executor: E,
@@ -9,9 +10,11 @@ pub async fn insert_post<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
+    assert_scheduled_has_scheduled_at(params.status, params.scheduled_at)?;
+
     let id = Uuid::new_v4().to_string();
     let published_at = if params.status == PostStatus::Published {
-        Some(chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string())
+        Some(chrono::Utc::now().format(SQLITE_DATETIME_FORMAT).to_string())
     } else {
         None
     };
@@ -55,13 +58,15 @@ pub async fn update_post<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
+    assert_scheduled_has_scheduled_at(params.status, params.scheduled_at)?;
+
     // 只在从非 published 状态首次发布时才设置 published_at；
     // 若已发布则保留原时间；若切换回 draft/trashed 则清空。
     let published_at: Option<String> = if params.status == PostStatus::Published {
         Some(
             current_published_at
                 .map(|t| t.to_string())
-                .unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()),
+                .unwrap_or_else(|| chrono::Utc::now().format(SQLITE_DATETIME_FORMAT).to_string()),
         )
     } else {
         None
@@ -142,6 +147,20 @@ where
     Ok(())
 }
 
+/// 验证 Scheduled 状态必须有 scheduled_at。
+/// 在 insert_post 和 update_post 入口处调用，防止数据库约束泄漏到业务层。
+fn assert_scheduled_has_scheduled_at(
+    status: PostStatus,
+    scheduled_at: Option<&str>,
+) -> Result<(), sqlx::Error> {
+    if status == PostStatus::Scheduled && scheduled_at.is_none() {
+        return Err(sqlx::Error::Protocol(
+            "Scheduled status requires scheduled_at".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// 原子发布所有到期的定时文章。
 /// 返回被发布的文章 ID 列表。
 pub async fn publish_scheduled_posts<'e, E>(
@@ -159,4 +178,41 @@ where
     .fetch_all(executor)
     .await?;
     Ok(ids)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn assert_scheduled_has_scheduled_at_ok_when_present() {
+        let result = assert_scheduled_has_scheduled_at(
+            PostStatus::Scheduled,
+            Some("2026-12-01 10:00:00"),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn assert_scheduled_has_scheduled_at_err_when_none() {
+        let result = assert_scheduled_has_scheduled_at(PostStatus::Scheduled, None);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("scheduled_at"));
+    }
+
+    #[test]
+    fn assert_scheduled_has_scheduled_at_ok_for_non_scheduled_status() {
+        // Draft 不需要 scheduled_at
+        let result = assert_scheduled_has_scheduled_at(PostStatus::Draft, None);
+        assert!(result.is_ok());
+
+        // Published 不需要 scheduled_at
+        let result = assert_scheduled_has_scheduled_at(PostStatus::Published, None);
+        assert!(result.is_ok());
+
+        // Trashed 不需要 scheduled_at
+        let result = assert_scheduled_has_scheduled_at(PostStatus::Trashed, None);
+        assert!(result.is_ok());
+    }
 }

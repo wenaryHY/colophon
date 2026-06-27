@@ -114,8 +114,9 @@ pub async fn serve() -> anyhow::Result<()> {
 
     // 启动定时发布调度器
     let post_scheduler_state = state.clone();
+    let post_scheduler_cancel = state.shutdown_token.clone();
     tokio::spawn(async move {
-        modules::post::scheduler::start_post_scheduler(post_scheduler_state).await;
+        modules::post::scheduler::start_post_scheduler(post_scheduler_state, post_scheduler_cancel).await;
     });
 
     // ── 启动 WebP 转换 worker ──

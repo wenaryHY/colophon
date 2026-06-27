@@ -4,7 +4,6 @@ mod tests {
     use std::io::Read;
     use std::io::Write;
     use std::sync::Arc;
-    use tokio::fs;
     use tokio::sync::{broadcast, RwLock};
 
     use tokio_util::sync::CancellationToken;
@@ -19,14 +18,15 @@ mod tests {
         service::{create_backup, delete_backup, list_backups, restore_backup_from_bytes},
     };
 
-    /// 创建测试环境：临时数据库 + AppState
-    async fn setup_test_env() -> (Arc<AppState>, String) {
-        let test_id = uuid::Uuid::new_v4();
-        let db_path = format!("test_backup_{}.db", test_id);
-        let backup_dir = format!("test_backups_{}", test_id);
+    /// 创建测试环境：临时数据库 + AppState（使用 tempfile 自动清理）
+    async fn setup_test_env() -> (Arc<AppState>, tempfile::TempDir) {
+        let temp_dir = tempfile::tempdir().expect("create tempdir");
+        let temp_path = temp_dir.path();
+        let db_path = temp_path.join("test_backup.db");
+        let backup_dir = temp_path.join("backups");
 
         // 创建数据库连接
-        let pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path))
+        let pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path.display()))
             .await
             .expect("Failed to create test database");
 
@@ -48,12 +48,12 @@ mod tests {
         let state = AppState {
             pool: pool.clone(),
             config,
-            upload_dir: std::path::PathBuf::from("test_uploads"),
+            upload_dir: temp_path.join("uploads"),
             static_dir: std::path::PathBuf::from("static"),
             theme_dir: std::path::PathBuf::from("themes"),
             admin_dist_dir: std::path::PathBuf::from("admin/dist"),
-            db_path: std::path::PathBuf::from(&db_path),
-            backup_dir: std::path::PathBuf::from(&backup_dir),
+            db_path: db_path.clone(),
+            backup_dir: backup_dir.clone(),
             event_tx,
             site_url: Arc::new(RwLock::new("http://localhost:3000".to_string())),
             admin_url: Arc::new(RwLock::new("http://localhost:3000/admin".to_string())),
@@ -78,17 +78,7 @@ mod tests {
             webp_worker_handle: Arc::new(tokio::sync::Mutex::new(None)),
         };
 
-        (Arc::new(state), backup_dir)
-    }
-
-    /// 清理测试文件
-    async fn cleanup_test_files(db_path: &str, backup_dir: &str) {
-        let _ = fs::remove_file(db_path).await;
-        let _ = fs::remove_file(format!("{}.bak", db_path)).await;
-        let _ = fs::remove_file(format!("{}.restore", db_path)).await;
-        let _ = fs::remove_dir_all(backup_dir).await;
-        let _ = fs::remove_dir_all("backups").await;
-        let _ = fs::remove_dir_all("test_uploads").await;
+        (Arc::new(state), temp_dir)
     }
 
     /// 创建测试用户
@@ -133,8 +123,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_backup_creates_valid_file() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
 
         // 插入测试数据
         let author_id = create_test_user(&state.pool).await;
@@ -154,20 +143,17 @@ mod tests {
 
         // 验证备份文件存在
         let backend =
-            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+            crate::infra::backup::LocalBackupStorage::new(state.backup_dir.clone());
         let bytes = backend
             .read(backup_id, "backup.zip")
             .await
             .expect("Backup file should exist");
         assert!(bytes.len() > 0);
-
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     #[tokio::test]
     async fn test_backup_file_contains_database() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
 
         let author_id = create_test_user(&state.pool).await;
         insert_test_post(&state.pool, &author_id, "Content Check", "content-check").await;
@@ -180,7 +166,7 @@ mod tests {
 
         // 读取备份内容
         let backend =
-            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+            crate::infra::backup::LocalBackupStorage::new(state.backup_dir.clone());
         let bytes = backend.read(backup_id, "backup.zip").await.unwrap();
 
         // 验证 ZIP 包含数据库文件
@@ -191,14 +177,11 @@ mod tests {
             .expect("Backup should contain database file");
 
         assert!(db_entry.size() > 0);
-
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     #[tokio::test]
     async fn test_list_backups_returns_sorted_by_time() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
 
         let author_id = create_test_user(&state.pool).await;
 
@@ -238,14 +221,12 @@ mod tests {
             assert_eq!(backup.provider, "local");
             assert_eq!(backup.status, "completed");
         }
-
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     #[tokio::test]
     async fn test_restore_backup_restores_data() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
+        let db_path = state.db_path.clone();
 
         // 1. 插入原始数据
         let author_id = create_test_user(&state.pool).await;
@@ -276,14 +257,14 @@ mod tests {
 
         // 4. 读取备份并恢复
         let backend =
-            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+            crate::infra::backup::LocalBackupStorage::new(state.backup_dir.clone());
         let backup_bytes = backend.read(&backup_id, "backup.zip").await.unwrap();
 
         // 关闭连接池，释放数据库锁
         state.pool.close().await;
 
         // 重新连接
-        let new_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path))
+        let new_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path.display()))
             .await
             .expect("Failed to reconnect");
 
@@ -322,7 +303,7 @@ mod tests {
         new_pool.close().await;
 
         // 重新连接验证数据恢复
-        let verify_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path))
+        let verify_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path.display()))
             .await
             .expect("Failed to reconnect for verification");
 
@@ -335,13 +316,11 @@ mod tests {
         assert_eq!(restored, "Original Title");
 
         verify_pool.close().await;
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     #[tokio::test]
     async fn test_delete_backup_removes_file() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
 
         let author_id = create_test_user(&state.pool).await;
         insert_test_post(&state.pool, &author_id, "Test", "test").await;
@@ -353,7 +332,7 @@ mod tests {
 
         // 验证文件存在
         let backend =
-            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+            crate::infra::backup::LocalBackupStorage::new(state.backup_dir.clone());
         assert!(backend.read(&backup_id, "backup.zip").await.is_ok());
 
         // 删除备份
@@ -367,14 +346,11 @@ mod tests {
         // 验证数据库记录已删除
         let backups = list_backups(state.clone()).await.unwrap();
         assert!(!backups.iter().any(|b| b.id == backup_id));
-
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     #[tokio::test]
     async fn test_rejects_path_traversal_in_backup_id() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
 
         let malicious_ids = vec![
             "../../../etc/passwd",
@@ -385,21 +361,18 @@ mod tests {
         ];
 
         let backend =
-            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+            crate::infra::backup::LocalBackupStorage::new(state.backup_dir.clone());
 
         for id in malicious_ids {
             // 尝试读取恶意路径
             let result = backend.read(id, "backup.zip").await;
             assert!(result.is_err(), "Should not allow reading path: {}", id);
         }
-
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     #[tokio::test]
     async fn test_backup_contains_manifest_with_correct_hash() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
 
         let author_id = create_test_user(&state.pool).await;
         insert_test_post(&state.pool, &author_id, "Hash Test", "hash-test").await;
@@ -413,7 +386,7 @@ mod tests {
 
         // 读取备份并验证 manifest
         let backend =
-            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+            crate::infra::backup::LocalBackupStorage::new(state.backup_dir.clone());
         let bytes = backend.read(backup_id, "backup.zip").await.unwrap();
 
         let reader = std::io::Cursor::new(&bytes);
@@ -429,14 +402,12 @@ mod tests {
 
         assert_eq!(manifest_hash, expected_hash);
         assert_eq!(manifest["provider"].as_str().unwrap(), "local");
-
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     #[tokio::test]
     async fn test_restore_validates_manifest_hash() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
+        let db_path = state.db_path.clone();
 
         let author_id = create_test_user(&state.pool).await;
         insert_test_post(
@@ -454,7 +425,7 @@ mod tests {
 
         // 读取备份
         let backend =
-            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+            crate::infra::backup::LocalBackupStorage::new(state.backup_dir.clone());
         let mut bytes = backend.read(backup_id, "backup.zip").await.unwrap();
 
         // 篡改数据（改变最后一个字节）
@@ -464,7 +435,7 @@ mod tests {
 
         // 尝试恢复损坏的备份
         state.pool.close().await;
-        let new_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path))
+        let new_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path.display()))
             .await
             .unwrap();
 
@@ -501,13 +472,11 @@ mod tests {
         assert!(result.is_err(), "Should reject corrupted backup");
 
         new_pool.close().await;
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     #[tokio::test]
     async fn test_multiple_backups_independent() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
 
         let author_id = create_test_user(&state.pool).await;
         // 创建第一个备份
@@ -539,18 +508,15 @@ mod tests {
             .unwrap();
 
         let backend =
-            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+            crate::infra::backup::LocalBackupStorage::new(state.backup_dir.clone());
         assert!(backend.read(&backup_id1, "backup.zip").await.is_err());
         assert!(backend.read(&backup_id2, "backup.zip").await.is_ok());
-
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     /// 路径穿越防护：构造包含 `../` 的恶意 ZIP 条目，验证 restore 拒绝写入
     #[tokio::test]
     async fn test_restore_rejects_path_traversal_in_zip_entry() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
 
         let author_id = create_test_user(&state.pool).await;
         insert_test_post(&state.pool, &author_id, "ZipSlip Test", "zipslip-test").await;
@@ -562,7 +528,7 @@ mod tests {
         let backup_id = result["id"].as_str().unwrap();
 
         let backend =
-            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+            crate::infra::backup::LocalBackupStorage::new(state.backup_dir.clone());
         let original_bytes = backend.read(backup_id, "backup.zip").await.unwrap();
 
         // 2. 提取有效条目（DB + manifest）
@@ -620,8 +586,6 @@ mod tests {
         //    应在第1层即拦截，文件不会落盘
         let evil_path = std::path::Path::new("/etc/cron.d/evil");
         assert!(!evil_path.exists(), "恶意文件不应被写入系统目录");
-
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     // ── 时区转换纯函数测试 ──────────────────────────────────────
@@ -674,8 +638,8 @@ mod tests {
     /// 本测试改为验证合法大小文件通过限制检查，确认代码路径可正常执行。
     #[tokio::test]
     async fn test_restore_allows_media_file_within_size_limit() {
-        let (state, backup_dir) = setup_test_env().await;
-        let db_path = state.db_path.to_string_lossy().to_string();
+        let (state, _temp_dir) = setup_test_env().await;
+        let db_path = state.db_path.clone();
 
         let author_id = create_test_user(&state.pool).await;
         insert_test_post(&state.pool, &author_id, "SizeTest", "sizetest").await;
@@ -687,7 +651,7 @@ mod tests {
         let backup_id = result["id"].as_str().unwrap();
 
         let backend =
-            crate::infra::backup::LocalBackupStorage::new(std::path::PathBuf::from(&backup_dir));
+            crate::infra::backup::LocalBackupStorage::new(state.backup_dir.clone());
         let original_bytes = backend.read(backup_id, "backup.zip").await.unwrap();
 
         // 提取有效条目
@@ -725,7 +689,7 @@ mod tests {
 
         // 完整恢复需要替换数据库，先关闭连接池再重建 AppState
         state.pool.close().await;
-        let new_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path))
+        let new_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path.display()))
             .await
             .unwrap();
         let new_state = Arc::new(AppState {
@@ -762,7 +726,6 @@ mod tests {
         );
 
         new_pool.close().await;
-        cleanup_test_files(&db_path, &backup_dir).await;
     }
 
     #[test]

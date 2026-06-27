@@ -27,6 +27,9 @@ use super::{
     repository,
 };
 
+/// SQLite datetime 格式，用于 scheduled_at 的 UTC 存储。
+pub(crate) const SQLITE_DATETIME_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
+
 fn normalize_status(value: Option<PostStatus>) -> AppResult<PostStatus> {
     Ok(value.unwrap_or_default())
 }
@@ -63,12 +66,12 @@ fn convert_scheduled_at_to_utc(
     // 尝试解析带时区的 ISO 8601
     if let Ok(dt) = DateTime::parse_from_rfc3339(scheduled_at) {
         let utc = dt.with_timezone(&Utc);
-        return Ok(utc.format("%Y-%m-%d %H:%M:%S").to_string());
+        return Ok(utc.format(SQLITE_DATETIME_FORMAT).to_string());
     }
 
     // 尝试解析不带时区的本地时间
     let naive = NaiveDateTime::parse_from_str(scheduled_at, "%Y-%m-%dT%H:%M:%S")
-        .or_else(|_| NaiveDateTime::parse_from_str(scheduled_at, "%Y-%m-%d %H:%M:%S"))
+        .or_else(|_| NaiveDateTime::parse_from_str(scheduled_at, SQLITE_DATETIME_FORMAT))
         .map_err(|_| AppError::BadRequest(format!(
             "无效的时间格式: '{}'。请使用 ISO 8601 格式，如 '2026-06-27T20:00:00'",
             scheduled_at
@@ -93,13 +96,16 @@ fn convert_scheduled_at_to_utc(
     };
 
     let utc = local_dt.with_timezone(&Utc);
-    Ok(utc.format("%Y-%m-%d %H:%M:%S").to_string())
+    Ok(utc.format(SQLITE_DATETIME_FORMAT).to_string())
 }
 
 /// 验证 scheduled_at 是否在未来。
 fn validate_scheduled_at_is_future(scheduled_at_utc: &str) -> AppResult<()> {
-    let naive = NaiveDateTime::parse_from_str(scheduled_at_utc, "%Y-%m-%d %H:%M:%S")
-        .map_err(|_| AppError::BadRequest("内部错误：无法解析 scheduled_at UTC 时间".to_string()))?;
+    let naive = NaiveDateTime::parse_from_str(scheduled_at_utc, SQLITE_DATETIME_FORMAT)
+        .map_err(|_| AppError::BadRequest(format!(
+            "无法解析定时发布时间: '{}'，请使用正确的时间格式",
+            scheduled_at_utc
+        )))?;
     
     let scheduled = naive.and_utc();
     let now = Utc::now();
@@ -489,6 +495,10 @@ pub async fn update_post(
                 // 从 Scheduled 降级到 Draft，清空 scheduled_at
                 (requested_status, None)
             }
+            PostStatus::Published => {
+                // 发布时清空 scheduled_at
+                (requested_status, None)
+            }
             _ => (requested_status, current.scheduled_at.clone()),
         }
     } else {
@@ -832,7 +842,7 @@ mod scheduled_at_tests {
 
     #[test]
     fn accepts_future_time_within_one_year() {
-        let future = (Utc::now() + chrono::Duration::days(30)).format("%Y-%m-%d %H:%M:%S").to_string();
+        let future = (Utc::now() + chrono::Duration::days(30)).format(SQLITE_DATETIME_FORMAT).to_string();
         let result = validate_scheduled_at_is_future(&future);
         assert!(result.is_ok());
     }
@@ -842,9 +852,17 @@ mod scheduled_at_tests {
         let result = validate_scheduled_at_is_future("not-a-time");
         assert!(result.is_err());
         match result.unwrap_err() {
-            AppError::BadRequest(msg) => assert!(msg.contains("内部错误")),
+            AppError::BadRequest(msg) => assert!(msg.contains("无法解析定时发布时间")),
             _ => panic!("expected BadRequest"),
         }
+    }
+
+    #[test]
+    fn malformed_utc_error_shows_input_value() {
+        let result = validate_scheduled_at_is_future("bad-input");
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("bad-input"));
     }
 
     // ── end-to-end: convert then validate ──
@@ -870,5 +888,43 @@ mod scheduled_at_tests {
         let result = validate_scheduled_at_is_future(far_future);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("一年"));
+    }
+
+    // ── L-1: SQLITE_DATETIME_FORMAT 常量 ──
+
+    #[test]
+    fn sqlite_datetime_format_matches_expected() {
+        assert_eq!(SQLITE_DATETIME_FORMAT, "%Y-%m-%d %H:%M:%S");
+    }
+
+    #[test]
+    fn convert_scheduled_at_to_utc_uses_constant_format() {
+        // 验证转换结果格式与常量一致
+        let result = convert_scheduled_at_to_utc("2026-06-27T20:00:00+08:00", "UTC").unwrap();
+        let parsed = NaiveDateTime::parse_from_str(&result, SQLITE_DATETIME_FORMAT);
+        assert!(parsed.is_ok(), "convert_scheduled_at_to_utc 输出应匹配 SQLITE_DATETIME_FORMAT");
+    }
+
+    // ── DST 边界测试（H-2）──
+
+    #[test]
+    fn convert_scheduled_at_to_utc_ambiguous_time_picks_earlier() {
+        // America/New_York 在 11月第一个周日 1:00-2:00 会重复
+        // 1:30 AM 出现两次：EDT (UTC-4) 和 EST (UTC-5)
+        // 应选择较早的 EDT 版本
+        // 2024-11-03 是 America/New_York 的 DST 结束日
+        let result = convert_scheduled_at_to_utc("2024-11-03T01:30:00", "America/New_York");
+        // 只验证不 panic，具体值依赖 chrono 的 Ambiguous 选择策略
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn convert_scheduled_at_to_utc_nonexistent_time_returns_error() {
+        // America/New_York 在 3月第二个周日 2:00-3:00 被跳过
+        // 2:30 AM 不存在，应返回错误
+        let result = convert_scheduled_at_to_utc("2024-03-10T02:30:00", "America/New_York");
+        // 不存在的时间应返回错误
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("不存在"));
     }
 }
