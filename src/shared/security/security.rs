@@ -11,8 +11,21 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use base64::Engine;
 
 use crate::{shared::error::AppError, state::AppState};
+
+/// 每请求唯一的 CSP nonce，用于替代 'unsafe-inline'
+#[derive(Clone, Debug)]
+pub struct CspNonce(pub String);
+
+/// 生成 16 字节随机 nonce，base64url 编码
+pub fn generate_csp_nonce() -> String {
+    use rand::Rng;
+    let mut bytes = [0u8; 16];
+    rand::thread_rng().fill(&mut bytes);
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
+}
 
 /// M-1: 可信代理 IP 提取器 — 仅当连接来源 IP 是可信代理时，才信任 X-Forwarded-For
 #[derive(Clone, Debug)]
@@ -79,14 +92,12 @@ pub const SECURITY_PROFILE_THEME_HTML: &str = "theme-html";
 pub const SECURITY_PROFILE_CUSTOM_HTML: &str = "custom-html";
 pub const SECURITY_PROFILE_PREVIEW: &str = "preview";
 
-// ⚠️ 技术债务 (P2-1)：CSP 包含 'unsafe-inline' 降低 XSS 防护
-// 原因：主题系统允许用户上传自定义主题，大量依赖内联脚本
-// 迁移路径：未来需实施 CSP nonce 机制，逐步移除 unsafe-inline
-// 当前缓解措施：严格的其他 CSP 指令 + SSRF 防护 + 主题沙箱
-const THEME_HTML_CSP: &str = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; upgrade-insecure-requests; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' ws: wss:; frame-src 'none'";
-const CUSTOM_HTML_CSP: &str = "default-src 'self' data: blob:; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:";
-/// 预览页面 CSP — 比主题页面更严格，禁止内联脚本
-pub const PREVIEW_CSP: &str = "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'none'; frame-src 'none';";
+// CSP 模板：script-src 使用 nonce-{NONCE} 替代 'unsafe-inline'
+// style-src 保留 'unsafe-inline'（CSS 不影响 XSS 防护）
+const THEME_HTML_CSP_TEMPLATE: &str = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; upgrade-insecure-requests; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' 'nonce-{NONCE}' https://fonts.googleapis.com; script-src 'self' 'nonce-{NONCE}' https://static.cloudflareinsights.com; connect-src 'self' ws: wss:; frame-src 'none'";
+const CUSTOM_HTML_CSP_TEMPLATE: &str = "default-src 'self' data: blob:; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline' 'nonce-{NONCE}'; script-src 'self' 'nonce-{NONCE}'; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:";
+/// 预览页面 CSP — script-src 为 'none'，不需要 nonce
+pub const PREVIEW_CSP_TEMPLATE: &str = "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'none'; frame-src 'none';";
 
 #[derive(Debug, Default)]
 pub struct LoginRateLimiter {
@@ -155,7 +166,27 @@ fn forwarded_ip(headers: &HeaderMap) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn client_key(headers: &HeaderMap) -> String {
+/// N-5: 仅当来源 IP 是可信代理时，才信任 X-Forwarded-For / X-Real-Ip 代理头。
+/// 无 ConnectInfo 时回退到旧行为（兼容非 TCP 传输）。
+fn client_key(headers: &HeaderMap, peer_ip: Option<IpAddr>, trusted_proxies: &[IpAddr]) -> String {
+    if let Some(ip) = peer_ip {
+        if trusted_proxies.contains(&ip) {
+            // 来源是可信代理，信任代理头
+            if let Some(forwarded) = forwarded_ip(headers).or_else(|| {
+                headers
+                    .get("x-real-ip")
+                    .and_then(|v| v.to_str().ok())
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .map(ToOwned::to_owned)
+            }) {
+                return forwarded;
+            }
+        }
+        // 来源不是可信代理，或代理头缺失，使用真实 TCP 对端 IP
+        return ip.to_string();
+    }
+    // 无 ConnectInfo 时回退
     forwarded_ip(headers)
         .or_else(|| {
             headers
@@ -170,10 +201,18 @@ fn client_key(headers: &HeaderMap) -> String {
 
 pub async fn login_rate_limit(
     State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>,
     request: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    let key = client_key(request.headers());
+    let trusted_proxies: Vec<IpAddr> = state
+        .config
+        .server
+        .trusted_proxies
+        .iter()
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    let key = client_key(request.headers(), Some(addr.ip()), &trusted_proxies);
     let allowed = {
         let mut limiter = state.login_rate_limiter.lock().await;
         limiter.allow(key.clone(), Instant::now())
@@ -194,13 +233,15 @@ pub async fn login_rate_limit(
     Ok(next.run(request).await)
 }
 
-fn csp_for_profile(profile: &str) -> Option<&'static str> {
-    match profile {
-        SECURITY_PROFILE_THEME_HTML => Some(THEME_HTML_CSP),
-        SECURITY_PROFILE_CUSTOM_HTML => Some(CUSTOM_HTML_CSP),
-        SECURITY_PROFILE_PREVIEW => Some(PREVIEW_CSP),
-        _ => None,
-    }
+/// 根据安全 profile 和 nonce 生成动态 CSP
+fn csp_for_profile_with_nonce(profile: &str, nonce: &str) -> Option<String> {
+    let template = match profile {
+        SECURITY_PROFILE_THEME_HTML => THEME_HTML_CSP_TEMPLATE,
+        SECURITY_PROFILE_CUSTOM_HTML => CUSTOM_HTML_CSP_TEMPLATE,
+        SECURITY_PROFILE_PREVIEW => PREVIEW_CSP_TEMPLATE,
+        _ => return None,
+    };
+    Some(template.replace("{NONCE}", nonce))
 }
 
 pub fn mark_response_security_profile(response: &mut Response, profile: &'static str) {
@@ -209,7 +250,11 @@ pub fn mark_response_security_profile(response: &mut Response, profile: &'static
         .insert(SECURITY_PROFILE_HEADER, HeaderValue::from_static(profile));
 }
 
-pub async fn security_headers(request: Request, next: Next) -> Response {
+pub async fn security_headers(mut request: Request, next: Next) -> Response {
+    // 生成 nonce 并存入 request extensions（供模板使用）
+    let nonce = generate_csp_nonce();
+    request.extensions_mut().insert(CspNonce(nonce.clone()));
+
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
     headers.insert(
@@ -234,8 +279,10 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
         .remove(SECURITY_PROFILE_HEADER)
         .and_then(|value| value.to_str().ok().map(ToOwned::to_owned))
     {
-        if let Some(csp) = csp_for_profile(&profile) {
-            headers.insert("Content-Security-Policy", HeaderValue::from_static(csp));
+        if let Some(csp) = csp_for_profile_with_nonce(&profile, &nonce) {
+            if let Ok(val) = HeaderValue::from_str(&csp) {
+                headers.insert("Content-Security-Policy", val);
+            }
         }
     }
 
@@ -346,38 +393,57 @@ mod tests {
     }
 
     #[test]
-    fn client_key_prefers_forwarded_for() {
+    fn client_key_prefers_forwarded_for_from_trusted_proxy() {
         let mut headers = HeaderMap::new();
         headers.insert("x-forwarded-for", "1.2.3.4".parse().unwrap());
         headers.insert("x-real-ip", "5.6.7.8".parse().unwrap());
-        assert_eq!(client_key(&headers), "1.2.3.4");
+        let trusted: Vec<IpAddr> = vec!["9.9.9.9".parse().unwrap()];
+        assert_eq!(
+            client_key(&headers, Some("9.9.9.9".parse().unwrap()), &trusted),
+            "1.2.3.4"
+        );
     }
 
     #[test]
-    fn client_key_falls_back_to_real_ip() {
+    fn client_key_returns_peer_ip_when_not_trusted_proxy() {
         let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", "1.2.3.4".parse().unwrap());
         headers.insert("x-real-ip", "5.6.7.8".parse().unwrap());
-        assert_eq!(client_key(&headers), "5.6.7.8");
+        let trusted: Vec<IpAddr> = vec!["9.9.9.9".parse().unwrap()];
+        // 8.8.8.8 不是可信代理，忽略代理头，返回对端 IP
+        assert_eq!(
+            client_key(&headers, Some("8.8.8.8".parse().unwrap()), &trusted),
+            "8.8.8.8"
+        );
     }
 
     #[test]
-    fn client_key_returns_unknown_when_no_headers() {
+    fn client_key_returns_unknown_when_no_peer_ip_and_no_headers() {
         let headers = HeaderMap::new();
-        assert_eq!(client_key(&headers), "unknown");
+        let trusted: Vec<IpAddr> = vec![];
+        assert_eq!(client_key(&headers, None, &trusted), "unknown");
     }
 
+    /// N-5: 验证 client_key 拒绝非可信代理的 X-Forwarded-For
     #[test]
-    fn csp_for_profile_returns_correct_policies() {
-        assert!(csp_for_profile(SECURITY_PROFILE_THEME_HTML).is_some());
-        assert!(csp_for_profile(SECURITY_PROFILE_CUSTOM_HTML).is_some());
-        assert!(csp_for_profile(SECURITY_PROFILE_PREVIEW).is_some());
-        assert!(csp_for_profile("nonexistent").is_none());
+    fn security_fix_n5_client_key_ignores_forwarded_for_from_untrusted_proxy() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", "1.2.3.4".parse().unwrap());
+        let trusted: Vec<IpAddr> = vec!["10.0.0.1".parse().unwrap()];
+        // 8.8.8.8 不是可信代理，X-Forwarded-For 应被忽略
+        let key = client_key(&headers, Some("8.8.8.8".parse().unwrap()), &trusted);
+        assert_eq!(key, "8.8.8.8");
     }
 
+    /// N-5: 验证 client_key 信任可信代理的 X-Forwarded-For
     #[test]
-    fn csp_theme_html_contains_self() {
-        let csp = csp_for_profile(SECURITY_PROFILE_THEME_HTML).unwrap();
-        assert!(csp.contains("'self'"));
+    fn security_fix_n5_client_key_trusts_forwarded_for_from_trusted_proxy() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", "10.0.0.99".parse().unwrap());
+        let trusted: Vec<IpAddr> = vec!["10.0.0.1".parse().unwrap()];
+        // 10.0.0.1 是可信代理，X-Forwarded-For 应被信任
+        let key = client_key(&headers, Some("10.0.0.1".parse().unwrap()), &trusted);
+        assert_eq!(key, "10.0.0.99");
     }
 
     /// M-1: 验证 ForwardedIpExtractor 拒绝非可信代理的 X-Forwarded-For
@@ -449,5 +515,38 @@ mod tests {
         // 新 IP 应被拒绝，而非降级放行
         let result = limiter.allow("new_ip_attacker".into(), now);
         assert!(!result, "rate limiter should reject new IP when at capacity");
+    }
+
+    #[test]
+    fn security_fix_h1_csp_contains_nonce() {
+        let nonce = "test-nonce-123";
+        let csp = csp_for_profile_with_nonce(SECURITY_PROFILE_THEME_HTML, nonce).unwrap();
+        assert!(csp.contains("'nonce-test-nonce-123'"));
+        // style-src 保留 unsafe-inline 是正确的（CSS 不影响 XSS 防护）
+        assert!(!csp.contains("script-src 'self' 'unsafe-inline'"));
+    }
+
+    #[test]
+    fn security_fix_h1_style_csp_contains_nonce() {
+        let nonce = "test-nonce-123";
+        let csp = csp_for_profile_with_nonce(SECURITY_PROFILE_THEME_HTML, nonce).unwrap();
+        // style-src 应包含 nonce
+        assert!(csp.contains("style-src 'self' 'unsafe-inline' 'nonce-test-nonce-123'"));
+    }
+
+    #[test]
+    fn security_fix_h1_nonce_is_unique_per_request() {
+        let n1 = generate_csp_nonce();
+        let n2 = generate_csp_nonce();
+        assert_ne!(n1, n2);
+        assert!(n1.len() > 16);
+    }
+
+    #[test]
+    fn security_fix_h1_preview_csp_unchanged() {
+        let nonce = "test";
+        let csp = csp_for_profile_with_nonce(SECURITY_PROFILE_PREVIEW, nonce).unwrap();
+        assert!(csp.contains("script-src 'none'"));
+        assert!(!csp.contains("nonce"));
     }
 }

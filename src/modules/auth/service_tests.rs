@@ -504,6 +504,7 @@ mod tests {
             role: Role::Member,
             exp: now - 3600, // 1 小时前过期
             token_version: 1,
+            iss: Some("colophon".into()),
         };
 
         let token = jsonwebtoken::encode(

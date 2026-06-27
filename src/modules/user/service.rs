@@ -110,6 +110,9 @@ pub async fn update_password(
         ));
     }
 
+    // N-4: 密码复杂度检查 — 复用 auth 模块相同的复杂度规则
+    crate::shared::auth::validate_password_complexity(&body.new_password)?;
+
     let current_hash = repository::find_password_hash(&state.pool, &auth.id)
         .await?
         .ok_or(AppError::Unauthorized)?;

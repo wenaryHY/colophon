@@ -1,7 +1,6 @@
 pub mod api_key;
 pub mod auth;
 pub mod backup;
-pub mod category;
 pub mod comment;
 pub mod media;
 pub mod plugin;
@@ -14,3 +13,4 @@ pub mod theme;
 pub mod trash;
 pub mod user;
 pub mod webhook;
+pub mod category;

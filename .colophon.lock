@@ -1,0 +1,323 @@
+version = 39
+generated_at = "2026-06-27T03:28:53.461745168+00:00"
+
+[collections.Category]
+table = "categories"
+
+[[collections.Category.fields]]
+name = "id"
+type = "text"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "String"
+sqlite_type = "TEXT PRIMARY KEY NOT NULL"
+
+[[collections.Category.fields]]
+name = "name"
+type = "text"
+required = true
+unique = true
+computed = false
+is_updatable = true
+is_auto_generated = false
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL"
+
+[[collections.Category.fields]]
+name = "slug"
+type = "text"
+required = true
+unique = true
+computed = false
+is_updatable = true
+is_auto_generated = false
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL"
+
+[[collections.Category.fields]]
+name = "description"
+type = "richtext"
+required = false
+unique = false
+computed = false
+is_updatable = true
+is_auto_generated = false
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL"
+
+[[collections.Category.fields]]
+name = "parent_id"
+type = "relation"
+required = false
+unique = false
+computed = false
+references = "categories.id"
+is_updatable = true
+is_auto_generated = false
+rust_type = "Option<String>"
+sqlite_type = "TEXT"
+
+[[collections.Category.fields]]
+name = "excerpt"
+type = "text"
+required = true
+unique = false
+computed = true
+is_updatable = true
+is_auto_generated = false
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL"
+
+[[collections.Category.fields]]
+name = "created_at"
+type = "timestamp"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL DEFAULT (datetime('now'))"
+
+[[collections.Category.fields]]
+name = "updated_at"
+type = "timestamp"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL DEFAULT (datetime('now'))"
+
+[[collections.Category.fields]]
+name = "deleted_at"
+type = "timestamp"
+required = false
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "Option<String>"
+sqlite_type = "TEXT"
+
+[[collections.Category.fields]]
+name = "sort_order"
+type = "integer"
+required = true
+unique = false
+computed = false
+is_updatable = true
+is_auto_generated = false
+rust_type = "i64"
+sqlite_type = "INTEGER NOT NULL DEFAULT 0"
+
+[collections.Tag]
+table = "tags"
+
+[[collections.Tag.fields]]
+name = "id"
+type = "text"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "String"
+sqlite_type = "TEXT PRIMARY KEY NOT NULL"
+
+[[collections.Tag.fields]]
+name = "name"
+type = "text"
+required = true
+unique = true
+computed = false
+is_updatable = true
+is_auto_generated = false
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL"
+
+[[collections.Tag.fields]]
+name = "slug"
+type = "text"
+required = true
+unique = true
+computed = false
+is_updatable = true
+is_auto_generated = false
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL"
+
+[[collections.Tag.fields]]
+name = "created_at"
+type = "timestamp"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL DEFAULT (datetime('now'))"
+
+[[collections.Tag.fields]]
+name = "updated_at"
+type = "timestamp"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL DEFAULT (datetime('now'))"
+
+[[collections.Tag.fields]]
+name = "deleted_at"
+type = "timestamp"
+required = false
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "Option<String>"
+sqlite_type = "TEXT"
+
+[collections.Label]
+table = "labels"
+
+[[collections.Label.fields]]
+name = "id"
+type = "text"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "String"
+sqlite_type = "TEXT PRIMARY KEY NOT NULL"
+
+[[collections.Label.fields]]
+name = "name"
+type = "text"
+required = true
+unique = true
+computed = false
+is_updatable = true
+is_auto_generated = false
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL"
+
+[[collections.Label.fields]]
+name = "color"
+type = "text"
+required = false
+unique = false
+computed = false
+is_updatable = true
+is_auto_generated = false
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL"
+
+[[collections.Label.fields]]
+name = "created_at"
+type = "timestamp"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL DEFAULT (datetime('now'))"
+
+[[collections.Label.fields]]
+name = "updated_at"
+type = "timestamp"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "String"
+sqlite_type = "TEXT NOT NULL DEFAULT (datetime('now'))"
+
+[[collections.Label.fields]]
+name = "deleted_at"
+type = "timestamp"
+required = false
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = true
+rust_type = "Option<String>"
+sqlite_type = "TEXT"
+
+[collections.label]
+table = "labels"
+
+[[collections.label.fields]]
+name = "id"
+type = "text"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = false
+rust_type = ""
+sqlite_type = ""
+
+[[collections.label.fields]]
+name = "name"
+type = "text"
+required = true
+unique = true
+computed = false
+is_updatable = false
+is_auto_generated = false
+rust_type = ""
+sqlite_type = ""
+
+[[collections.label.fields]]
+name = "color"
+type = "text"
+required = false
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = false
+rust_type = ""
+sqlite_type = ""
+
+[[collections.label.fields]]
+name = "created_at"
+type = "timestamp"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = false
+rust_type = ""
+sqlite_type = ""
+
+[[collections.label.fields]]
+name = "updated_at"
+type = "timestamp"
+required = true
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = false
+rust_type = ""
+sqlite_type = ""
+
+[[collections.label.fields]]
+name = "deleted_at"
+type = "timestamp"
+required = false
+unique = false
+computed = false
+is_updatable = false
+is_auto_generated = false
+rust_type = ""
+sqlite_type = ""

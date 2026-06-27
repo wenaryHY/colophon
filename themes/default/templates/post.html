@@ -2,7 +2,7 @@
 <html lang="{{ current_lang }}">
 <head>
 <meta charset="UTF-8">
-<script>
+<script nonce="{{ csp_nonce }}">
 (function(){var t=localStorage.getItem('colophon-theme');
 if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
 document.documentElement.setAttribute('data-theme','dark');})();
@@ -35,9 +35,9 @@ document.documentElement.setAttribute('data-theme','dark');})();
 <meta name="twitter:description" content="{{ seo_meta.twitter_description }}">
 {% if seo_meta.twitter_image %}<meta name="twitter:image" content="{{ seo_meta.twitter_image }}">{% endif %}
 <!-- noinspection JsonStandardCompliance -->
-<script type="application/ld+json">{{ json_ld | safe }}</script>
+<script nonce="{{ csp_nonce }}" type="application/ld+json">{{ json_ld | safe }}</script>
 <link rel="stylesheet" href="{{ theme_assets_url('css/theme.css') }}">
-<style>
+<style nonce="{{ csp_nonce }}">
 /* ===== 文章页特有样式 ===== */
 
 body{line-height:1.7}
@@ -254,17 +254,17 @@ a{color:var(--accent);text-decoration:none}
 
   {% include "_footer.html" %}
 </div>
-<script src="{{ theme_assets_url('js/theme.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce }}" src="{{ theme_assets_url('js/theme.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
   // 注入文章数据供 comments.js 使用
   window.__POST_DATA__ = {
     id: "{{ post.id }}",
     slug: "{{ post.slug }}"
   };
 </script>
-<script src="{{ theme_assets_url('js/site-api.js') }}"></script>
-<script src="{{ theme_assets_url('js/comments.js') }}"></script>
-<script>window.initComments();</script>
+<script nonce="{{ csp_nonce }}" src="{{ theme_assets_url('js/site-api.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ theme_assets_url('js/comments.js') }}"></script>
+<script nonce="{{ csp_nonce }}">window.initComments();</script>
 {{ plugin_body|safe }}
 </body>
 </html>

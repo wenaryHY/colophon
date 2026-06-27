@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
+    Extension,
     extract::{Form, State},
     response::{Html, IntoResponse, Response},
 };
@@ -24,7 +25,7 @@ use crate::modules::theme::{
 fn injectCspMetaTagIntoHtmlForSrcdocProtection(html: &str) -> String {
     let csp_meta = format!(
         "<meta http-equiv=\"Content-Security-Policy\" content=\"{}\">",
-        crate::shared::security::PREVIEW_CSP
+        crate::shared::security::PREVIEW_CSP_TEMPLATE
     );
     if let Some(pos) = html.find("<html") {
         let (before, after) = html.split_at(pos);
@@ -222,7 +223,10 @@ fn validateThemeSlugIsInstalledAndSafeForPreviewRendering(
 }
 
 /// 新标签页预览页面（空壳 HTML + 内嵌 JS）
-pub async fn preview_page(_admin: AdminUser) -> Result<Html<String>, AppError> {
+pub async fn preview_page(
+    _admin: AdminUser,
+    Extension(_csp_nonce): Extension<crate::shared::security::CspNonce>,
+) -> Result<Html<String>, AppError> {
     let html = r#"<!DOCTYPE html>
 <html lang="zh-CN">
 <head>

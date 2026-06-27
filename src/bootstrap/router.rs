@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     body::Body,
-    extract::{Path, Request, State},
+    extract::{Extension, Path, Request, State},
     http::{header, request::Parts as RequestParts, HeaderMap, HeaderValue, Method, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Redirect, Response},
@@ -101,13 +101,14 @@ pub async fn serve_admin_index(State(state): State<Arc<AppState>>) -> impl IntoR
 
 async fn render_home_entry(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
 ) -> crate::shared::error::AppResult<Response> {
     if !(*state.setup_stage.read().await).is_completed() {
         return Ok(Redirect::temporary("/admin").into_response());
     }
-    modules::theme::handler::render_home(State(state), headers, auth).await
+    modules::theme::handler::render_home(State(state), Extension(csp_nonce), headers, auth).await
 }
 
 async fn serve_setup_entry() -> impl IntoResponse {

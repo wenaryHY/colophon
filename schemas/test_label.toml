@@ -1,0 +1,18 @@
+[collection]
+name = "label"
+table = "labels"
+display_name = "标签"
+
+[features]
+soft_delete = true
+timestamps = true
+
+[[fields]]
+name = "name"
+type = "text"
+unique = true
+
+[[fields]]
+name = "color"
+type = "text"
+required = false

@@ -268,21 +268,16 @@ fn validate_register_request(body: &RegisterRequest) -> AppResult<()> {
         ));
     }
 
-    // M-6: 密码复杂度要求 — 至少 1 个大写字母 + 1 个小写字母 + 1 个数字
-    let has_uppercase = body.password.chars().any(|c| c.is_ascii_uppercase());
-    let has_lowercase = body.password.chars().any(|c| c.is_ascii_lowercase());
-    let has_digit = body.password.chars().any(|c| c.is_ascii_digit());
-    if !has_uppercase || !has_lowercase || !has_digit {
+    // M-6 / N-4: 密码复杂度要求 — 复用 shared 模块的统一校验
+    crate::shared::auth::validate_password_complexity(&body.password).map_err(|e| {
         tracing::warn!(
             module = "auth",
             event = "register_weak_password_complexity",
             username = %body.username,
             "registration rejected: password lacks required character classes"
         );
-        return Err(AppError::BadRequest(
-            "password must contain at least one uppercase letter, one lowercase letter, and one digit".into(),
-        ));
-    }
+        e
+    })?;
 
     Ok(())
 }

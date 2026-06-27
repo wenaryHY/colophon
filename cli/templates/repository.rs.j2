@@ -1,0 +1,78 @@
+use sqlx::SqlitePool;
+use super::domain::{{ model_name }};
+
+pub async fn list_{{ table_name }}(pool: &SqlitePool) -> Result<Vec<{{ model_name }}>, sqlx::Error> {
+    sqlx::query_as!(
+        {{ model_name }},
+        "SELECT {{ select_columns }} FROM {{ table_name }}{% if features.soft_delete %} WHERE deleted_at IS NULL{% endif %}{% if features.sort_order %} ORDER BY sort_order ASC{% endif %}"
+    )
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn get_{{ model_name | lower }}(pool: &SqlitePool, id: &str) -> Result<Option<{{ model_name }}>, sqlx::Error> {
+    sqlx::query_as!(
+        {{ model_name }},
+        "SELECT {{ select_columns }} FROM {{ table_name }} WHERE id = ?{% if features.soft_delete %} AND deleted_at IS NULL{% endif %} LIMIT 1",
+        id
+    )
+    .fetch_optional(pool)
+    .await
+}
+
+pub async fn insert_{{ model_name | lower }}(
+    pool: &SqlitePool,
+{% for field in insert_fields %}
+    {{ field.name }}: {% if field.required and not field.computed %}&str{% else %}Option<&str>{% endif %},
+{% endfor %}
+) -> Result<String, sqlx::Error> {
+    let id = uuid::Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO {{ table_name }} ({{ insert_columns }}) VALUES ({{ insert_placeholders }})"
+    )
+{% for field in insert_fields %}
+    .bind({{ field.name }})
+{% endfor %}
+    .execute(pool)
+    .await?;
+    Ok(id)
+}
+
+pub async fn update_{{ model_name | lower }}(
+    pool: &SqlitePool,
+    id: &str,
+{% for field in update_fields %}
+    {{ field.name }}: {% if field.required %}&str{% else %}Option<&str>{% endif %},
+{% endfor %}
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE {{ table_name }} SET {{ update_set_clause }} WHERE id = ?"
+    )
+{% for field in update_fields %}
+    .bind({{ field.name }})
+{% endfor %}
+    .bind(id)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+{% if features.soft_delete %}
+pub async fn soft_delete_{{ model_name | lower }}(pool: &SqlitePool, id: &str) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE {{ table_name }} SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL"
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() > 0)
+}
+{% else %}
+pub async fn delete_{{ model_name | lower }}(pool: &SqlitePool, id: &str) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM {{ table_name }} WHERE id = ?")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() > 0)
+}
+{% endif %}

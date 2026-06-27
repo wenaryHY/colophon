@@ -2,7 +2,7 @@
 <html lang="{{ current_lang }}">
 <head>
 <meta charset="UTF-8">
-<script>
+<script nonce="{{ csp_nonce }}">
 (function(){var t=localStorage.getItem('colophon-theme');
 if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))
 document.documentElement.setAttribute('data-theme','dark');})();
@@ -86,7 +86,7 @@ document.documentElement.setAttribute('data-theme','dark');})();
   {% include "_footer.html" %}
 </div>
 
-<script src="{{ theme_assets_url('js/theme.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ theme_assets_url('js/theme.js') }}"></script>
 {{ plugin_body|safe }}
 </body>
 </html>

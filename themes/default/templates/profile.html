@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="{{ current_lang }}">
 <head>
 <meta charset="UTF-8">
@@ -6,7 +6,7 @@
 <title>个人中心 - {{ site_title }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="{{ theme_assets_url('css/theme.css') }}?v=ef611f53" rel="stylesheet">
-<style>
+<style nonce="{{ csp_nonce }}">
 /* ============================================
    MD4 Design Tokens — 基于 Colophon 品牌色
    ============================================ */
@@ -521,10 +521,10 @@ body{
   </section>
 </div>
 
-<script src="{{ theme_assets_url('js/theme.js') }}"></script>
-<script src="{{ theme_assets_url('js/site-api.js') }}"></script>
-<script src="{{ theme_assets_url('js/i18n.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce }}" src="{{ theme_assets_url('js/theme.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ theme_assets_url('js/site-api.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ theme_assets_url('js/i18n.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
 const profileData = {{ current_user | tojson_script | safe }};
 const currentLang = profileData.language || 'zh';
 const commentsList = document.getElementById('commentsList');

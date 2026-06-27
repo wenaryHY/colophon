@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
+    Extension,
     extract::{Query, State},
     http::HeaderMap,
     response::{Html, IntoResponse, Redirect, Response},
@@ -27,6 +28,7 @@ fn sanitize_redirect(target: Option<&str>, fallback: &str) -> String {
 
 pub async fn render_profile_page(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
 ) -> AppResult<Response> {
@@ -63,7 +65,7 @@ pub async fn render_profile_page(
     let ctx = TemplateContext::load(&state).await?;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
     let plugin_guard = state.plugin_manager.read().await;
-    let env = crate::modules::theme::engine::build_template_engine(
+    let mut env = crate::modules::theme::engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -72,6 +74,7 @@ pub async fn render_profile_page(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
     let tmpl = env
         .get_template("profile.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -92,6 +95,7 @@ pub async fn render_profile_page(
 
 pub async fn render_login_page(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
     Query(query): Query<AuthPageQuery>,
@@ -124,7 +128,7 @@ pub async fn render_login_page(
     let ctx = TemplateContext::load(&state).await?;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
     let plugin_guard = state.plugin_manager.read().await;
-    let env = crate::modules::theme::engine::build_template_engine(
+    let mut env = crate::modules::theme::engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -133,6 +137,7 @@ pub async fn render_login_page(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
     let tmpl = env
         .get_template("login.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -153,6 +158,7 @@ pub async fn render_login_page(
 
 pub async fn render_register_page(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
     Query(query): Query<AuthPageQuery>,
@@ -185,7 +191,7 @@ pub async fn render_register_page(
     let ctx = TemplateContext::load(&state).await?;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
     let plugin_guard = state.plugin_manager.read().await;
-    let env = crate::modules::theme::engine::build_template_engine(
+    let mut env = crate::modules::theme::engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -194,6 +200,7 @@ pub async fn render_register_page(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
     let tmpl = env
         .get_template("register.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;

@@ -1,0 +1,37 @@
+[collection]
+name = "Category"
+table = "categories"
+display_name = "分类"
+
+[features]
+soft_delete = true
+timestamps = true
+sort_order = true
+
+[[fields]]
+name = "name"
+type = "text"
+required = true
+unique = true
+
+[[fields]]
+name = "slug"
+type = "text"
+required = true
+unique = true
+
+[[fields]]
+name = "description"
+type = "richtext"
+required = false
+
+[[fields]]
+name = "parent_id"
+type = "relation"
+required = false
+references = "categories.id"
+
+[[fields]]
+name = "excerpt"
+type = "text"
+computed = true

@@ -282,6 +282,21 @@ where
     }
 }
 
+/// N-4 / M-6: 密码复杂度验证 — 至少 1 个大写 + 1 个小写 + 1 个数字
+///
+/// 注册和修改密码共用此规则，保持一致性。
+pub fn validate_password_complexity(password: &str) -> Result<(), AppError> {
+    let has_uppercase = password.chars().any(|c| c.is_ascii_uppercase());
+    let has_lowercase = password.chars().any(|c| c.is_ascii_lowercase());
+    let has_digit = password.chars().any(|c| c.is_ascii_digit());
+    if !has_uppercase || !has_lowercase || !has_digit {
+        return Err(AppError::BadRequest(
+            "password must contain at least one uppercase letter, one lowercase letter, and one digit".into(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

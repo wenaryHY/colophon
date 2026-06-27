@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
+    Extension,
     extract::{Path, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{Html, IntoResponse, Redirect, Response},
@@ -23,6 +24,7 @@ use crate::modules::plugin::hook::{HookContext, HookData, PostBeforeRenderData};
 
 pub async fn render_home(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
 ) -> AppResult<Response> {
@@ -66,7 +68,7 @@ pub async fn render_home(
 
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let env = engine::build_template_engine(
+    let mut env = engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -75,6 +77,7 @@ pub async fn render_home(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
     let tmpl = env
         .get_template("index.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -99,6 +102,7 @@ pub async fn render_home(
 /// 标签列表页：/tags
 pub async fn render_tags_list(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
 ) -> AppResult<Response> {
@@ -142,7 +146,7 @@ pub async fn render_tags_list(
 
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let env = engine::build_template_engine(
+    let mut env = engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -151,6 +155,7 @@ pub async fn render_tags_list(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
 
     let template_name = if env.get_template("tags.html").is_ok() {
         "tags.html"
@@ -188,6 +193,7 @@ pub async fn render_tags_list(
 /// 分类列表页：/categories
 pub async fn render_categories_list(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
 ) -> AppResult<Response> {
@@ -232,7 +238,7 @@ pub async fn render_categories_list(
 
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let env = engine::build_template_engine(
+    let mut env = engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -241,6 +247,7 @@ pub async fn render_categories_list(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
 
     let template_name = if env.get_template("categories.html").is_ok() {
         "categories.html"
@@ -281,6 +288,7 @@ pub async fn render_categories_list(
 /// 支持关键词搜索和分页。模板优先选择 search.html，不存在时回退 index.html。
 pub async fn render_search(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
     Query(query): Query<SearchPageQuery>,
@@ -342,7 +350,7 @@ pub async fn render_search(
                 error = %e,
                 "failed to load template context, falling back to 404"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
     };
 
@@ -381,7 +389,7 @@ pub async fn render_search(
     // 构建模板引擎
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let env = engine::build_template_engine(
+    let mut env = engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -390,6 +398,7 @@ pub async fn render_search(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
 
     // 模板优先 search.html，不存在时回退 index.html（加 warn 日志）
     let template_name = if env.get_template("search.html").is_ok() {
@@ -441,6 +450,7 @@ pub struct SearchPageQuery {
 /// 作者归档页：/author/{username}
 pub async fn render_author_archive(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
     Path(username): Path<String>,
@@ -472,7 +482,7 @@ pub async fn render_author_archive(
                 username = %username,
                 "author not found"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
         Err(e) => {
             tracing::error!(
@@ -482,7 +492,7 @@ pub async fn render_author_archive(
                 error = %e,
                 "database error when querying author"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
     };
 
@@ -519,7 +529,7 @@ pub async fn render_author_archive(
                 error = %e,
                 "failed to load template context"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
     };
 
@@ -551,7 +561,7 @@ pub async fn render_author_archive(
     // 8. 构建模板引擎
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let env = engine::build_template_engine(
+    let mut env = engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -560,6 +570,7 @@ pub async fn render_author_archive(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
 
     // 9. 选择模板：优先 author.html，回退到 index.html
     let template_name = if env.get_template("author.html").is_ok() {
@@ -603,6 +614,7 @@ pub async fn render_author_archive(
 
 pub async fn render_post(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
     Path(slug): Path<String>,
@@ -644,7 +656,7 @@ pub async fn render_post(
                 slug = %slug,
                 "public post not found"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
     };
 
@@ -714,7 +726,7 @@ pub async fn render_post(
 
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let env = engine::build_template_engine(
+    let mut env = engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -723,6 +735,7 @@ pub async fn render_post(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
     let tmpl = env
         .get_template("post.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -991,6 +1004,7 @@ pub async fn serve_global_static(
 /// 标签归档页：/tags/{slug}
 pub async fn render_tag_archive(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
     Path(slug): Path<String>,
@@ -1017,7 +1031,7 @@ pub async fn render_tag_archive(
                 slug = %slug,
                 "tag not found"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
         Err(e) => {
             tracing::error!(
@@ -1027,7 +1041,7 @@ pub async fn render_tag_archive(
                 error = %e,
                 "database error when querying tag"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
     };
 
@@ -1063,7 +1077,7 @@ pub async fn render_tag_archive(
                 error = %e,
                 "failed to load template context"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
     };
 
@@ -1093,7 +1107,7 @@ pub async fn render_tag_archive(
     // 8. 构建模板引擎
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let env = engine::build_template_engine(
+    let mut env = engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -1102,6 +1116,7 @@ pub async fn render_tag_archive(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
 
     // 9. 选择模板：优先 tag.html，回退到 index.html
     let template_name = if env.get_template("tag.html").is_ok() {
@@ -1146,6 +1161,7 @@ pub async fn render_tag_archive(
 /// 分类归档页：/categories/{slug}
 pub async fn render_category_archive(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
     auth: Option<crate::shared::auth::AuthUser>,
     Path(slug): Path<String>,
@@ -1172,7 +1188,7 @@ pub async fn render_category_archive(
                 slug = %slug,
                 "category not found"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
         Err(e) => {
             tracing::error!(
@@ -1182,7 +1198,7 @@ pub async fn render_category_archive(
                 error = %e,
                 "database error when querying category"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
     };
 
@@ -1218,7 +1234,7 @@ pub async fn render_category_archive(
                 error = %e,
                 "failed to load template context"
             );
-            return Ok(render_404_page(&state, &headers).await);
+            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
         }
     };
 
@@ -1252,7 +1268,7 @@ pub async fn render_category_archive(
     // 8. 构建模板引擎
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
-    let env = engine::build_template_engine(
+    let mut env = engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -1261,6 +1277,7 @@ pub async fn render_category_archive(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
 
     // 9. 选择模板：优先 category.html，回退到 index.html
     let template_name = if env.get_template("category.html").is_ok() {
@@ -1308,6 +1325,7 @@ pub async fn render_category_archive(
 /// 模板中使用 `site_title`、`current_lang` 等 TemplateContext 内置变量。
 pub async fn render_cookie_policy(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
 ) -> AppResult<Response> {
     let client_request_id =
@@ -1322,7 +1340,7 @@ pub async fn render_cookie_policy(
     let ctx = TemplateContext::load(&state).await?;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(&headers);
     let plugin_guard = state.plugin_manager.read().await;
-    let env = engine::build_template_engine(
+    let mut env = engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -1331,6 +1349,7 @@ pub async fn render_cookie_policy(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce.0));
     let tmpl = env
         .get_template("cookie-policy.html")
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
@@ -1350,17 +1369,19 @@ pub async fn render_cookie_policy(
 /// catch-all 回退路由：未匹配到任何路径时渲染 404 页面
 pub async fn fallback_404(
     State(state): State<Arc<AppState>>,
+    Extension(csp_nonce): Extension<crate::shared::security::CspNonce>,
     headers: HeaderMap,
 ) -> Response {
-    render_404_page(&state, &headers).await
+    render_404_page(&state, &headers, &csp_nonce.0).await
 }
 
 /// 渲染 404 错误页面
 async fn render_404_page(
     state: &Arc<AppState>,
     headers: &HeaderMap,
+    csp_nonce: &str,
 ) -> Response {
-    match try_render_error_template(state, headers, "404.html").await {
+    match try_render_error_template(state, headers, "404.html", csp_nonce).await {
         Ok(html) => {
             let mut response = (StatusCode::NOT_FOUND, Html(html)).into_response();
             crate::shared::security::mark_response_security_profile(
@@ -1386,11 +1407,12 @@ async fn try_render_error_template(
     state: &Arc<AppState>,
     headers: &HeaderMap,
     template_name: &str,
+    csp_nonce: &str,
 ) -> AppResult<String> {
     let ctx = TemplateContext::load(state).await?;
     let plugin_guard = state.plugin_manager.read().await;
     let current_lang = crate::infra::i18n_middleware::resolve_language_from_headers(headers);
-    let env = engine::build_template_engine(
+    let mut env = engine::build_template_engine(
         &ctx,
         &state.theme_dir,
         &*plugin_guard,
@@ -1399,6 +1421,7 @@ async fn try_render_error_template(
         Some(&current_lang),
     )
     .await?;
+    env.add_global("csp_nonce", minijinja::Value::from(csp_nonce));
     
     let tmpl = env
         .get_template(template_name)

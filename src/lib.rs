@@ -25,37 +25,10 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use sqlx::ConnectOptions;
 use state::AppState;
 use tokio::sync::broadcast;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::modules::plugin::manager::PluginManager;
 
 pub async fn serve() -> anyhow::Result<()> {
-    let log_format = std::env::var("COLOPHON_LOG_FORMAT").unwrap_or_else(|_| "pretty".into());
-    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "colophon=info,axum=info,tower_http=info".into());
-
-    if log_format == "json" {
-        tracing_subscriber::registry()
-            .with(env_filter)
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .json()
-                    .with_current_span(true)
-                    .with_span_list(false)
-                    .flatten_event(true),
-            )
-            .init();
-    } else {
-        tracing_subscriber::registry()
-            .with(env_filter)
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .pretty()
-                    .with_target(false),
-            )
-            .init();
-    }
-
     let config = AppConfig::load()?;
     config.validate()?;
 

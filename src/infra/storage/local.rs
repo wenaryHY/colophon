@@ -70,7 +70,8 @@ impl StorageBackend for LocalStorage {
         path: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<(), AppError>> + Send + 'a>> {
         Box::pin(async move {
-            let full_path = self.base_dir.join(path);
+            // N-2: 路径遍历防护
+            let full_path = self.validate_path(path)?;
             if full_path.exists() {
                 fs::remove_file(full_path).await?;
             }
@@ -83,7 +84,8 @@ impl StorageBackend for LocalStorage {
         path: &'a str,
     ) -> Pin<Box<dyn Future<Output = Result<bool, AppError>> + Send + 'a>> {
         Box::pin(async move {
-            let full_path = self.base_dir.join(path);
+            // N-2: 路径遍历防护
+            let full_path = self.validate_path(path)?;
             Ok(full_path.exists())
         })
     }
@@ -125,5 +127,23 @@ mod tests {
         let storage = LocalStorage::new(tmp.path().to_path_buf(), "/uploads".into());
         let result = storage.save(b"safe", "media/image.jpg").await;
         assert!(result.is_ok(), "valid path should be allowed");
+    }
+
+    /// N-2: 路径遍历防护 — delete 应拒绝 ../../etc/hosts
+    #[tokio::test]
+    async fn security_fix_n2_delete_rejects_path_traversal() {
+        let tmp = TempDir::new().unwrap();
+        let storage = LocalStorage::new(tmp.path().to_path_buf(), "/uploads".into());
+        let result = storage.delete("../../etc/hosts").await;
+        assert!(result.is_err(), "delete with path traversal should be rejected");
+    }
+
+    /// N-2: 路径遍历防护 — exists 应拒绝 ../../etc/passwd
+    #[tokio::test]
+    async fn security_fix_n2_exists_rejects_path_traversal() {
+        let tmp = TempDir::new().unwrap();
+        let storage = LocalStorage::new(tmp.path().to_path_buf(), "/uploads".into());
+        let result = storage.exists("../../etc/passwd").await;
+        assert!(result.is_err(), "exists with path traversal should be rejected");
     }
 }

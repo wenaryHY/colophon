@@ -220,10 +220,12 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     /// M-7: AuthConfig 应有 refresh_token_ttl_seconds 字段
     /// 默认值应为 604800（7 天），不应硬编码在 handler 中
     #[test]
+    #[serial]
     fn security_fix_m7_auth_config_has_refresh_token_ttl() {
         // 确保环境变量不存在，测试默认值
         std::env::remove_var("COLOPHON__AUTH__REFRESH_TOKEN_TTL_SECONDS");
@@ -243,6 +245,7 @@ mod tests {
 
     /// M-7: 环境变量应能覆盖 refresh_token_ttl_seconds
     #[test]
+    #[serial]
     fn security_fix_m7_refresh_token_ttl_from_env() {
         // 设置环境变量
         std::env::set_var("COLOPHON__AUTH__REFRESH_TOKEN_TTL_SECONDS", "86400");
@@ -256,3 +259,4 @@ mod tests {
         std::env::remove_var("COLOPHON__AUTH__REFRESH_TOKEN_TTL_SECONDS");
     }
 }
+

@@ -9,7 +9,7 @@
 <link rel="preload" href="{{ theme_assets_url('fonts/eb-garamond-600.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{ theme_assets_url('css/fonts.css') }}">
 <link rel="stylesheet" href="{{ theme_assets_url('css/theme.css') }}">
-<style>
+<style nonce="{{ csp_nonce }}">
 .account-page {
   min-height: 100vh;
   display: flex;
@@ -55,8 +55,8 @@
   </div>
 </section>
 
-<script src="{{ theme_assets_url('js/site-api.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce }}" src="{{ theme_assets_url('js/site-api.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
 var redirectTo = {{ redirect_to | tojson_script | safe }};
 var alertEl = document.getElementById('errorAlert');
 

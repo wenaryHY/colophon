@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS {{ table_name }} (
+    id TEXT PRIMARY KEY NOT NULL{% for field in fields %},
+    {{ field.name }} {{ field.sqlite_type }}{% endfor %}
+);

@@ -1,0 +1,40 @@
+use std::sync::Arc;
+
+use crate::{
+    shared::{
+        error::AppResult,
+        response::deleted_json,
+    },
+    state::AppState,
+};
+
+use super::{
+    domain::{{ model_name }},
+    dto::{Create{{ model_name }}Request, Update{{ model_name }}Request},
+    repository,
+};
+
+pub async fn list_{{ model_name_lower }}s(state: Arc<AppState>) -> AppResult<Vec<{{ model_name }}>> {
+    Ok(repository::list_{{ model_name_lower }}s(&state.pool).await?)
+}
+
+pub async fn create_{{ model_name_lower }}(state: Arc<AppState>, body: Create{{ model_name }}Request) -> AppResult<{{ model_name }}> {
+    let id = repository::insert_{{ model_name_lower }}(&state.pool, &body.name{% if has_color %}, body.color.as_deref().unwrap_or(""){% endif %}).await?;
+
+    repository::get_{{ model_name_lower }}(&state.pool, &id)
+        .await?
+        .ok_or(crate::shared::error::AppError::NotFound("{{ model_name }} not found".to_string()))
+}
+
+pub async fn update_{{ model_name_lower }}(state: Arc<AppState>, id: &str, body: Update{{ model_name }}Request) -> AppResult<{{ model_name }}> {
+    repository::update_{{ model_name_lower }}(&state.pool, id, body.name.as_deref(), {% if has_color %}body.color.as_deref(){% else %}None{% endif %}).await?;
+
+    repository::get_{{ model_name_lower }}(&state.pool, id)
+        .await?
+        .ok_or(crate::shared::error::AppError::NotFound(format!("{{ model_name }} '{}' not found", id)))
+}
+
+pub async fn delete_{{ model_name_lower }}(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
+    repository::delete_{{ model_name_lower }}(&state.pool, id).await?;
+    deleted_json()
+}

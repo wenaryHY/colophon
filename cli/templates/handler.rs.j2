@@ -1,0 +1,15 @@
+use super::{
+    domain::{{ model_name }},
+    dto::{Create{{ model_name }}Request, Update{{ model_name }}Request},
+};
+
+crate::crud_handlers! {
+    module = super,
+    entity = {{ model_name }},
+    create_req = Create{{ model_name }}Request,
+    update_req = Update{{ model_name }}Request,
+    list_fn = list_{{ table_name }},
+    create_fn = create_{{ model_name | lower }},
+    update_fn = update_{{ model_name | lower }},
+    delete_fn = delete_{{ model_name | lower }},
+}

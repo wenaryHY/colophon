@@ -2,5 +2,4 @@
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]
 
 [build]
-rustc-wrapper = "sccache"
 jobs = 18

@@ -99,11 +99,39 @@ test-mode = []
 s3 = ["aws-config", "aws-sdk-s3"]
 
 
+
+
+# ===== 日常开发 =====
+[profile.dev]
+debug = 1                # 行号表，panic 堆栈够用
+strip = "none"           # panic 能溯源
+lto = false
+codegen-units = 256      # 显式声明，防未来默认值变化
+
+[profile.dev.build-override]
+opt-level = 3
+debug = 0
+strip = true             # build 依赖完全不用调试
+
+# ===== 排查崩溃 ===== cargo build --profile dev-debug
+[profile.dev-debug]
+inherits = "dev"
+debug = 2
+strip = "none"
+
+# ===== CI/日常验证 ===== cargo build --profile release-fast
+[profile.release-fast]
+inherits = "release"
+lto = "thin"
+codegen-units = 16
+strip = "symbols"
+
+# ===== 最终部署 ===== cargo build --release
 [profile.release]
-lto = true              # Link-time optimization
-opt-level = "s"         # 优化二进制大小
-codegen-units = 1       # 单代码生成单元，更好的优化
-strip = true            # 剥离符号（生产环境）
+opt-level = "s"          # 二进制最小（保留当前值）
+lto = true               # fat LTO（保留当前值）
+codegen-units = 1        # 极致优化（保留当前值）
+strip = "symbols"
 
 [profile.bench]
 debug = true
@@ -116,3 +144,4 @@ tempfile = "3"
 [[bench]]
 name = "api_benchmarks"
 harness = false
+

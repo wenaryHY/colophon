@@ -11,6 +11,8 @@ pub struct Claims {
     pub role: Role,
     pub exp: i64,
     pub token_version: i32,
+    /// N-1: JWT issuer — 必须与 decode_token 中 set_issuer 的值一致
+    pub iss: Option<String>,
 }
 
 /// 签发 JWT，不依赖 AppState — 解耦架构：infra 层不应了解 state 层
@@ -30,6 +32,7 @@ pub fn issue_token(
         role,
         exp,
         token_version,
+        iss: Some("colophon".into()),
     };
 
     // 显式指定 HS256 算法，与 decode_token 保持一致
@@ -183,6 +186,7 @@ mod tests {
             role: Role::Admin,
             exp: chrono::Utc::now().timestamp() + 3600,
             token_version: 1,
+            iss: None,
         };
         let malicious_token = encode(
             &header,
@@ -207,6 +211,7 @@ mod tests {
             role: Role::Admin,
             exp: chrono::Utc::now().timestamp() + 3600,
             token_version: 1,
+            iss: None,
         };
         let malicious_token = encode(
             &header,
@@ -216,6 +221,61 @@ mod tests {
         .unwrap();
         let result = decode_token(&malicious_token, TEST_SECRET);
         assert!(result.is_err(), "HS512 token should be rejected");
+    }
+
+    /// N-1: JWT issuer 校验失效 — issue_token 不设置 iss 字段
+    /// 期望：decode_token 拒绝 iss="evil" 的 token
+    #[test]
+    fn security_fix_n1_decode_rejects_wrong_issuer() {
+        use jsonwebtoken::{Header, encode};
+        // 构造 iss = "evil" 的恶意 token
+        let header = Header::new(jsonwebtoken::Algorithm::HS256);
+        #[derive(serde::Serialize)]
+        struct EvilClaims {
+            sub: String,
+            username: String,
+            role: Role,
+            exp: i64,
+            token_version: i32,
+            iss: String,
+        }
+        let claims = EvilClaims {
+            sub: "attacker".into(),
+            username: "evil".into(),
+            role: Role::Admin,
+            exp: chrono::Utc::now().timestamp() + 3600,
+            token_version: 1,
+            iss: "evil".into(),
+        };
+        let malicious_token = encode(
+            &header,
+            &claims,
+            &EncodingKey::from_secret(TEST_SECRET.as_bytes()),
+        )
+        .unwrap();
+        let result = decode_token(&malicious_token, TEST_SECRET);
+        assert!(result.is_err(), "token with iss='evil' should be rejected");
+    }
+
+    /// N-1: JWT issuer 校验 — iss="colophon" 的 token 应被接受
+    #[test]
+    fn security_fix_n1_decode_accepts_colophon_issuer() {
+        let token = issue_token(
+            TEST_SECRET,
+            3600,
+            "user-1".into(),
+            "alice".into(),
+            Role::Admin,
+            1,
+        )
+        .unwrap();
+        let claims = decode_token(&token, TEST_SECRET).unwrap();
+        assert_eq!(claims.sub, "user-1");
+        assert_eq!(
+            claims.iss.as_deref(),
+            Some("colophon"),
+            "issued token must carry iss='colophon'"
+        );
     }
 
     /// H-2: JWT issuer 校验测试 — 错误的 issuer 应被拒绝

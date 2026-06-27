@@ -1,11 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="{{ current_lang }}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>注册 - {{ site_title | default("Colophon") }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-<style>
+<style nonce="{{ csp_nonce }}">
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,#fff1e8 0,#f8fafc 40%,#dbeafe 100%);font-family:'Manrope',sans-serif;color:#1f2937}
 .card{width:min(100%,440px);padding:40px 34px;border:1px solid rgba(255,255,255,.7);border-radius:28px;background:rgba(255,255,255,.92);box-shadow:0 28px 80px rgba(15,23,42,.12);backdrop-filter:blur(18px)}
@@ -54,8 +54,8 @@ a{color:#0f766e;text-decoration:none;font-weight:700}
     <a class="muted" href="/">返回首页</a>
   </div>
 </section>
-<script src="{{ theme_assets_url('js/site-api.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce }}" src="{{ theme_assets_url('js/site-api.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
 const redirectTo = {{ redirect_to | tojson_script | safe }};
 const alertEl = document.getElementById('errorAlert');
 
