@@ -29,7 +29,7 @@ required = false
 name = "parent_id"
 type = "relation"
 required = false
-references = "categories.id"
+references = "categories"
 
 [[fields]]
 name = "excerpt"

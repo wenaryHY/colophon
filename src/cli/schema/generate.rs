@@ -139,6 +139,30 @@ fn write_module_files(
     Ok(())
 }
 
+/// 检查 migrations 目录中是否已有 `*_create_{table_name}.sql` 文件。
+///
+/// 用于在 lock 文件丢失时避免重复生成 CREATE TABLE 迁移。
+fn migration_already_exists(project_root: &Path, table_name: &str) -> bool {
+    let migrations_dir = project_root.join("migrations");
+    if !migrations_dir.exists() {
+        return false;
+    }
+
+    let suffix = format!("_create_{}.sql", table_name);
+    std::fs::read_dir(&migrations_dir)
+        .ok()
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .any(|e| {
+                    let name = e.file_name();
+                    let name_str = name.to_string_lossy();
+                    name_str.ends_with(&suffix)
+                })
+        })
+        .unwrap_or(false)
+}
+
 /// 写入 migration SQL 文件。
 fn write_migration_file(project_root: &Path, migration_number: u32, table_name: &str, sql: &str) -> Result<PathBuf> {
     let filename = format!("{:03}_create_{}.sql", migration_number, table_name);
@@ -406,13 +430,23 @@ pub fn generate(
     )
     .map_err(|e| anyhow::anyhow!("{}", e))?;
 
-    // 4. 生成 migration SQL
-    let migration_sql = diff::generate_migration_sql(
-        &diff_result,
-        &ctx.model_name,
-        &ctx.table_name,
-        &ctx.fields,
-    );
+    // 4. 生成 migration SQL（如果表的迁移文件已存在则跳过，防止 lock 丢失时重复生成）
+    let migration_sql = if matches!(diff_result, diff::SchemaDiff::CreateTable)
+        && migration_already_exists(project_root, &ctx.table_name)
+    {
+        tracing::info!(
+            table = %ctx.table_name,
+            "migrations 目录中已有该表的 CREATE 迁移文件，跳过生成"
+        );
+        String::new()
+    } else {
+        diff::generate_migration_sql(
+            &diff_result,
+            &ctx.model_name,
+            &ctx.table_name,
+            &ctx.fields,
+        )
+    };
 
     // 5. 写入模块文件
     let module_dir = project_root.join("src").join("modules").join(&model_name_lower);
@@ -1146,5 +1180,106 @@ mod tests {
         let cleaned = cleanup_all_orphan_module_declarations(dir.path())
             .expect("清理失败");
         assert_eq!(cleaned, 0, "mod.rs 不存在时应返回 0");
+    }
+
+    // ── 迁移重复检测测试 ──────────────────────────────────────────────────────
+
+    #[test]
+    fn migration_already_exists_returns_false_when_no_migrations_dir() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        assert!(!migration_already_exists(dir.path(), "tags"));
+    }
+
+    #[test]
+    fn migration_already_exists_returns_false_when_no_matching_file() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let migrations_dir = dir.path().join("migrations");
+        std::fs::create_dir_all(&migrations_dir).expect("创建目录失败");
+
+        // 写入不相关的迁移文件
+        std::fs::write(migrations_dir.join("001_create_users.sql"), "CREATE TABLE users;")
+            .expect("写入失败");
+
+        assert!(!migration_already_exists(dir.path(), "tags"));
+    }
+
+    #[test]
+    fn migration_already_exists_returns_true_when_file_exists() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let migrations_dir = dir.path().join("migrations");
+        std::fs::create_dir_all(&migrations_dir).expect("创建目录失败");
+
+        std::fs::write(migrations_dir.join("001_create_tags.sql"), "CREATE TABLE tags;")
+            .expect("写入失败");
+
+        assert!(migration_already_exists(dir.path(), "tags"));
+    }
+
+    #[test]
+    fn migration_already_exists_matches_different_prefix() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let migrations_dir = dir.path().join("migrations");
+        std::fs::create_dir_all(&migrations_dir).expect("创建目录失败");
+
+        // 前缀编号不同也应匹配
+        std::fs::write(migrations_dir.join("042_create_tags.sql"), "CREATE TABLE tags;")
+            .expect("写入失败");
+
+        assert!(migration_already_exists(dir.path(), "tags"));
+    }
+
+    #[test]
+    fn generate_skips_migration_when_file_already_exists() {
+        let dir = tempfile::tempdir().expect("创建临时目录失败");
+        let project_root = dir.path();
+
+        // 创建必要的目录结构
+        std::fs::create_dir_all(project_root.join("src").join("modules")).expect("创建目录失败");
+        std::fs::create_dir_all(project_root.join("migrations")).expect("创建目录失败");
+        std::fs::create_dir_all(project_root.join("cli").join("templates")).expect("创建目录失败");
+
+        // 从项目源目录复制模板
+        let src_templates = Path::new(env!("CARGO_MANIFEST_DIR")).join("cli").join("templates");
+        for entry in std::fs::read_dir(&src_templates).expect("读取模板目录失败") {
+            let entry = entry.expect("读取条目失败");
+            let dest = project_root.join("cli").join("templates").join(entry.file_name());
+            std::fs::copy(entry.path(), dest).expect("复制模板失败");
+        }
+
+        // 创建空的 mod.rs
+        std::fs::write(
+            project_root.join("src").join("modules").join("mod.rs"),
+            "",
+        ).expect("写入 mod.rs 失败");
+
+        // 预先放一个迁移文件（模拟 lock 丢失但迁移已存在）
+        std::fs::write(
+            project_root.join("migrations").join("001_create_tags.sql"),
+            "CREATE TABLE tags (...);",
+        ).expect("写入迁移文件失败");
+
+        // 没有 lock 文件，diff 会返回 CreateTable
+        let ctx = minimal_context();
+        let result = generate(project_root, &ctx).expect("生成失败");
+
+        // 不应跳过模块生成
+        assert!(!result.skipped);
+
+        // 不应生成新的迁移文件（因为已有 001_create_tags.sql）
+        assert!(result.migration_file.is_none(), "迁移文件已存在时不应重复生成");
+
+        // migrations 目录应仍只有一个 sql 文件
+        let sql_count = std::fs::read_dir(project_root.join("migrations"))
+            .expect("读取 migrations 目录失败")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map_or(false, |ext| ext == "sql"))
+            .count();
+        assert_eq!(sql_count, 1, "不应产生新的迁移文件");
+
+        // 但 lock 文件应被更新（状态同步）
+        assert!(result.lock_file_updated);
+        let lock_path = project_root.join(".colophon.lock");
+        let lock_content = std::fs::read_to_string(&lock_path).expect("读取锁文件失败");
+        assert!(lock_content.contains("[collections.Tag]"));
     }
 }

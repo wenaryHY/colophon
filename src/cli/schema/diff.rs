@@ -282,7 +282,7 @@ fn format_column_def(field: &FieldDef) -> String {
     }
 
     if let Some(ref references) = field.references {
-        parts.push(format!("REFERENCES {}", references));
+        parts.push(format!("REFERENCES {}(id)", references));
     }
 
     parts.join(" ")
@@ -313,7 +313,7 @@ fn format_column_def_for_alter(field: &FieldDef) -> String {
     }
 
     if let Some(ref references) = field.references {
-        parts.push(format!("REFERENCES {}", references));
+        parts.push(format!("REFERENCES {}(id)", references));
     }
 
     parts.join(" ")
@@ -1009,7 +1009,7 @@ fields = [
 
         let mut ref_field = test_field("category_id", "TEXT");
         ref_field.required = false;
-        ref_field.references = Some("categories.id".into());
+        ref_field.references = Some("categories".into());
 
         let current_fields = vec![test_field("id", "TEXT PRIMARY KEY NOT NULL"), ref_field];
 
@@ -1018,7 +1018,7 @@ fields = [
         match diff {
             SchemaDiff::AddColumns(cols) => {
                 let sql = generate_add_columns_sql("posts", &cols);
-                assert!(sql.contains("REFERENCES categories.id"));
+                assert!(sql.contains("REFERENCES categories(id)"));
             }
             _ => panic!("Expected AddColumns"),
         }
@@ -1027,11 +1027,11 @@ fields = [
     #[test]
     fn create_table_preserves_references() {
         let mut ref_field = test_field("author_id", "TEXT");
-        ref_field.references = Some("users.id".into());
+        ref_field.references = Some("users".into());
 
         let fields = vec![test_field("id", "TEXT PRIMARY KEY NOT NULL"), ref_field];
 
         let sql = generate_create_table_sql("posts", &fields);
-        assert!(sql.contains("REFERENCES users.id"));
+        assert!(sql.contains("REFERENCES users(id)"));
     }
 }
