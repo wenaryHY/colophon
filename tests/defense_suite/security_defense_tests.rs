@@ -3,11 +3,11 @@
 
 #[cfg(test)]
 mod forwarded_ip_extractor_tests {
-    use std::net::{IpAddr, SocketAddr};
     use axum::extract::ConnectInfo;
     use axum::http::request::Parts;
     use axum_governor::KeyExtractor;
     use colophon::shared::security::ForwardedIpExtractor;
+    use std::net::{IpAddr, SocketAddr};
 
     /// 创建默认的 ForwardedIpExtractor（信任本机）
     fn make_extractor() -> ForwardedIpExtractor {
@@ -33,7 +33,10 @@ mod forwarded_ip_extractor_tests {
             builder = builder.header(*k, *v);
         }
         let addr: SocketAddr = format!("{}:12345", peer_ip).parse().unwrap();
-        let (mut parts, _body) = builder.body(()).expect("failed to build request").into_parts();
+        let (mut parts, _body) = builder
+            .body(())
+            .expect("failed to build request")
+            .into_parts();
         parts.extensions.insert(ConnectInfo(addr));
         parts
     }
@@ -83,10 +86,8 @@ mod forwarded_ip_extractor_tests {
     /// M-1: 来自可信代理时，应使用 X-Real-IP
     #[test]
     fn extracts_real_ip_from_x_real_ip_fallback() {
-        let parts = make_parts_with_headers_and_connect_info(
-            vec![("x-real-ip", "5.6.7.8")],
-            "127.0.0.1",
-        );
+        let parts =
+            make_parts_with_headers_and_connect_info(vec![("x-real-ip", "5.6.7.8")], "127.0.0.1");
         let extractor = make_extractor();
         let result = extractor.extract(&parts).unwrap();
         assert_eq!(result.key, parse_ip("5.6.7.8"));
@@ -113,10 +114,7 @@ mod forwarded_ip_extractor_tests {
     #[test]
     fn x_forwarded_for_takes_priority_over_x_real_ip() {
         let parts = make_parts_with_headers_and_connect_info(
-            vec![
-                ("x-forwarded-for", "1.1.1.1"),
-                ("x-real-ip", "2.2.2.2"),
-            ],
+            vec![("x-forwarded-for", "1.1.1.1"), ("x-real-ip", "2.2.2.2")],
             "127.0.0.1",
         );
         let extractor = make_extractor();
@@ -128,10 +126,7 @@ mod forwarded_ip_extractor_tests {
     #[test]
     fn ignores_empty_x_forwarded_for() {
         let parts = make_parts_with_headers_and_connect_info(
-            vec![
-                ("x-forwarded-for", ""),
-                ("x-real-ip", "3.3.3.3"),
-            ],
+            vec![("x-forwarded-for", ""), ("x-real-ip", "3.3.3.3")],
             "127.0.0.1",
         );
         let extractor = make_extractor();
@@ -155,8 +150,8 @@ mod forwarded_ip_extractor_tests {
 
 #[cfg(test)]
 mod login_rate_limiter_capacity_tests {
-    use std::time::{Duration, Instant};
     use colophon::shared::security::LoginRateLimiter;
+    use std::time::{Duration, Instant};
 
     #[test]
     fn does_not_exceed_entry_capacity() {
@@ -174,8 +169,7 @@ mod login_rate_limiter_capacity_tests {
         // 最新插入的 ip-10000 占据最后一个位置，ip-0 被驱逐）。
         // 或者如果未驱逐（HashMap 恰好没淘汰到它），容量保护也会
         // 让 ip-0 的第二次请求放行。
-        let first_key_allowed =
-            limiter.allow("ip-0".to_string(), now + Duration::from_secs(10));
+        let first_key_allowed = limiter.allow("ip-0".to_string(), now + Duration::from_secs(10));
         assert!(
             first_key_allowed,
             "early key should be allowed because it was evicted when capacity exceeded"

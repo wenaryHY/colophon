@@ -98,12 +98,10 @@ fn normalize_i64_range(value: &str, key: &str, min: i64, max: i64) -> AppResult<
 fn normalize_timezone(value: &str) -> AppResult<String> {
     let tz_str = value.trim();
     // 验证是否为有效的 IANA 时区名称
-    tz_str
-        .parse::<Tz>()
-        .map_err(|_| {
-            AppError::BadRequest(format!(
-                "无效的时区: {tz_str}。请使用 IANA 时区标识符，如 UTC、Asia/Shanghai、America/New_York"
-            ))
-        })?;
+    tz_str.parse::<Tz>().map_err(|_| {
+        AppError::BadRequest(format!(
+            "无效的时区: {tz_str}。请使用 IANA 时区标识符，如 UTC、Asia/Shanghai、America/New_York"
+        ))
+    })?;
     Ok(tz_str.to_string())
 }

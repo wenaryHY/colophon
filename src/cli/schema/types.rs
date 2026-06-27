@@ -107,7 +107,7 @@ pub struct TemplateContext {
 
 /// 带模板渲染类型信息的字段，从 FieldDef 转换而来。
 ///
-/// 使用组合模式：内部包含 FieldDef，额外添加 create_type 和 update_type。
+/// 使用组合模式：内部包含 FieldDef，额外添加 create_type / update_type / param_type。
 /// 通过 Deref 可以直接访问 FieldDef 的所有字段。
 #[derive(Debug, Clone, Serialize)]
 pub struct TemplateField {
@@ -118,6 +118,11 @@ pub struct TemplateField {
     pub create_type: String,
     /// Update DTO 中的类型：始终为 `Option<T>`。
     pub update_type: String,
+    /// Repository 函数参数类型：`String` → `&str`，`i64` → `i64`，`bool` → `bool`。
+    /// 用于 insert/update 函数签名。
+    pub param_type: String,
+    /// Repository 函数可选参数类型：如 `Option<&str>`、`Option<i64>`。
+    pub opt_param_type: String,
 }
 
 impl std::ops::Deref for TemplateField {
@@ -151,6 +156,8 @@ mod tests {
             field: field_def.clone(),
             create_type: "String".into(),
             update_type: "Option<String>".into(),
+            param_type: "&str".into(),
+            opt_param_type: "Option<&str>".into(),
         };
 
         // 验证通过 Deref 可以访问 FieldDef 的字段

@@ -65,6 +65,7 @@ mod crud_tests {
                 content_type: ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -173,6 +174,7 @@ mod crud_tests {
                 content_type: ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await;
@@ -223,6 +225,7 @@ mod crud_tests {
                 content_type: draft.content_type,
                 custom_html_path: draft.custom_html_path.as_deref(),
                 page_render_mode: &draft.page_render_mode,
+                scheduled_at: None,
             },
             draft.published_at.as_deref(),
         )
@@ -278,6 +281,7 @@ mod crud_tests {
                 content_type: published.content_type,
                 custom_html_path: published.custom_html_path.as_deref(),
                 page_render_mode: &published.page_render_mode,
+                scheduled_at: None,
             },
             published.published_at.as_deref(),
         )
@@ -334,6 +338,7 @@ mod crud_tests {
                 content_type: original.content_type,
                 custom_html_path: original.custom_html_path.as_deref(),
                 page_render_mode: &original.page_render_mode,
+                scheduled_at: None,
             },
             original.published_at.as_deref(),
         )
@@ -392,6 +397,7 @@ mod crud_tests {
                 content_type: original.content_type,
                 custom_html_path: original.custom_html_path.as_deref(),
                 page_render_mode: &original.page_render_mode,
+                scheduled_at: None,
             },
             original.published_at.as_deref(),
         )
@@ -711,6 +717,7 @@ mod page_tests {
                 content_type: ContentType::Page, // 关键：指定为 page
                 custom_html_path: None,
                 page_render_mode,
+                scheduled_at: None,
             },
         )
         .await
@@ -743,6 +750,7 @@ mod page_tests {
                 content_type: ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -802,6 +810,7 @@ mod page_tests {
                 content_type: ContentType::Page,
                 custom_html_path: Some("/custom/page.html"),
                 page_render_mode: "custom_html",
+                scheduled_at: None,
             },
         )
         .await
@@ -934,6 +943,7 @@ mod page_tests {
                 content_type: ContentType::Page,
                 custom_html_path: original.custom_html_path.as_deref(),
                 page_render_mode: &original.page_render_mode,
+                scheduled_at: None,
             },
             original.published_at.as_deref(),
         )
@@ -990,6 +1000,7 @@ mod page_tests {
                 content_type: ContentType::Page,
                 custom_html_path: Some("/custom.html"),
                 page_render_mode: "custom_html",
+                scheduled_at: None,
             },
             original.published_at.as_deref(),
         )
@@ -1105,20 +1116,19 @@ mod page_tests {
         .await;
 
         // 创建 1 个 post
-        insert_post_helper(&pool, &author_id, "Blog Post", "blog-post", PostStatus::Published)
-            .await;
+        insert_post_helper(
+            &pool,
+            &author_id,
+            "Blog Post",
+            "blog-post",
+            PostStatus::Published,
+        )
+        .await;
 
         // 查询只返回 page
-        let pages = repository::list_admin_posts(
-            &pool,
-            None,
-            None,
-            Some(ContentType::Page),
-            10,
-            0,
-        )
-        .await
-        .unwrap();
+        let pages = repository::list_admin_posts(&pool, None, None, Some(ContentType::Page), 10, 0)
+            .await
+            .unwrap();
 
         assert_eq!(pages.len(), 1);
         assert_eq!(pages[0].slug, "about-page");
@@ -1153,16 +1163,9 @@ mod page_tests {
         .await;
 
         // 查询只返回 post
-        let posts = repository::list_admin_posts(
-            &pool,
-            None,
-            None,
-            Some(ContentType::Post),
-            10,
-            0,
-        )
-        .await
-        .unwrap();
+        let posts = repository::list_admin_posts(&pool, None, None, Some(ContentType::Post), 10, 0)
+            .await
+            .unwrap();
 
         assert_eq!(posts.len(), 1);
         assert_eq!(posts[0].slug, "blog-post-2");
@@ -1284,6 +1287,7 @@ mod page_tests {
                 content_type: ContentType::Page,
                 custom_html_path: draft.custom_html_path.as_deref(),
                 page_render_mode: &draft.page_render_mode,
+                scheduled_at: None,
             },
             draft.published_at.as_deref(),
         )
@@ -1340,6 +1344,7 @@ mod page_tests {
                 content_type: ContentType::Page,
                 custom_html_path: published.custom_html_path.as_deref(),
                 page_render_mode: &published.page_render_mode,
+                scheduled_at: None,
             },
             published.published_at.as_deref(),
         )
@@ -1353,5 +1358,573 @@ mod page_tests {
 
         assert_eq!(draft.status, PostStatus::Draft);
         assert!(draft.published_at.is_none());
+    }
+}
+
+// ========================================
+// 定时发布功能测试
+// ========================================
+
+#[cfg(test)]
+mod scheduled_publishing_tests {
+    use crate::modules::post::{
+        post_types::{ContentType, NewPostParams, PostStatus, UpdatePostParams, Visibility},
+        repository,
+    };
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr;
+
+    async fn new_migrated_pool() -> sqlx::SqlitePool {
+        let connect_options = SqliteConnectOptions::from_str("sqlite::memory:")
+            .expect("parse sqlite url")
+            .foreign_keys(false);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(connect_options)
+            .await
+            .expect("connect in-memory sqlite");
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("run migrations");
+        pool
+    }
+
+    async fn create_test_user(pool: &sqlx::SqlitePool, username: &str) -> String {
+        let user_id = uuid::Uuid::new_v4().to_string();
+        sqlx::query(
+            "INSERT INTO users (id, username, email, password_hash, role, display_name) 
+             VALUES (?, ?, ?, 'hash', 'admin', ?)",
+        )
+        .bind(&user_id)
+        .bind(username)
+        .bind(format!("{}@test.com", username))
+        .bind(username)
+        .execute(pool)
+        .await
+        .expect("create test user");
+        user_id
+    }
+
+    /// 插入一个 Scheduled 状态的文章，带 scheduled_at
+    async fn insert_scheduled_post(
+        pool: &sqlx::SqlitePool,
+        author_id: &str,
+        title: &str,
+        slug: &str,
+        scheduled_at: &str,
+    ) -> String {
+        repository::insert_post(
+            pool,
+            NewPostParams {
+                author_id,
+                title,
+                slug,
+                excerpt: None,
+                content_md: "# Scheduled Content",
+                content_html: "<h1>Scheduled Content</h1>",
+                cover_media_id: None,
+                status: PostStatus::Scheduled,
+                visibility: Visibility::Public,
+                category_id: None,
+                allow_comment: true,
+                pinned: false,
+                content_type: ContentType::Post,
+                custom_html_path: None,
+                page_render_mode: "editor",
+                scheduled_at: Some(scheduled_at),
+            },
+        )
+        .await
+        .expect("insert scheduled post")
+    }
+
+    // ========== 测试：创建定时发布文章 ==========
+
+    #[tokio::test]
+    async fn insert_post_with_scheduled_status_and_future_time() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "sched_author1").await;
+
+        let post_id = insert_scheduled_post(
+            &pool,
+            &author_id,
+            "Future Post",
+            "future-post",
+            "2099-12-31 23:59:59",
+        )
+        .await;
+
+        let post = repository::get_admin_post(&pool, &post_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(post.status, PostStatus::Scheduled);
+        assert_eq!(
+            post.scheduled_at,
+            Some("2099-12-31 23:59:59".to_string())
+        );
+        assert!(post.published_at.is_none());
+    }
+
+    #[tokio::test]
+    async fn insert_draft_post_with_no_scheduled_at() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "sched_author2").await;
+
+        let post_id = repository::insert_post(
+            &pool,
+            NewPostParams {
+                author_id: &author_id,
+                title: "Draft Post",
+                slug: "draft-post",
+                excerpt: None,
+                content_md: "",
+                content_html: "",
+                cover_media_id: None,
+                status: PostStatus::Draft,
+                visibility: Visibility::Public,
+                category_id: None,
+                allow_comment: true,
+                pinned: false,
+                content_type: ContentType::Post,
+                custom_html_path: None,
+                page_render_mode: "editor",
+                scheduled_at: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let post = repository::get_admin_post(&pool, &post_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(post.status, PostStatus::Draft);
+        assert!(post.scheduled_at.is_none());
+    }
+
+    // ========== 测试：状态机转换 ==========
+
+    #[tokio::test]
+    async fn update_from_scheduled_to_draft_clears_scheduled_at() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "sched_author3").await;
+
+        let post_id = insert_scheduled_post(
+            &pool,
+            &author_id,
+            "Scheduled Post",
+            "sched-to-draft",
+            "2099-12-31 23:59:59",
+        )
+        .await;
+
+        let scheduled = repository::get_admin_post(&pool, &post_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(scheduled.status, PostStatus::Scheduled);
+        assert!(scheduled.scheduled_at.is_some());
+
+        // 更新为 Draft，清空 scheduled_at
+        repository::update_post(
+            &pool,
+            UpdatePostParams {
+                post_id: &post_id,
+                title: &scheduled.title,
+                slug: &scheduled.slug,
+                excerpt: scheduled.excerpt.as_deref(),
+                content_md: &scheduled.content_md,
+                content_html: &scheduled.content_html,
+                cover_media_id: scheduled.cover_media_id.as_deref(),
+                status: PostStatus::Draft,
+                visibility: scheduled.visibility,
+                category_id: scheduled.category_id.as_deref(),
+                allow_comment: scheduled.allow_comment,
+                pinned: scheduled.pinned,
+                content_type: scheduled.content_type,
+                custom_html_path: scheduled.custom_html_path.as_deref(),
+                page_render_mode: &scheduled.page_render_mode,
+                scheduled_at: None,
+            },
+            scheduled.published_at.as_deref(),
+        )
+        .await
+        .unwrap();
+
+        let draft = repository::get_admin_post(&pool, &post_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(draft.status, PostStatus::Draft);
+        assert!(draft.scheduled_at.is_none());
+    }
+
+    #[tokio::test]
+    async fn update_from_draft_to_scheduled_sets_scheduled_at() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "sched_author4").await;
+
+        let post_id = repository::insert_post(
+            &pool,
+            NewPostParams {
+                author_id: &author_id,
+                title: "Draft Post",
+                slug: "draft-to-sched",
+                excerpt: None,
+                content_md: "",
+                content_html: "",
+                cover_media_id: None,
+                status: PostStatus::Draft,
+                visibility: Visibility::Public,
+                category_id: None,
+                allow_comment: true,
+                pinned: false,
+                content_type: ContentType::Post,
+                custom_html_path: None,
+                page_render_mode: "editor",
+                scheduled_at: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let draft = repository::get_admin_post(&pool, &post_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(draft.status, PostStatus::Draft);
+        assert!(draft.scheduled_at.is_none());
+
+        // 更新为 Scheduled，设置 scheduled_at
+        repository::update_post(
+            &pool,
+            UpdatePostParams {
+                post_id: &post_id,
+                title: &draft.title,
+                slug: &draft.slug,
+                excerpt: draft.excerpt.as_deref(),
+                content_md: &draft.content_md,
+                content_html: &draft.content_html,
+                cover_media_id: draft.cover_media_id.as_deref(),
+                status: PostStatus::Scheduled,
+                visibility: draft.visibility,
+                category_id: draft.category_id.as_deref(),
+                allow_comment: draft.allow_comment,
+                pinned: draft.pinned,
+                content_type: draft.content_type,
+                custom_html_path: draft.custom_html_path.as_deref(),
+                page_render_mode: &draft.page_render_mode,
+                scheduled_at: Some("2099-06-15 10:00:00"),
+            },
+            draft.published_at.as_deref(),
+        )
+        .await
+        .unwrap();
+
+        let scheduled = repository::get_admin_post(&pool, &post_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(scheduled.status, PostStatus::Scheduled);
+        assert_eq!(
+            scheduled.scheduled_at,
+            Some("2099-06-15 10:00:00".to_string())
+        );
+        assert!(scheduled.published_at.is_none());
+    }
+
+    #[tokio::test]
+    async fn scheduled_post_not_in_public_list() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "sched_author5").await;
+
+        insert_scheduled_post(
+            &pool,
+            &author_id,
+            "Hidden Scheduled",
+            "hidden-sched",
+            "2099-12-31 23:59:59",
+        )
+        .await;
+
+        // 公开列表不应包含 Scheduled 状态的文章
+        let public = repository::get_public_post_by_slug(&pool, "hidden-sched")
+            .await
+            .unwrap();
+        assert!(public.is_none());
+    }
+
+    #[tokio::test]
+    async fn admin_can_list_scheduled_posts() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "sched_author6").await;
+
+        insert_scheduled_post(
+            &pool,
+            &author_id,
+            "Admin Visible",
+            "admin-visible",
+            "2099-12-31 23:59:59",
+        )
+        .await;
+
+        let scheduled = repository::list_admin_posts(
+            &pool,
+            Some(PostStatus::Scheduled),
+            None,
+            None,
+            10,
+            0,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(scheduled.len(), 1);
+        assert_eq!(scheduled[0].status, PostStatus::Scheduled);
+        assert_eq!(
+            scheduled[0].scheduled_at,
+            Some("2099-12-31 23:59:59".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn update_scheduled_at_on_existing_scheduled_post() {
+        let pool = new_migrated_pool().await;
+        let author_id = create_test_user(&pool, "sched_author7").await;
+
+        let post_id = insert_scheduled_post(
+            &pool,
+            &author_id,
+            "Reschedule Post",
+            "reschedule",
+            "2099-06-01 10:00:00",
+        )
+        .await;
+
+        let original = repository::get_admin_post(&pool, &post_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        // 修改 scheduled_at 时间
+        repository::update_post(
+            &pool,
+            UpdatePostParams {
+                post_id: &post_id,
+                title: &original.title,
+                slug: &original.slug,
+                excerpt: original.excerpt.as_deref(),
+                content_md: &original.content_md,
+                content_html: &original.content_html,
+                cover_media_id: original.cover_media_id.as_deref(),
+                status: PostStatus::Scheduled,
+                visibility: original.visibility,
+                category_id: original.category_id.as_deref(),
+                allow_comment: original.allow_comment,
+                pinned: original.pinned,
+                content_type: original.content_type,
+                custom_html_path: original.custom_html_path.as_deref(),
+                page_render_mode: &original.page_render_mode,
+                scheduled_at: Some("2099-12-25 08:00:00"),
+            },
+            original.published_at.as_deref(),
+        )
+        .await
+        .unwrap();
+
+        let updated = repository::get_admin_post(&pool, &post_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(updated.status, PostStatus::Scheduled);
+        assert_eq!(
+            updated.scheduled_at,
+            Some("2099-12-25 08:00:00".to_string())
+        );
+    }
+}
+
+// ========================================
+// publish_scheduled_posts 仓库层测试（C-1: 软删除过滤）
+// ========================================
+
+#[cfg(test)]
+mod publish_scheduled_posts_tests {
+    use crate::modules::post::{
+        post_types::{ContentType, NewPostParams, PostStatus, Visibility},
+        repository,
+    };
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr;
+
+    async fn new_migrated_pool() -> sqlx::SqlitePool {
+        let connect_options = SqliteConnectOptions::from_str("sqlite::memory:")
+            .expect("parse sqlite url")
+            .foreign_keys(false);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(connect_options)
+            .await
+            .expect("connect in-memory sqlite");
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("run migrations");
+        pool
+    }
+
+    async fn insert_test_author(pool: &sqlx::SqlitePool) {
+        sqlx::query(
+            "INSERT INTO users (id, username, email, password_hash, display_name, role, status)
+             VALUES ('test-author', 'testuser', 'test@test.com', 'hash', 'Test User', 'admin', 'active')",
+        )
+        .execute(pool)
+        .await
+        .expect("insert author");
+    }
+
+    async fn insert_scheduled_post_with_time(
+        pool: &sqlx::SqlitePool,
+        title: &str,
+        slug: &str,
+        scheduled_at: &str,
+    ) -> String {
+        repository::insert_post(
+            pool,
+            NewPostParams {
+                author_id: "test-author",
+                title,
+                slug,
+                excerpt: None,
+                content_md: "",
+                content_html: "",
+                cover_media_id: None,
+                status: PostStatus::Scheduled,
+                visibility: Visibility::Public,
+                category_id: None,
+                allow_comment: true,
+                pinned: false,
+                content_type: ContentType::Post,
+                custom_html_path: None,
+                page_render_mode: "editor",
+                scheduled_at: Some(scheduled_at),
+            },
+        )
+        .await
+        .expect("insert scheduled post")
+    }
+
+    #[tokio::test]
+    async fn publishes_due_posts() {
+        let pool = new_migrated_pool().await;
+        insert_test_author(&pool).await;
+
+        // scheduled_at 在过去，应被发布
+        insert_scheduled_post_with_time(
+            &pool,
+            "Due Post",
+            "due-post",
+            "2020-01-01 00:00:00",
+        )
+        .await;
+
+        let ids = repository::publish_scheduled_posts(&pool)
+            .await
+            .expect("publish");
+        assert_eq!(ids.len(), 1);
+
+        let post = repository::get_admin_post(&pool, &ids[0])
+            .await
+            .expect("get")
+            .unwrap();
+        assert_eq!(post.status, PostStatus::Published);
+        assert!(post.published_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn skips_future_posts() {
+        let pool = new_migrated_pool().await;
+        insert_test_author(&pool).await;
+
+        // scheduled_at 在未来，不应被发布
+        insert_scheduled_post_with_time(
+            &pool,
+            "Future Post",
+            "future-post",
+            "2099-12-31 23:59:59",
+        )
+        .await;
+
+        let ids = repository::publish_scheduled_posts(&pool)
+            .await
+            .expect("publish");
+        assert_eq!(ids.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn skips_deleted_posts() {
+        let pool = new_migrated_pool().await;
+        insert_test_author(&pool).await;
+
+        // 插入一篇到期的定时文章
+        let id = insert_scheduled_post_with_time(
+            &pool,
+            "Deleted Post",
+            "deleted-post",
+            "2020-01-01 00:00:00",
+        )
+        .await;
+
+        // 软删除
+        repository::delete_post(&pool, &id)
+            .await
+            .expect("delete");
+
+        let ids = repository::publish_scheduled_posts(&pool)
+            .await
+            .expect("publish");
+        assert_eq!(ids.len(), 0);
+
+        // 验证状态未变
+        let post = repository::get_admin_post(&pool, &id)
+            .await
+            .expect("get")
+            .unwrap();
+        assert_eq!(post.status, PostStatus::Scheduled);
+        assert!(post.published_at.is_none());
+    }
+
+    #[tokio::test]
+    async fn sets_published_at_from_scheduled_at() {
+        let pool = new_migrated_pool().await;
+        insert_test_author(&pool).await;
+
+        let scheduled_time = "2020-06-15 10:30:00";
+
+        insert_scheduled_post_with_time(
+            &pool,
+            "Time Check",
+            "time-check",
+            scheduled_time,
+        )
+        .await;
+
+        let ids = repository::publish_scheduled_posts(&pool)
+            .await
+            .expect("publish");
+        assert_eq!(ids.len(), 1);
+
+        let post = repository::get_admin_post(&pool, &ids[0])
+            .await
+            .expect("get")
+            .unwrap();
+        assert_eq!(post.published_at.as_deref(), Some(scheduled_time));
     }
 }

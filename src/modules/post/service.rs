@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use chrono_tz::Tz;
 use slug::slugify;
 use uuid::Uuid;
 
@@ -8,8 +10,8 @@ use crate::{
         auth::AuthUser,
         content::{markdown_to_html, sanitize_html},
         error::{AppError, AppResult},
-        response::{deleted_json, PaginatedResponse},
         http::require_non_empty,
+        response::{deleted_json, PaginatedResponse},
     },
     state::AppState,
 };
@@ -45,6 +47,76 @@ fn normalize_page_render_mode(value: Option<&str>, is_page: bool) -> String {
         "custom_html" => "custom_html".to_string(),
         _ => "editor".to_string(),
     }
+}
+
+/// 将用户输入的 scheduled_at 时间字符串转换为 UTC 时间字符串。
+///
+/// 支持的输入格式：
+/// - 带时区的 ISO 8601: "2026-06-27T20:00:00+08:00" → 直接转 UTC
+/// - 不带时区的本地时间: "2026-06-27T20:00:00" → 按 site_timezone 转 UTC
+///
+/// 返回格式: "2026-06-27 12:00:00" (SQLite datetime 格式)
+fn convert_scheduled_at_to_utc(
+    scheduled_at: &str,
+    site_timezone: &str,
+) -> AppResult<String> {
+    // 尝试解析带时区的 ISO 8601
+    if let Ok(dt) = DateTime::parse_from_rfc3339(scheduled_at) {
+        let utc = dt.with_timezone(&Utc);
+        return Ok(utc.format("%Y-%m-%d %H:%M:%S").to_string());
+    }
+
+    // 尝试解析不带时区的本地时间
+    let naive = NaiveDateTime::parse_from_str(scheduled_at, "%Y-%m-%dT%H:%M:%S")
+        .or_else(|_| NaiveDateTime::parse_from_str(scheduled_at, "%Y-%m-%d %H:%M:%S"))
+        .map_err(|_| AppError::BadRequest(format!(
+            "无效的时间格式: '{}'。请使用 ISO 8601 格式，如 '2026-06-27T20:00:00'",
+            scheduled_at
+        )))?;
+
+    let tz: Tz = site_timezone.parse().map_err(|_| {
+        AppError::BadRequest(format!("无效的时区: '{}'", site_timezone))
+    })?;
+
+    let local_dt = match tz.from_local_datetime(&naive) {
+        chrono::LocalResult::Single(dt) => dt,
+        chrono::LocalResult::Ambiguous(dt1, _dt2) => {
+            // DST 结束时同一本地时间出现两次，选择较早的（夏令时版本）
+            dt1
+        }
+        chrono::LocalResult::None => {
+            return Err(AppError::BadRequest(format!(
+                "时间 '{}' 在时区 '{}' 中不存在（夏令时跳过），请调整时间",
+                scheduled_at, site_timezone
+            )));
+        }
+    };
+
+    let utc = local_dt.with_timezone(&Utc);
+    Ok(utc.format("%Y-%m-%d %H:%M:%S").to_string())
+}
+
+/// 验证 scheduled_at 是否在未来。
+fn validate_scheduled_at_is_future(scheduled_at_utc: &str) -> AppResult<()> {
+    let naive = NaiveDateTime::parse_from_str(scheduled_at_utc, "%Y-%m-%d %H:%M:%S")
+        .map_err(|_| AppError::BadRequest("内部错误：无法解析 scheduled_at UTC 时间".to_string()))?;
+    
+    let scheduled = naive.and_utc();
+    let now = Utc::now();
+    
+    if scheduled <= now {
+        return Err(AppError::BadRequest(
+            "定时发布时间必须在未来".to_string()
+        ));
+    }
+    
+    if scheduled > now + chrono::Duration::days(365) {
+        return Err(AppError::BadRequest(
+            "定时发布时间不能超过一年后".to_string()
+        ));
+    }
+    
+    Ok(())
 }
 
 /// Returns a slug that is unique across all posts (including soft-deleted ones in
@@ -199,7 +271,41 @@ pub async fn create_post(
         resolve_unique_post_slug(&state.pool, &slug_from_user_or_generated_from_title, None)
             .await?;
 
-    let status = normalize_status(body.status)?;
+    // 读取 site_timezone 设置
+    let site_timezone = crate::modules::setting::repository::get_string(
+        &state.pool, "site_timezone", "UTC"
+    ).await.unwrap_or_else(|_| "UTC".to_string());
+
+    // 处理定时发布
+    let (status, scheduled_at_utc) = if let Some(ref sa) = body.scheduled_at {
+        let utc = convert_scheduled_at_to_utc(sa, &site_timezone)?;
+        validate_scheduled_at_is_future(&utc)?;
+        // 如果用户没有显式指定 status，或者指定为 Draft/Published，强制设为 Scheduled
+        let status = match body.status {
+            Some(PostStatus::Published) | Some(PostStatus::Draft) | None => PostStatus::Scheduled,
+            Some(PostStatus::Trashed) => {
+                // Trashed 状态与 scheduled_at 不兼容，忽略 scheduled_at
+                PostStatus::Trashed
+            }
+            Some(PostStatus::Scheduled) => PostStatus::Scheduled,
+        };
+        // 如果最终状态不是 Scheduled，清空 scheduled_at
+        if status != PostStatus::Scheduled {
+            (status, None)
+        } else {
+            (status, Some(utc))
+        }
+    } else {
+        let status = normalize_status(body.status)?;
+        // 如果没有 scheduled_at 但 status 是 Scheduled，报错
+        if status == PostStatus::Scheduled {
+            return Err(AppError::BadRequest(
+                "设置定时发布状态必须提供 scheduled_at 时间".to_string()
+            ));
+        }
+        (status, None)
+    };
+
     let visibility = normalize_visibility(body.visibility)?;
     let mut content_html = body
         .content_html
@@ -251,6 +357,7 @@ pub async fn create_post(
             content_type,
             custom_html_path: body.custom_html_path.as_deref(),
             page_render_mode: &page_render_mode,
+            scheduled_at: scheduled_at_utc.as_deref(),
         },
     )
     .await?;
@@ -348,7 +455,47 @@ pub async fn update_post(
             .await?;
     let mut excerpt = body.excerpt.or(current.excerpt.clone());
     let cover_media_id = body.cover_media_id.or(current.cover_media_id.clone());
-    let status = normalize_status(body.status.or(Some(current.status)))?;
+
+    // 读取 site_timezone 设置
+    let site_timezone = crate::modules::setting::repository::get_string(
+        &state.pool, "site_timezone", "UTC"
+    ).await.unwrap_or_else(|_| "UTC".to_string());
+
+    // 处理定时发布状态机
+    let (status, scheduled_at_utc) = if let Some(ref sa) = body.scheduled_at {
+        let utc = convert_scheduled_at_to_utc(sa, &site_timezone)?;
+        validate_scheduled_at_is_future(&utc)?;
+        let status = match body.status {
+            Some(PostStatus::Published) | Some(PostStatus::Draft) | None => PostStatus::Scheduled,
+            Some(PostStatus::Trashed) => PostStatus::Trashed,
+            Some(PostStatus::Scheduled) => PostStatus::Scheduled,
+        };
+        // 如果最终状态不是 Scheduled，清空 scheduled_at
+        if status != PostStatus::Scheduled {
+            (status, None)
+        } else {
+            (status, Some(utc))
+        }
+    } else if let Some(requested_status) = body.status {
+        // 没有传 scheduled_at，但传了 status
+        match requested_status {
+            PostStatus::Scheduled => {
+                // 从 Draft/Published 切换到 Scheduled 但没有提供时间，报错
+                return Err(AppError::BadRequest(
+                    "设置定时发布状态必须提供 scheduled_at 时间".to_string()
+                ));
+            }
+            PostStatus::Draft => {
+                // 从 Scheduled 降级到 Draft，清空 scheduled_at
+                (requested_status, None)
+            }
+            _ => (requested_status, current.scheduled_at.clone()),
+        }
+    } else {
+        // 都没传，保持当前状态
+        (current.status, current.scheduled_at.clone())
+    };
+
     let visibility = normalize_visibility(body.visibility.or(Some(current.visibility)))?;
     let mut category_id = body.category_id.or(current.category_id.clone());
     let allow_comment = body.allow_comment.unwrap_or(current.allow_comment);
@@ -396,6 +543,7 @@ pub async fn update_post(
             content_type,
             custom_html_path,
             page_render_mode: &page_render_mode,
+            scheduled_at: scheduled_at_utc.as_deref(),
         },
         current.published_at.as_deref(),
     )
@@ -561,6 +709,7 @@ mod resolve_unique_post_slug_tests {
                 content_type: ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -607,5 +756,119 @@ mod resolve_unique_post_slug_tests {
             .await
             .unwrap();
         assert_eq!(resolved, "my-own-slug");
+    }
+}
+
+#[cfg(test)]
+mod scheduled_at_tests {
+    use super::*;
+
+    // ── convert_scheduled_at_to_utc ──
+
+    #[test]
+    fn converts_rfc3339_with_positive_offset_to_utc() {
+        let result = convert_scheduled_at_to_utc("2026-06-27T20:00:00+08:00", "UTC").unwrap();
+        assert_eq!(result, "2026-06-27 12:00:00");
+    }
+
+    #[test]
+    fn converts_rfc3339_with_negative_offset_to_utc() {
+        let result = convert_scheduled_at_to_utc("2026-06-27T08:00:00-04:00", "UTC").unwrap();
+        assert_eq!(result, "2026-06-27 12:00:00");
+    }
+
+    #[test]
+    fn converts_naive_local_time_with_timezone_to_utc() {
+        // 20:00 in Asia/Shanghai (UTC+8) = 12:00 UTC
+        let result =
+            convert_scheduled_at_to_utc("2026-06-27T20:00:00", "Asia/Shanghai").unwrap();
+        assert_eq!(result, "2026-06-27 12:00:00");
+    }
+
+    #[test]
+    fn converts_naive_local_time_space_format() {
+        let result =
+            convert_scheduled_at_to_utc("2026-06-27 20:00:00", "Asia/Shanghai").unwrap();
+        assert_eq!(result, "2026-06-27 12:00:00");
+    }
+
+    #[test]
+    fn converts_utc_naive_time_as_utc() {
+        let result = convert_scheduled_at_to_utc("2026-06-27T12:00:00", "UTC").unwrap();
+        assert_eq!(result, "2026-06-27 12:00:00");
+    }
+
+    #[test]
+    fn rejects_invalid_time_format() {
+        let result = convert_scheduled_at_to_utc("not-a-date", "UTC");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::BadRequest(msg) => assert!(msg.contains("无效的时间格式")),
+            _ => panic!("expected BadRequest"),
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_timezone() {
+        let result = convert_scheduled_at_to_utc("2026-06-27T20:00:00", "Invalid/Zone");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::BadRequest(msg) => assert!(msg.contains("无效的时区")),
+            _ => panic!("expected BadRequest"),
+        }
+    }
+
+    // ── validate_scheduled_at_is_future ──
+
+    #[test]
+    fn rejects_past_time() {
+        let result = validate_scheduled_at_is_future("2020-01-01 00:00:00");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::BadRequest(msg) => assert!(msg.contains("未来")),
+            _ => panic!("expected BadRequest"),
+        }
+    }
+
+    #[test]
+    fn accepts_future_time_within_one_year() {
+        let future = (Utc::now() + chrono::Duration::days(30)).format("%Y-%m-%d %H:%M:%S").to_string();
+        let result = validate_scheduled_at_is_future(&future);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn rejects_malformed_utc_string() {
+        let result = validate_scheduled_at_is_future("not-a-time");
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::BadRequest(msg) => assert!(msg.contains("内部错误")),
+            _ => panic!("expected BadRequest"),
+        }
+    }
+
+    // ── end-to-end: convert then validate ──
+
+    #[test]
+    fn future_rfc3339_converts_and_validates() {
+        let future = (Utc::now() + chrono::Duration::days(30)).format("%Y-%m-%dT%H:%M:%S+08:00").to_string();
+        let utc = convert_scheduled_at_to_utc(&future, "UTC").unwrap();
+        validate_scheduled_at_is_future(&utc).unwrap();
+    }
+
+    #[test]
+    fn future_naive_time_with_tz_converts_and_validates() {
+        let future = (Utc::now() + chrono::Duration::days(30)).format("%Y-%m-%dT%H:%M:%S").to_string();
+        let utc =
+            convert_scheduled_at_to_utc(&future, "Asia/Shanghai").unwrap();
+        validate_scheduled_at_is_future(&utc).unwrap();
+    }
+
+    #[test]
+    fn reject_scheduled_at_more_than_one_year_future() {
+        let far_future = "2099-12-31 23:59:59";
+        let result = validate_scheduled_at_is_future(far_future);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("一年"));
     }
 }

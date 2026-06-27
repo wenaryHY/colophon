@@ -24,7 +24,10 @@ pub enum DiffError {
 impl fmt::Display for DiffError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DiffError::DestructiveChange { collection, details } => {
+            DiffError::DestructiveChange {
+                collection,
+                details,
+            } => {
                 write!(
                     f,
                     "Detected destructive schema change for '{}':\n{}\n\n\
@@ -186,10 +189,7 @@ fn diff_existing_collection(
     // 检查删除的列：锁文件中存在但当前 schema 中不存在
     for lock_field in &lock_collection.fields {
         if !current_fields.iter().any(|f| f.name == lock_field.name) {
-            errors.push(format!(
-                "Column '{}' was removed",
-                lock_field.name
-            ));
+            errors.push(format!("Column '{}' was removed", lock_field.name));
         }
     }
 
@@ -253,10 +253,7 @@ pub fn generate_migration_sql(
 
 /// 生成 CREATE TABLE IF NOT EXISTS 语句。
 fn generate_create_table_sql(table_name: &str, fields: &[FieldDef]) -> String {
-    let column_defs: Vec<String> = fields
-        .iter()
-        .map(|f| format_column_def(f))
-        .collect();
+    let column_defs: Vec<String> = fields.iter().map(|f| format_column_def(f)).collect();
 
     format!(
         "CREATE TABLE IF NOT EXISTS {} (\n{}\n);",
@@ -512,9 +509,7 @@ mod tests {
         let sql = generate_add_columns_sql("users", &columns);
 
         assert!(sql.contains("ALTER TABLE users ADD COLUMN email TEXT NOT NULL;"));
-        assert!(sql.contains(
-            "ALTER TABLE users ADD COLUMN age INTEGER NOT NULL DEFAULT 0;"
-        ));
+        assert!(sql.contains("ALTER TABLE users ADD COLUMN age INTEGER NOT NULL DEFAULT 0;"));
     }
 
     #[test]
@@ -574,17 +569,23 @@ mod tests {
             test_field("name", "TEXT NOT NULL"),
         ];
 
-        let err = diff_collection("categories", "categories", &current_fields, &lock)
-            .unwrap_err();
+        let err = diff_collection("categories", "categories", &current_fields, &lock).unwrap_err();
 
         match &err {
-            DiffError::DestructiveChange { collection, details } => {
+            DiffError::DestructiveChange {
+                collection,
+                details,
+            } => {
                 assert_eq!(collection, "categories");
                 assert!(details.contains("Column 'old_field' was removed"));
             }
         }
-        assert!(err.to_string().contains("Detected destructive schema change"));
-        assert!(err.to_string().contains("SQLite ALTER TABLE does not safely support"));
+        assert!(err
+            .to_string()
+            .contains("Detected destructive schema change"));
+        assert!(err
+            .to_string()
+            .contains("SQLite ALTER TABLE does not safely support"));
     }
 
     #[test]
@@ -597,8 +598,7 @@ mod tests {
 
         let current_fields = vec![test_field("id", "TEXT PRIMARY KEY NOT NULL")];
 
-        let err = diff_collection("items", "items", &current_fields, &lock)
-            .unwrap_err();
+        let err = diff_collection("items", "items", &current_fields, &lock).unwrap_err();
 
         assert!(err.to_string().contains("'items'"));
     }
@@ -640,12 +640,13 @@ mod tests {
             },
         ];
 
-        let err = diff_collection("categories", "categories", &current_fields, &lock)
-            .unwrap_err();
+        let err = diff_collection("categories", "categories", &current_fields, &lock).unwrap_err();
 
         match &err {
             DiffError::DestructiveChange { details, .. } => {
-                assert!(details.contains("Column 'status' type changed from 'TEXT' to 'INTEGER NOT NULL DEFAULT 0'"));
+                assert!(details.contains(
+                    "Column 'status' type changed from 'TEXT' to 'INTEGER NOT NULL DEFAULT 0'"
+                ));
             }
         }
     }
@@ -663,10 +664,11 @@ mod tests {
             test_field("score", "INTEGER NOT NULL DEFAULT 0"),
         ];
 
-        let err = diff_collection("games", "games", &current_fields, &lock)
-            .unwrap_err();
+        let err = diff_collection("games", "games", &current_fields, &lock).unwrap_err();
 
-        assert!(err.to_string().contains("Detected destructive schema change"));
+        assert!(err
+            .to_string()
+            .contains("Detected destructive schema change"));
     }
 
     // ── 组合场景 ────────────────────────────────────────────────────────────
@@ -684,8 +686,7 @@ mod tests {
             test_field("new_col", "TEXT NOT NULL"),
         ];
 
-        let err = diff_collection("mixed", "mixed", &current_fields, &lock)
-            .unwrap_err();
+        let err = diff_collection("mixed", "mixed", &current_fields, &lock).unwrap_err();
 
         match &err {
             DiffError::DestructiveChange { details, .. } => {
@@ -725,7 +726,10 @@ mod tests {
     #[test]
     fn parse_migration_number_valid() {
         assert_eq!(parse_migration_number("001_init.sql"), Some(1));
-        assert_eq!(parse_migration_number("022_add_token_version.sql"), Some(22));
+        assert_eq!(
+            parse_migration_number("022_add_token_version.sql"),
+            Some(22)
+        );
         assert_eq!(parse_migration_number("999_big_migration.sql"), Some(999));
     }
 
@@ -827,7 +831,10 @@ mod tests {
 
         // .sql 文件应正常解析
         assert_eq!(parse_migration_number("001_init.sql"), Some(1));
-        assert_eq!(parse_migration_number("022_add_token_version.sql"), Some(22));
+        assert_eq!(
+            parse_migration_number("022_add_token_version.sql"),
+            Some(22)
+        );
     }
 
     // ── 锁文件读取 ─────────────────────────────────────────────────────────

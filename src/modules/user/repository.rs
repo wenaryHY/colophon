@@ -126,10 +126,7 @@ where
 }
 
 /// 自增 token_version，使该用户所有已签发 JWT 立即失效
-pub async fn increment_token_version<'e, E>(
-    executor: E,
-    user_id: &str,
-) -> Result<(), sqlx::Error>
+pub async fn increment_token_version<'e, E>(executor: E, user_id: &str) -> Result<(), sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {

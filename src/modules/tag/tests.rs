@@ -100,6 +100,7 @@ mod tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -123,6 +124,7 @@ mod tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -178,6 +180,7 @@ mod tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await

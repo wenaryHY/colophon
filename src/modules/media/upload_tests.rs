@@ -719,7 +719,7 @@ mod upload_tests {
             "..\\..\\..\\Windows\\System32\\config\\SAM",
             "innocent/../../../evil.sh",
             "foo/../../bar.jpg",
-            "/etc/shadow",                    // 绝对路径
+            "/etc/shadow",                     // 绝对路径
             "C:\\Windows\\System32\\evil.exe", // Windows 绝对路径
             "..\\evil.jpg",
             "./../../etc/hosts",
@@ -746,7 +746,8 @@ mod upload_tests {
             let final_path = state.upload_dir.join(&media.storage_path);
 
             // 规范化路径（解析所有 .. 和符号链接）
-            let canonical = std::fs::canonicalize(&final_path).unwrap_or_else(|_| final_path.clone());
+            let canonical =
+                std::fs::canonicalize(&final_path).unwrap_or_else(|_| final_path.clone());
             let upload_canonical = std::fs::canonicalize(&state.upload_dir).unwrap();
 
             assert!(
@@ -838,11 +839,7 @@ mod upload_tests {
         let (state, upload_dir) = setup_test_state().await;
         let auth = create_test_auth_user(&state.pool).await;
 
-        let null_byte_attacks = vec![
-            "evil.jpg\0.exe",
-            "safe.png\x00.sh",
-            "payload.gif\0.php",
-        ];
+        let null_byte_attacks = vec!["evil.jpg\0.exe", "safe.png\x00.sh", "payload.gif\0.php"];
 
         for filename in null_byte_attacks {
             let result = service::upload_media_raw(

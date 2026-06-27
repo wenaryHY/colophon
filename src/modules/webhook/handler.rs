@@ -7,7 +7,9 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{
-    shared::{auth::AdminUser, error::AppResult, pagination::PaginationQuery, response::ApiResponse},
+    shared::{
+        auth::AdminUser, error::AppResult, pagination::PaginationQuery, response::ApiResponse,
+    },
     state::AppState,
 };
 
@@ -87,8 +89,7 @@ pub async fn list_deliveries(
     Query(query): Query<DeliveryQuery>,
 ) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
     let (page, page_size, _offset) = query.pagination.normalized(20, 100);
-    let (deliveries, total) =
-        service::list_deliveries(state, &id, page, page_size).await?;
+    let (deliveries, total) = service::list_deliveries(state, &id, page, page_size).await?;
     Ok(Json(ApiResponse::success(serde_json::json!({
         "items": deliveries,
         "total": total,

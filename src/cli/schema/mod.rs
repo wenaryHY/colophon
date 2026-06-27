@@ -21,8 +21,8 @@ pub fn parse_schema_file(path: &Path) -> Result<TemplateContext> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("无法读取 Schema 文件: {}", path.display()))?;
 
-    let schema: ColophonSchema = toml::from_str(&content)
-        .with_context(|| format!("TOML 解析失败: {}", path.display()))?;
+    let schema: ColophonSchema =
+        toml::from_str(&content).with_context(|| format!("TOML 解析失败: {}", path.display()))?;
 
     build_context(schema).with_context(|| format!("Schema 校验失败: {}", path.display()))
 }
@@ -38,11 +38,7 @@ pub fn parse_schema_dir(dir: &Path) -> Result<Vec<TemplateContext>> {
     let entries: Vec<_> = std::fs::read_dir(dir)
         .with_context(|| format!("无法读取目录: {}", dir.display()))?
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path()
-                .extension()
-                .map_or(false, |ext| ext == "toml")
-        })
+        .filter(|e| e.path().extension().map_or(false, |ext| ext == "toml"))
         .collect();
 
     for entry in entries {
@@ -155,9 +151,7 @@ required = false
     #[test]
     fn parse_invalid_toml_returns_error() {
         let mut tmpfile = tempfile::NamedTempFile::new().expect("创建临时文件失败");
-        tmpfile
-            .write_all(b"not valid toml [[[")
-            .expect("写入失败");
+        tmpfile.write_all(b"not valid toml [[[").expect("写入失败");
 
         let result = parse_schema_file(tmpfile.path());
         assert!(result.is_err());

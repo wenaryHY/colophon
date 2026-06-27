@@ -23,11 +23,9 @@ mod tests {
     #[tokio::test]
     async fn get_by_slug_returns_category_when_exists() {
         let pool = setup_test_db().await;
-
         let cat_id = insert_category(&pool, "Technology", "technology", None, None, 0)
             .await
             .unwrap();
-
         let result = get_by_slug(&pool, "technology").await.unwrap();
         assert!(result.is_some());
         let cat = result.unwrap();
@@ -39,7 +37,6 @@ mod tests {
     #[tokio::test]
     async fn get_by_slug_returns_none_when_not_exists() {
         let pool = setup_test_db().await;
-
         let result = get_by_slug(&pool, "nonexistent").await.unwrap();
         assert!(result.is_none());
     }
@@ -47,12 +44,10 @@ mod tests {
     #[tokio::test]
     async fn get_by_slug_ignores_deleted_categories() {
         let pool = setup_test_db().await;
-
         let cat_id = insert_category(&pool, "Deleted", "deleted", None, None, 0)
             .await
             .unwrap();
         delete_category(&pool, &cat_id).await.unwrap();
-
         let result = get_by_slug(&pool, "deleted").await.unwrap();
         assert!(result.is_none());
     }

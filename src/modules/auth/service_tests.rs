@@ -5,7 +5,10 @@ mod tests {
     use sqlx::SqlitePool;
 
     use crate::{
-        bootstrap::config::{AppConfig, AuthConfig, DatabaseConfig, PathsConfig, RuntimeConfig, ServerConfig, StorageConfig, ThemeConfig, WebhookConfig},
+        bootstrap::config::{
+            AppConfig, AuthConfig, DatabaseConfig, PathsConfig, RuntimeConfig, ServerConfig,
+            StorageConfig, ThemeConfig, WebhookConfig,
+        },
         modules::{
             auth::{
                 dto::{LoginRequest, RegisterRequest},
@@ -102,10 +105,12 @@ mod tests {
     /// 注册并启用 public registration
     async fn enable_registration(state: &Arc<AppState>) {
         // 插入 allow_register = true
-        sqlx::query("INSERT OR REPLACE INTO settings (key, value) VALUES ('allow_register', 'true')")
-            .execute(&state.pool)
-            .await
-            .unwrap();
+        sqlx::query(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('allow_register', 'true')",
+        )
+        .execute(&state.pool)
+        .await
+        .unwrap();
 
         // 插入至少一个用户（避免 "需要先初始化管理员" 错误）
         let admin_hash = hash_password("admin123456").await.unwrap();
@@ -144,12 +149,11 @@ mod tests {
         assert!(!refresh_token.is_empty());
 
         // 验证密码已加密存储（Argon2id）
-        let stored_hash: String = sqlx::query_scalar(
-            "SELECT password_hash FROM users WHERE username = 'newuser'",
-        )
-        .fetch_one(&state.pool)
-        .await
-        .unwrap();
+        let stored_hash: String =
+            sqlx::query_scalar("SELECT password_hash FROM users WHERE username = 'newuser'")
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
         assert_ne!(stored_hash, "StrongPassword123!");
         assert!(stored_hash.starts_with("$argon2id$"));
     }
@@ -232,10 +236,7 @@ mod tests {
 
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(matches!(
-            err,
-            crate::shared::error::AppError::BadRequest(_)
-        ));
+        assert!(matches!(err, crate::shared::error::AppError::BadRequest(_)));
     }
 
     #[tokio::test]
@@ -254,7 +255,6 @@ mod tests {
 
         assert!(result.is_err());
     }
-
 
     /// M-6: 密码策略测试 - 全小写字母应被拒绝
     #[tokio::test]
@@ -589,13 +589,12 @@ mod tests {
 
         // 验证 refresh_token 已存储到数据库
         let token_hash = hash_token(&refresh_token);
-        let count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM refresh_tokens WHERE token_hash = ?",
-        )
-        .bind(&token_hash)
-        .fetch_one(&state.pool)
-        .await
-        .unwrap();
+        let count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM refresh_tokens WHERE token_hash = ?")
+                .bind(&token_hash)
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
 
         assert_eq!(count, 1);
     }
@@ -627,13 +626,12 @@ mod tests {
             .unwrap();
 
         let token_hash = hash_token(&refresh_token);
-        let count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM refresh_tokens WHERE token_hash = ?",
-        )
-        .bind(&token_hash)
-        .fetch_one(&state.pool)
-        .await
-        .unwrap();
+        let count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM refresh_tokens WHERE token_hash = ?")
+                .bind(&token_hash)
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
 
         assert_eq!(count, 1);
     }
@@ -782,10 +780,9 @@ mod tests {
                 .unwrap()
                 .unwrap();
 
-        let expires_time =
-            chrono::DateTime::parse_from_rfc3339(&expires_at)
-                .unwrap()
-                .with_timezone(&chrono::Utc);
+        let expires_time = chrono::DateTime::parse_from_rfc3339(&expires_at)
+            .unwrap()
+            .with_timezone(&chrono::Utc);
         let now = chrono::Utc::now();
         let seconds_until_expiry = (expires_time - now).num_seconds();
 
@@ -836,10 +833,9 @@ mod tests {
                 .unwrap()
                 .unwrap();
 
-        let expires_time =
-            chrono::DateTime::parse_from_rfc3339(&expires_at)
-                .unwrap()
-                .with_timezone(&chrono::Utc);
+        let expires_time = chrono::DateTime::parse_from_rfc3339(&expires_at)
+            .unwrap()
+            .with_timezone(&chrono::Utc);
         let now = chrono::Utc::now();
         let seconds_until_expiry = (expires_time - now).num_seconds();
 
@@ -942,4 +938,3 @@ mod tests {
         ));
     }
 }
-

@@ -150,7 +150,9 @@ pub async fn logout(
     );
 
     // 撤销 refresh token（如果存在）
-    if let Some(cookie) = jar.get(crate::shared::auth::constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN) {
+    if let Some(cookie) =
+        jar.get(crate::shared::auth::constants::REFRESH_COOKIE_NAME_FOR_OAUTH2_REFRESH_TOKEN)
+    {
         let token_hash = jwt::hash_token(cookie.value());
         if let Err(e) = repository::revoke_refresh_token(&state.pool, &token_hash).await {
             tracing::warn!(
@@ -248,8 +250,7 @@ pub async fn refresh_token(
         .refresh_token_ttl_seconds
         .unwrap_or(604800);
     let expires_at =
-        (chrono::Utc::now() + chrono::Duration::seconds(refresh_ttl_seconds as i64))
-            .to_rfc3339();
+        (chrono::Utc::now() + chrono::Duration::seconds(refresh_ttl_seconds as i64)).to_rfc3339();
 
     repository::save_refresh_token(
         &state.pool,
@@ -285,7 +286,8 @@ pub async fn refresh_token(
 
     // 设置新 refresh_token cookie + 返回 access_token JSON
     let cookie_secure = state.config.cookie_secure();
-    let refresh_cookie = build_refresh_cookie(&new_token, REMEMBER_ME_MAX_AGE_SECONDS, cookie_secure);
+    let refresh_cookie =
+        build_refresh_cookie(&new_token, REMEMBER_ME_MAX_AGE_SECONDS, cookie_secure);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
         .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
     let json = Json(ApiResponse::success(serde_json::json!({

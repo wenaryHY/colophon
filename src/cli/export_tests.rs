@@ -72,8 +72,7 @@ mod export_tests {
 
     /// 读取 JSON 文件并解析为 `Vec<serde_json::Value>`。
     fn read_json_array(file_path: &Path) -> Vec<serde_json::Value> {
-        let content =
-            std::fs::read_to_string(file_path).expect("read JSON output file");
+        let content = std::fs::read_to_string(file_path).expect("read JSON output file");
         serde_json::from_str(&content).expect("parse JSON array")
     }
 
@@ -103,6 +102,7 @@ mod export_tests {
                 content_type: ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -110,7 +110,12 @@ mod export_tests {
     }
 
     /// 辅助：创建草稿文章。
-    async fn create_draft_post(pool: &SqlitePool, user_id: &str, title: &str, slug: &str) -> String {
+    async fn create_draft_post(
+        pool: &SqlitePool,
+        user_id: &str,
+        title: &str,
+        slug: &str,
+    ) -> String {
         insert_post(
             pool,
             NewPostParams {
@@ -129,6 +134,7 @@ mod export_tests {
                 content_type: ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -166,11 +172,7 @@ mod export_tests {
             .expect("export run");
 
         let posts = read_json_array(&output_dir.join("posts.json"));
-        assert_eq!(
-            posts.len(),
-            3,
-            "posts.json 应包含 3 条已发布文章记录"
-        );
+        assert_eq!(posts.len(), 3, "posts.json 应包含 3 条已发布文章记录");
 
         remove_temp_dir(&temp_dir);
     }
@@ -207,6 +209,7 @@ mod export_tests {
                         content_type: ContentType::Page,
                         custom_html_path: None,
                         page_render_mode: "editor",
+                scheduled_at: None,
                     },
                 )
                 .await
@@ -237,8 +240,8 @@ mod export_tests {
             let pool = setup_file_db(&db_path).await;
             let user_id = create_test_user(&pool, "author").await;
 
-            let _published = create_published_post(&pool, &user_id, "Published", "published", None)
-                .await;
+            let _published =
+                create_published_post(&pool, &user_id, "Published", "published", None).await;
             let _draft = create_draft_post(&pool, &user_id, "Draft", "draft").await;
         }
 
@@ -272,8 +275,8 @@ mod export_tests {
             let tag_rust_id = insert_tag(&pool, "Rust", "rust").await.expect("insert tag");
             let tag_go_id = insert_tag(&pool, "Go", "go").await.expect("insert tag");
 
-            let post_id = create_published_post(&pool, &user_id, "Multi Tag Post", "multi-tag", None)
-                .await;
+            let post_id =
+                create_published_post(&pool, &user_id, "Multi Tag Post", "multi-tag", None).await;
 
             replace_tags(&pool, &post_id, &[tag_rust_id, tag_go_id])
                 .await
@@ -287,10 +290,7 @@ mod export_tests {
         let tags = read_json_array(&output_dir.join("tags.json"));
         assert_eq!(tags.len(), 2, "tags.json 应包含 2 个标签");
 
-        let tag_names: Vec<&str> = tags
-            .iter()
-            .map(|t| t["name"].as_str().unwrap())
-            .collect();
+        let tag_names: Vec<&str> = tags.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(tag_names.contains(&"Rust"), "标签列表应包含 Rust");
         assert!(tag_names.contains(&"Go"), "标签列表应包含 Go");
 
@@ -310,19 +310,19 @@ mod export_tests {
             let pool = setup_file_db(&db_path).await;
             let user_id = create_test_user(&pool, "author").await;
 
-            let cat_id =
-                insert_category(&pool, "Technology", "technology", Some("tech desc"), None, 0)
-                    .await
-                    .expect("insert category");
-
-            let _ = create_published_post(
+            let cat_id = insert_category(
                 &pool,
-                &user_id,
-                "Tech Post",
-                "tech-post",
-                Some(&cat_id),
+                "Technology",
+                "technology",
+                Some("tech desc"),
+                None,
+                0,
             )
-            .await;
+            .await
+            .expect("insert category");
+
+            let _ = create_published_post(&pool, &user_id, "Tech Post", "tech-post", Some(&cat_id))
+                .await;
         }
 
         export::run(db_path, output_dir.clone(), upload_dir)
@@ -330,11 +330,7 @@ mod export_tests {
             .expect("export run");
 
         let categories = read_json_array(&output_dir.join("categories.json"));
-        assert_eq!(
-            categories.len(),
-            1,
-            "categories.json 应包含 1 个分类"
-        );
+        assert_eq!(categories.len(), 1, "categories.json 应包含 1 个分类");
         assert_eq!(
             categories[0]["name"].as_str().unwrap(),
             "Technology",
@@ -360,19 +356,13 @@ mod export_tests {
             let _ = create_published_post(&pool, &user_id, "Post", "post", None).await;
         }
 
-        assert!(
-            !output_dir.exists(),
-            "输出目录在导出前不应存在"
-        );
+        assert!(!output_dir.exists(), "输出目录在导出前不应存在");
 
         export::run(db_path, output_dir.clone(), upload_dir)
             .await
             .expect("export run");
 
-        assert!(
-            output_dir.exists(),
-            "export 应自动创建输出目录"
-        );
+        assert!(output_dir.exists(), "export 应自动创建输出目录");
         assert!(
             output_dir.join("posts.json").exists(),
             "输出目录应包含 posts.json"
@@ -400,10 +390,7 @@ mod export_tests {
             .expect("export run");
 
         let settings = read_json_array(&output_dir.join("settings.json"));
-        assert!(
-            !settings.is_empty(),
-            "settings.json 不应为空"
-        );
+        assert!(!settings.is_empty(), "settings.json 不应为空");
 
         // 验证 site_title 存在
         let site_title_entry = settings

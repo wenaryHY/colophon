@@ -564,6 +564,7 @@ where
             custom_html_path,
             page_render_mode,
             published_at,
+            scheduled_at,
             created_at,
             updated_at,
             deleted_at
@@ -654,7 +655,7 @@ where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
     let offset = (page.saturating_sub(1)).saturating_mul(page_size);
-    
+
     sqlx::query_as!(
         PublicPostSummary,
         r#"
@@ -692,10 +693,7 @@ where
 }
 
 /// 统计标签下的文章总数
-pub async fn count_posts_by_tag_slug<'e, E>(
-    executor: E,
-    tag_slug: &str,
-) -> Result<i64, sqlx::Error>
+pub async fn count_posts_by_tag_slug<'e, E>(executor: E, tag_slug: &str) -> Result<i64, sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
@@ -715,7 +713,7 @@ where
     )
     .fetch_one(executor)
     .await?;
-    
+
     Ok(count as i64)
 }
 
@@ -730,7 +728,7 @@ where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
     let offset = (page.saturating_sub(1)).saturating_mul(page_size);
-    
+
     sqlx::query_as!(
         PublicPostSummary,
         r#"
@@ -788,7 +786,7 @@ where
     )
     .fetch_one(executor)
     .await?;
-    
+
     Ok(count as i64)
 }
 

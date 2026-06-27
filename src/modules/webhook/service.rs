@@ -8,8 +8,8 @@ use std::sync::Arc;
 use crate::{
     shared::{
         error::{AppError, AppResult},
-        response::deleted_json,
         http::require_non_empty,
+        response::deleted_json,
     },
     state::AppState,
 };
@@ -151,7 +151,10 @@ pub async fn list_deliveries(
     // 校验 webhook 存在
     repository::get_webhook_by_id(&state.pool, webhook_id)
         .await?
-        .ok_or(AppError::NotFound(format!("Webhook '{}' 未找到", webhook_id)))?;
+        .ok_or(AppError::NotFound(format!(
+            "Webhook '{}' 未找到",
+            webhook_id
+        )))?;
 
     let page = page.max(1);
     let page_size = page_size.min(100).max(1);

@@ -71,11 +71,7 @@ fn init_tracing() {
     } else {
         tracing_subscriber::registry()
             .with(env_filter)
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .pretty()
-                    .with_target(false),
-            )
+            .with(tracing_subscriber::fmt::layer().pretty().with_target(false))
             .init();
     }
 }
@@ -91,21 +87,13 @@ async fn main() -> anyhow::Result<()> {
             output,
             database,
             upload_dir,
-        }) => {
-            colophon::cli::export::run(database, output, upload_dir).await
-        }
-        Some(Commands::Schema { action }) => {
-            match action {
-                SchemaAction::Generate {
-                    schema_dir,
-                    project_root,
-                } => {
-                    colophon::cli::schema::generate::run(&project_root, &schema_dir).await
-                }
-            }
-        }
-        None => {
-            colophon::serve().await
-        }
+        }) => colophon::cli::export::run(database, output, upload_dir).await,
+        Some(Commands::Schema { action }) => match action {
+            SchemaAction::Generate {
+                schema_dir,
+                project_root,
+            } => colophon::cli::schema::generate::run(&project_root, &schema_dir).await,
+        },
+        None => colophon::serve().await,
     }
 }

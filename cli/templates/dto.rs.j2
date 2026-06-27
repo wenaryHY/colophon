@@ -3,14 +3,14 @@ use utoipa::ToSchema;
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct Create{{ model_name }}Request {
-{% for field in create_fields %}
+{%- for field in create_fields %}
     pub {{ field.name }}: {{ field.create_type }},
-{% endfor %}
+{%- endfor %}
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct Update{{ model_name }}Request {
-{% for field in update_fields %}
+{%- for field in update_fields %}
     pub {{ field.name }}: {{ field.update_type }},
-{% endfor %}
+{%- endfor %}
 }

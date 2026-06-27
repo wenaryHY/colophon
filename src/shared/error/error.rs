@@ -43,11 +43,7 @@ pub type AppResult<T> = Result<T, AppError>;
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, code, message) = match self {
-            Self::NotFound(msg) => (
-                StatusCode::NOT_FOUND,
-                super::codes::NOT_FOUND,
-                msg,
-            ),
+            Self::NotFound(msg) => (StatusCode::NOT_FOUND, super::codes::NOT_FOUND, msg),
             Self::Unauthorized => (
                 StatusCode::UNAUTHORIZED,
                 super::codes::UNAUTHORIZED,
@@ -58,26 +54,14 @@ impl IntoResponse for AppError {
                 super::codes::FORBIDDEN,
                 "禁止访问".to_string(),
             ),
-            Self::BadRequest(msg) => (
-                StatusCode::BAD_REQUEST,
-                super::codes::BAD_REQUEST,
-                msg,
-            ),
-            Self::Conflict(msg) => (
-                StatusCode::CONFLICT,
-                super::codes::CONFLICT,
-                msg,
-            ),
+            Self::BadRequest(msg) => (StatusCode::BAD_REQUEST, super::codes::BAD_REQUEST, msg),
+            Self::Conflict(msg) => (StatusCode::CONFLICT, super::codes::CONFLICT, msg),
             Self::TooManyRequests(msg) => (
                 StatusCode::TOO_MANY_REQUESTS,
                 super::codes::TOO_MANY_REQUESTS,
                 msg,
             ),
-            Self::Multipart(msg) => (
-                StatusCode::BAD_REQUEST,
-                super::codes::BAD_REQUEST,
-                msg,
-            ),
+            Self::Multipart(msg) => (StatusCode::BAD_REQUEST, super::codes::BAD_REQUEST, msg),
             Self::Internal(msg) => {
                 tracing::error!(
                     module = "shared_error",
@@ -110,7 +94,7 @@ impl IntoResponse for AppError {
                                 "资源已存在".to_string(),
                             )),
                         )
-                        .into_response();
+                            .into_response();
                     }
                     if db_err.is_foreign_key_violation() {
                         return (
@@ -120,7 +104,7 @@ impl IntoResponse for AppError {
                                 "关联资源不存在".to_string(),
                             )),
                         )
-                        .into_response();
+                            .into_response();
                     }
                     if db_err.is_check_violation() {
                         return (
@@ -130,7 +114,7 @@ impl IntoResponse for AppError {
                                 "数据校验失败".to_string(),
                             )),
                         )
-                        .into_response();
+                            .into_response();
                     }
                 }
 
@@ -143,7 +127,7 @@ impl IntoResponse for AppError {
                             "资源未找到".to_string(),
                         )),
                     )
-                    .into_response();
+                        .into_response();
                 }
 
                 (

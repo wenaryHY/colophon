@@ -186,7 +186,10 @@ impl AppConfig {
     pub fn validate(&self) -> Result<()> {
         // webp_quality 范围校验
         if self.media.webp_quality > 100 {
-            bail!("media.webp_quality 必须在 0-100 之间，当前值: {}", self.media.webp_quality);
+            bail!(
+                "media.webp_quality 必须在 0-100 之间，当前值: {}",
+                self.media.webp_quality
+            );
         }
 
         const UNSAFE_SECRETS: &[&str] = &[
@@ -259,4 +262,3 @@ mod tests {
         std::env::remove_var("COLOPHON__AUTH__REFRESH_TOKEN_TTL_SECONDS");
     }
 }
-

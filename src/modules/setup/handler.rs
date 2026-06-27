@@ -27,11 +27,8 @@ pub async fn initialize(
     let (payload, refresh_token) = service::initialize(state.clone(), body).await?;
 
     let cookie_secure = state.config.cookie_secure();
-    let refresh_cookie = build_refresh_cookie(
-        &refresh_token,
-        REMEMBER_ME_MAX_AGE_SECONDS,
-        cookie_secure,
-    );
+    let refresh_cookie =
+        build_refresh_cookie(&refresh_token, REMEMBER_ME_MAX_AGE_SECONDS, cookie_secure);
     let refresh_header = axum::http::HeaderValue::from_str(&refresh_cookie)
         .expect("JWT cookie must be ASCII-only; if this fails, check token encoding");
     let session_cookie = build_session_cookie(

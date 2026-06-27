@@ -5,6 +5,7 @@ pub mod handler;
 pub mod hook_dispatcher;
 pub mod post_types;
 pub mod repository;
+pub mod scheduler;
 pub mod service;
 
 #[cfg(test)]

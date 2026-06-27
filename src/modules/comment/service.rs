@@ -12,8 +12,8 @@ use crate::{
     shared::{
         auth::AuthUser,
         error::{AppError, AppResult},
-        response::{action_json, deleted_json, PaginatedResponse},
         http::require_non_empty,
+        response::{action_json, deleted_json, PaginatedResponse},
     },
     state::AppState,
     ws::ServerEvent,

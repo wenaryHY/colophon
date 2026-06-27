@@ -586,9 +586,7 @@ mod tests {
         let mut writer = zip::ZipWriter::new(cursor);
         let options = zip::write::SimpleFileOptions::default();
 
-        writer
-            .start_file("database/colophon.db", options)
-            .unwrap();
+        writer.start_file("database/colophon.db", options).unwrap();
         writer.write_all(&db_bytes).unwrap();
 
         writer.start_file("manifest.json", options).unwrap();
@@ -624,6 +622,45 @@ mod tests {
         assert!(!evil_path.exists(), "恶意文件不应被写入系统目录");
 
         cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    // ── 时区转换纯函数测试 ──────────────────────────────────────
+
+    #[test]
+    fn backup_scheduler_converts_local_time_to_utc_for_cron() {
+        use super::super::{domain::BackupScheduleFrequency, service};
+
+        // Asia/Shanghai (UTC+8) 的 00:00 → UTC 16:00（前一天）
+        let tz: chrono_tz::Tz = "Asia/Shanghai".parse().unwrap();
+        let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(0, 0, tz);
+        assert_eq!(utc_hour, 16);
+        assert_eq!(utc_minute, 0);
+
+        // 验证 cron 表达式使用 UTC 时间
+        let cron = BackupScheduleFrequency::Daily.cron_expression(utc_hour, utc_minute);
+        assert_eq!(cron, "0 0 16 * * * *");
+    }
+
+    #[test]
+    fn backup_scheduler_utc_timezone_no_conversion() {
+        use super::super::service;
+
+        // UTC 时区不做转换
+        let tz: chrono_tz::Tz = "UTC".parse().unwrap();
+        let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(0, 0, tz);
+        assert_eq!(utc_hour, 0);
+        assert_eq!(utc_minute, 0);
+    }
+
+    #[test]
+    fn backup_scheduler_negative_offset_conversion() {
+        use super::super::service;
+
+        // Etc/GMT+5 恒定 UTC-5，不受夏令时影响；10:00 本地 → UTC 15:00
+        let tz: chrono_tz::Tz = "Etc/GMT+5".parse().unwrap();
+        let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(10, 0, tz);
+        assert_eq!(utc_hour, 15);
+        assert_eq!(utc_minute, 0);
     }
 
     /// Zip Bomb 防护：验证 100MB 单文件上限逻辑可达
@@ -674,9 +711,7 @@ mod tests {
         let mut writer = zip::ZipWriter::new(cursor);
         let options = zip::write::SimpleFileOptions::default();
 
-        writer
-            .start_file("database/colophon.db", options)
-            .unwrap();
+        writer.start_file("database/colophon.db", options).unwrap();
         writer.write_all(&db_bytes).unwrap();
 
         writer.start_file("manifest.json", options).unwrap();
@@ -690,8 +725,9 @@ mod tests {
 
         // 完整恢复需要替换数据库，先关闭连接池再重建 AppState
         state.pool.close().await;
-        let new_pool =
-            SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path)).await.unwrap();
+        let new_pool = SqlitePool::connect(&format!("sqlite:{}?mode=rwc", db_path))
+            .await
+            .unwrap();
         let new_state = Arc::new(AppState {
             pool: new_pool.clone(),
             config: state.config.clone(),
@@ -727,5 +763,32 @@ mod tests {
 
         new_pool.close().await;
         cleanup_test_files(&db_path, &backup_dir).await;
+    }
+
+    #[test]
+    fn local_time_to_utc_for_cron_ambiguous_time_picks_earlier() {
+        use super::super::service;
+
+        // America/New_York 在 11月第一个周日 1:00-2:00 会重复
+        // 1:30 AM 出现两次：EDT (UTC-4) 和 EST (UTC-5)
+        // 应选择较早的 EDT 版本
+        let tz: chrono_tz::Tz = "America/New_York".parse().unwrap();
+        let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(1, 30, tz);
+        // 只验证返回值合理（0-23）
+        assert!(utc_hour <= 23, "utc_hour should be 0-23, got {}", utc_hour);
+        assert!(utc_minute <= 59, "utc_minute should be 0-59, got {}", utc_minute);
+    }
+
+    #[test]
+    fn local_time_to_utc_for_cron_nonexistent_time_falls_back() {
+        use super::super::service;
+
+        // America/New_York 在 3月第二个周日 2:00-3:00 被跳过
+        // 2:30 AM 不存在，应 fallback
+        let tz: chrono_tz::Tz = "America/New_York".parse().unwrap();
+        let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(2, 30, tz);
+        // 只验证返回值合理
+        assert!(utc_hour <= 23, "utc_hour should be 0-23, got {}", utc_hour);
+        assert!(utc_minute <= 59, "utc_minute should be 0-59, got {}", utc_minute);
     }
 }

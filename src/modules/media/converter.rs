@@ -74,9 +74,7 @@ pub fn convert_to_webp(input: &[u8], max_edge: u32, quality: f32) -> AppResult<V
 
     // Step 3: 根据实际 alpha 通道选择像素格式（RGB8 比 RGBA8 省 25% 内存和编码时间）
     let has_alpha = img.color().has_alpha();
-    let config = LossyConfig::new()
-        .with_quality(quality)
-        .with_method(3); // method 3 ~15% 快于默认 4，质量损失微小
+    let config = LossyConfig::new().with_quality(quality).with_method(3); // method 3 ~15% 快于默认 4，质量损失微小
 
     let webp_bytes = if has_alpha {
         let rgba = img.into_rgba8();
@@ -93,11 +91,7 @@ pub fn convert_to_webp(input: &[u8], max_edge: u32, quality: f32) -> AppResult<V
 /// 原子写入：写临时文件 → 验证 magic bytes → rename → 返回
 ///
 /// 如果任何一步失败，临时文件会被清理。
-pub async fn atomic_write_webp(
-    temp_path: &Path,
-    final_path: &Path,
-    data: &[u8],
-) -> AppResult<()> {
+pub async fn atomic_write_webp(temp_path: &Path, final_path: &Path, data: &[u8]) -> AppResult<()> {
     // 1. 写临时文件
     tokio::fs::write(temp_path, data)
         .await
@@ -170,8 +164,11 @@ mod tests {
         // 用 image crate 构造 1x1 白色 JPEG
         let img = image::DynamicImage::new_rgb8(1, 1);
         let mut jpeg_bytes = Vec::new();
-        img.write_to(&mut std::io::Cursor::new(&mut jpeg_bytes), image::ImageFormat::Jpeg)
-            .expect("failed to encode test JPEG");
+        img.write_to(
+            &mut std::io::Cursor::new(&mut jpeg_bytes),
+            image::ImageFormat::Jpeg,
+        )
+        .expect("failed to encode test JPEG");
 
         let result = convert_to_webp(&jpeg_bytes, 2048, 80.0);
         assert!(result.is_ok(), "conversion failed: {:?}", result.err());
@@ -192,17 +189,23 @@ mod tests {
         let img = image::DynamicImage::new_rgb8(100, 100);
 
         let mut jpeg_bytes = Vec::new();
-        img.write_to(&mut std::io::Cursor::new(&mut jpeg_bytes), image::ImageFormat::Jpeg)
-            .expect("failed to encode test JPEG");
+        img.write_to(
+            &mut std::io::Cursor::new(&mut jpeg_bytes),
+            image::ImageFormat::Jpeg,
+        )
+        .expect("failed to encode test JPEG");
 
         let result = convert_to_webp(&jpeg_bytes, 50, 80.0);
-        assert!(result.is_ok(), "conversion with resize failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "conversion with resize failed: {:?}",
+            result.err()
+        );
         let webp = result.unwrap();
         assert!(webp.len() >= 12 && &webp[0..4] == b"RIFF" && &webp[8..12] == b"WEBP");
 
         // 验证缩放后尺寸为 50x50
-        let decoded = image::load_from_memory(&webp)
-            .expect("decoded webp should be valid");
+        let decoded = image::load_from_memory(&webp).expect("decoded webp should be valid");
         assert_eq!(decoded.width(), 50);
         assert_eq!(decoded.height(), 50);
     }
@@ -219,9 +222,9 @@ mod tests {
             0x56, 0x50, 0x38, 0x20, // "VP8 "
             0x0e, 0x00, 0x00, 0x00, // chunk size (14 bytes, LE)
             0x10, 0x00, // width (16, LE)
-            0x00,       // scale x
+            0x00, // scale x
             0x10, 0x00, // height (16, LE)
-            0x00,       // scale y
+            0x00, // scale y
             0x2f, 0x41, 0x54, 0x49, // key frame data
             0x54, 0x41, 0x4c, 0x44,
         ]
@@ -294,7 +297,7 @@ mod tests {
 
     /// 辅助：用 image crate 生成测试 PNG（RGB 或 RGBA）
     fn make_test_png(width: u32, height: u32, with_alpha: bool) -> Vec<u8> {
-        use image::{RgbaImage, RgbImage};
+        use image::{RgbImage, RgbaImage};
         let mut buf = Vec::new();
         if with_alpha {
             let mut img = RgbaImage::new(width, height);
@@ -303,14 +306,16 @@ mod tests {
                 let v = if (x + y) % 2 == 0 { 255u8 } else { 128u8 };
                 *pixel = image::Rgba([v, v, v, 200]);
             }
-            img.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png).unwrap();
+            img.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                .unwrap();
         } else {
             let mut img = RgbImage::new(width, height);
             for (x, y, pixel) in img.enumerate_pixels_mut() {
                 let v = if (x + y) % 2 == 0 { 255u8 } else { 128u8 };
                 *pixel = image::Rgb([v, v, v]);
             }
-            img.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png).unwrap();
+            img.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                .unwrap();
         }
         buf
     }

@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
 pub struct {{ model_name }} {
-{% for field in fields %}
+{%- for field in fields %}
     pub {{ field.name }}: {{ field.rust_type }},
-{% endfor %}
+{%- endfor %}
 }

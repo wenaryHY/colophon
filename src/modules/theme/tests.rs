@@ -49,10 +49,9 @@ mod delete_theme_tests {
         let pool = setup_test_db().await;
 
         // 创建临时主题目录（空目录即可，handler 在 slug == "default" 时提前返回）
-        let temp_theme_dir = std::env::temp_dir()
-            .join(format!("colophon-theme-tests-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&temp_theme_dir)
-            .expect("create temp theme dir for tests");
+        let temp_theme_dir =
+            std::env::temp_dir().join(format!("colophon-theme-tests-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&temp_theme_dir).expect("create temp theme dir for tests");
 
         let config = AppConfig {
             server: ServerConfig {
@@ -175,8 +174,7 @@ mod delete_theme_tests {
     #[tokio::test]
     async fn returns_not_found_for_nonexistent_theme() {
         let router = setup_test_router().await;
-        let request =
-            build_admin_request(Method::DELETE, "/api/v1/admin/themes/nonexistent-xyz");
+        let request = build_admin_request(Method::DELETE, "/api/v1/admin/themes/nonexistent-xyz");
 
         let response = router.oneshot(request).await.unwrap();
         assert_eq!(

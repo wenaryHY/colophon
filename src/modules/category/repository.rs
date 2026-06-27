@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use super::domain::Category;
 
-/// 分类及其文章数量（用于分类列表页）
+/// 分类及其已发布文章数量
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 pub struct CategoryWithCount {
     pub id: String,
@@ -19,21 +19,10 @@ where
 {
     sqlx::query_as!(
         Category,
-        r#"
-        SELECT
-            id,
-            name,
-            slug,
-            description,
-            parent_id,
-            sort_order,
-            created_at,
-            updated_at,
-            deleted_at
-        FROM categories
-        WHERE deleted_at IS NULL
-        ORDER BY sort_order ASC, name ASC
-        "#
+        r#"SELECT id, name, slug, description, parent_id,
+        created_at, updated_at, deleted_at, sort_order
+        FROM categories WHERE deleted_at IS NULL
+        ORDER BY sort_order ASC, name ASC"#
     )
     .fetch_all(executor)
     .await
@@ -45,21 +34,9 @@ where
 {
     sqlx::query_as!(
         Category,
-        r#"
-        SELECT
-            id,
-            name,
-            slug,
-            description,
-            parent_id,
-            sort_order,
-            created_at,
-            updated_at,
-            deleted_at
-        FROM categories
-        WHERE id = ? AND deleted_at IS NULL
-        LIMIT 1
-        "#,
+        r#"SELECT id, name, slug, description, parent_id,
+        created_at, updated_at, deleted_at, sort_order
+        FROM categories WHERE id = ? AND deleted_at IS NULL LIMIT 1"#,
         id
     )
     .fetch_optional(executor)
@@ -88,10 +65,10 @@ where
         sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM categories WHERE (slug = ? OR name = ?) AND deleted_at IS NULL)",
         )
-            .bind(slug)
-            .bind(name)
-            .fetch_one(executor)
-            .await
+        .bind(slug)
+        .bind(name)
+        .fetch_one(executor)
+        .await
     }
 }
 
@@ -135,8 +112,8 @@ where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
     sqlx::query(
-        "UPDATE categories
-         SET name = ?, slug = ?, description = ?, parent_id = ?, sort_order = ?, updated_at = datetime('now')
+        "UPDATE categories SET name = ?, slug = ?, description = ?,
+         parent_id = ?, sort_order = ?, updated_at = datetime('now')
          WHERE id = ?",
     )
     .bind(name)
@@ -159,8 +136,7 @@ where
         .execute(executor)
         .await?;
     sqlx::query(
-        "UPDATE categories
-         SET deleted_at = datetime('now'), updated_at = datetime('now')
+        "UPDATE categories SET deleted_at = datetime('now'), updated_at = datetime('now')
          WHERE id = ?",
     )
     .bind(id)
@@ -170,7 +146,6 @@ where
 }
 
 /// 获取所有分类及其已发布文章数量
-/// 按文章数降序、名称升序排列
 pub async fn get_all_categories_with_count<'e, E>(
     executor: E,
 ) -> Result<Vec<CategoryWithCount>, sqlx::Error>
@@ -179,26 +154,20 @@ where
 {
     sqlx::query_as!(
         CategoryWithCount,
-        r#"
-        SELECT
-            c.id,
-            c.name,
-            c.slug,
-            c.description,
-            COUNT(DISTINCT CASE
-                WHEN p.status = 'published'
-                     AND p.visibility = 'public'
-                     AND p.deleted_at IS NULL
-                THEN p.id
-                ELSE NULL
-            END) as post_count
+        r#"SELECT c.id, c.name, c.slug, c.description,
+        COUNT(DISTINCT CASE
+            WHEN p.status = 'published'
+                 AND p.visibility = 'public'
+                 AND p.deleted_at IS NULL
+            THEN p.id
+            ELSE NULL
+        END) as post_count
         FROM categories c
         LEFT JOIN posts p ON p.category_id = c.id
         WHERE c.deleted_at IS NULL
         GROUP BY c.id, c.name, c.slug, c.description
         HAVING post_count > 0
-        ORDER BY post_count DESC, c.name ASC
-        "#
+        ORDER BY post_count DESC, c.name ASC"#
     )
     .fetch_all(executor)
     .await
@@ -211,21 +180,9 @@ where
 {
     sqlx::query_as!(
         Category,
-        r#"
-        SELECT
-            id,
-            name,
-            slug,
-            description,
-            parent_id,
-            sort_order,
-            created_at,
-            updated_at,
-            deleted_at
-        FROM categories
-        WHERE slug = ? AND deleted_at IS NULL
-        LIMIT 1
-        "#,
+        r#"SELECT id, name, slug, description, parent_id,
+        created_at, updated_at, deleted_at, sort_order
+        FROM categories WHERE slug = ? AND deleted_at IS NULL LIMIT 1"#,
         slug
     )
     .fetch_optional(executor)

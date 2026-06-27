@@ -118,5 +118,7 @@ pub async fn dispatch_post_after_publish(
             new_status,
         }),
     };
-    hook_registry.dispatch_action("post.after_publish", ctx).await;
+    hook_registry
+        .dispatch_action("post.after_publish", ctx)
+        .await;
 }

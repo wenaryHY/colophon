@@ -28,7 +28,16 @@ pub async fn start_backup_scheduler(state: Arc<AppState>) -> Result<(), AppError
 
     let schedule_hour = schedule.hour as u32;
     let schedule_minute = schedule.minute as u32;
-    let cron = frequency.cron_expression(schedule_hour, schedule_minute);
+
+    // 读取站点时区，将用户本地时间转换为 UTC 再生成 cron 表达式
+    let tz_str =
+        crate::modules::setting::repository::get_string(&state.pool, "site_timezone", "UTC")
+            .await
+            .unwrap_or_else(|_| "UTC".into());
+    let tz: Tz = tz_str.parse().unwrap_or(chrono_tz::UTC);
+    let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(schedule_hour, schedule_minute, tz);
+    let cron = frequency.cron_expression(utc_hour, utc_minute);
+
     let scheduler = JobScheduler::new()
         .await
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("create scheduler failed: {e}")))?;
@@ -41,7 +50,10 @@ pub async fn start_backup_scheduler(state: Arc<AppState>) -> Result<(), AppError
                 Ok(_) => {
                     // Update last_run_at and compute next_run_at from cron expression
                     if let Err(err) = update_run_times_after_backup(
-                        &state, &frequency, schedule_hour, schedule_minute,
+                        &state,
+                        &frequency,
+                        schedule_hour,
+                        schedule_minute,
                     )
                     .await
                     {
@@ -76,7 +88,13 @@ pub async fn start_backup_scheduler(state: Arc<AppState>) -> Result<(), AppError
         .await
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("start backup scheduler failed: {e}")))?;
 
-    tracing::info!(cron = %cron, "backup scheduler started");
+    tracing::info!(
+        cron = %cron,
+        local_time = %format!("{:02}:{:02}", schedule_hour, schedule_minute),
+        utc_time = %format!("{:02}:{:02}", utc_hour, utc_minute),
+        tz = %tz.name(),
+        "backup scheduler started"
+    );
 
     // Store handle for dynamic stop/restart (replaces mem::forget)
     *state.backup_scheduler.lock().await = Some(scheduler);
@@ -110,9 +128,10 @@ async fn update_run_times_after_backup(
     minute: u32,
 ) -> Result<(), AppError> {
     let now = Utc::now();
-    let tz_str = crate::modules::setting::repository::get_string(&state.pool, "site_timezone", "UTC")
-        .await
-        .unwrap_or_else(|_| "UTC".into());
+    let tz_str =
+        crate::modules::setting::repository::get_string(&state.pool, "site_timezone", "UTC")
+            .await
+            .unwrap_or_else(|_| "UTC".into());
     let tz: Tz = tz_str.parse().unwrap_or(chrono_tz::UTC);
     let (utc_hour, utc_minute) = service::local_time_to_utc_for_cron(hour, minute, tz);
     let cron_expr = frequency.cron_expression(utc_hour, utc_minute);

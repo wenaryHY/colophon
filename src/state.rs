@@ -95,7 +95,11 @@ pub struct AppState {
     /// WebP 转换器 channel 的发送端。
     /// 上传图片后通过此 channel 向后台 worker 投递转换任务。
     /// 当 `config.media.webp_enabled == false` 时为 None（worker 不启动）。
-    pub converter_send: Arc<tokio::sync::Mutex<Option<tokio::sync::mpsc::Sender<crate::modules::media::worker::ConversionJob>>>>,
+    pub converter_send: Arc<
+        tokio::sync::Mutex<
+            Option<tokio::sync::mpsc::Sender<crate::modules::media::worker::ConversionJob>>,
+        >,
+    >,
     /// WebP worker 的 JoinHandle，关闭时用于等待排空或 abort。
     pub webp_worker_handle: Arc<tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }

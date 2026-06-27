@@ -17,11 +17,14 @@ use crate::shared::error::AppError;
 /// ## 序列化
 /// `#[serde(rename_all = "snake_case")]` 保证 JSON 格式为 `"draft"` / `"published"` / `"trashed"`，
 /// 与原有 API 契约完全兼容。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum PostStatus {
     Draft,
     Published,
+    Scheduled,
     Trashed,
 }
 
@@ -38,6 +41,7 @@ impl PostStatus {
         match self {
             PostStatus::Draft => "draft",
             PostStatus::Published => "published",
+            PostStatus::Scheduled => "scheduled",
             PostStatus::Trashed => "trashed",
         }
     }
@@ -56,6 +60,7 @@ impl FromStr for PostStatus {
         match s {
             "draft" => Ok(PostStatus::Draft),
             "published" => Ok(PostStatus::Published),
+            "scheduled" => Ok(PostStatus::Scheduled),
             "trashed" => Ok(PostStatus::Trashed),
             other => Err(AppError::BadRequest(format!(
                 "invalid post status: '{other}'"
@@ -70,7 +75,9 @@ impl FromStr for PostStatus {
 ///
 /// ## 序列化
 /// JSON 格式为 `"public"` / `"private"`。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Visibility {
     Public,
@@ -114,7 +121,9 @@ impl FromStr for Visibility {
 ///
 /// ## 序列化
 /// JSON 格式为 `"post"` / `"page"`。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ContentType {
     Post,
@@ -226,6 +235,7 @@ pub struct NewPostParams<'a> {
     pub content_type: ContentType,
     pub custom_html_path: Option<&'a str>,
     pub page_render_mode: &'a str,
+    pub scheduled_at: Option<&'a str>,
 }
 
 /// `update_post` 的参数集合。
@@ -245,6 +255,7 @@ pub struct UpdatePostParams<'a> {
     pub content_type: ContentType,
     pub custom_html_path: Option<&'a str>,
     pub page_render_mode: &'a str,
+    pub scheduled_at: Option<&'a str>,
 }
 
 #[cfg(test)]
@@ -257,6 +268,7 @@ mod tests {
     fn post_status_as_str() {
         assert_eq!(PostStatus::Draft.as_str(), "draft");
         assert_eq!(PostStatus::Published.as_str(), "published");
+        assert_eq!(PostStatus::Scheduled.as_str(), "scheduled");
         assert_eq!(PostStatus::Trashed.as_str(), "trashed");
     }
 
@@ -272,6 +284,10 @@ mod tests {
         assert_eq!(
             "published".parse::<PostStatus>().unwrap(),
             PostStatus::Published
+        );
+        assert_eq!(
+            "scheduled".parse::<PostStatus>().unwrap(),
+            PostStatus::Scheduled
         );
         assert_eq!(
             "trashed".parse::<PostStatus>().unwrap(),

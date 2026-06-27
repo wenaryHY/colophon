@@ -11,11 +11,9 @@ pub async fn run(database: PathBuf, output_dir: PathBuf, upload_dir: PathBuf) ->
     // 解析上传目录的绝对路径（导出前确保文件复制源目录存在）
     let upload_dir_absolute = resolve_path(&upload_dir)?;
 
-    std::fs::create_dir_all(&output_dir)
-        .context("无法创建输出目录")?;
+    std::fs::create_dir_all(&output_dir).context("无法创建输出目录")?;
     let media_output_dir = output_dir.join("media");
-    std::fs::create_dir_all(&media_output_dir)
-        .context("无法创建媒体输出目录")?;
+    std::fs::create_dir_all(&media_output_dir).context("无法创建媒体输出目录")?;
 
     let pool = open_database(&database).await?;
 
@@ -79,8 +77,7 @@ fn write_json_array(path: &Path, items: &[String]) -> Result<()> {
             buf.push_str(",\n");
         }
         // 将紧凑的单行 JSON 格式化：先解析再 pretty-print
-        let value: serde_json::Value = serde_json::from_str(item)
-            .context("JSON 解析失败")?;
+        let value: serde_json::Value = serde_json::from_str(item).context("JSON 解析失败")?;
         let pretty = serde_json::to_string_pretty(&value)?;
         // 缩进两空格
         for line in pretty.lines() {
@@ -297,18 +294,13 @@ async fn export_media_metadata(pool: &SqlitePool, output_dir: &Path) -> Result<(
 }
 
 /// 将上传目录中的媒体文件复制到输出目录的 media/ 子目录。
-async fn export_media_files(
-    pool: &SqlitePool,
-    output_dir: &Path,
-    upload_dir: &Path,
-) -> Result<()> {
+async fn export_media_files(pool: &SqlitePool, output_dir: &Path, upload_dir: &Path) -> Result<()> {
     // 查询所有未删除媒体的 storage_path
-    let rows: Vec<(String,)> = sqlx::query_as(
-        "SELECT storage_path FROM media WHERE deleted_at IS NULL",
-    )
-    .fetch_all(pool)
-    .await
-    .context("查询媒体文件路径失败")?;
+    let rows: Vec<(String,)> =
+        sqlx::query_as("SELECT storage_path FROM media WHERE deleted_at IS NULL")
+            .fetch_all(pool)
+            .await
+            .context("查询媒体文件路径失败")?;
 
     let media_output_dir = output_dir.join("media");
     let mut copied = 0usize;

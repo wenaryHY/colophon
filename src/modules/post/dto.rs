@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    modules::tag::domain::Tag,
-    shared::pagination::PaginationQuery,
-};
+use crate::{modules::tag::domain::Tag, shared::pagination::PaginationQuery};
 
 use super::post_types::{ContentType, PostStatus, Visibility};
 
@@ -42,6 +39,7 @@ pub struct CreatePostRequest {
     pub custom_html_path: Option<String>,
     pub page_render_mode: Option<String>,
     pub content_html: Option<String>,
+    pub scheduled_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -61,6 +59,7 @@ pub struct UpdatePostRequest {
     pub custom_html_path: Option<String>,
     pub page_render_mode: Option<String>,
     pub content_html: Option<String>,
+    pub scheduled_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]

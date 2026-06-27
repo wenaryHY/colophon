@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT\n            id,\n            author_id,\n            title,\n            slug,\n            excerpt,\n            content_md,\n            content_html,\n            cover_media_id,\n            status as \"status: PostStatus\",\n            visibility as \"visibility: Visibility\",\n            category_id,\n            allow_comment as \"allow_comment: bool\",\n            pinned as \"pinned: bool\",\n            content_type as \"content_type: ContentType\",\n            custom_html_path,\n            page_render_mode,\n            published_at,\n            created_at,\n            updated_at,\n            deleted_at\n        FROM posts\n        WHERE id = ?\n        LIMIT 1\n        ",
+  "query": "\n        SELECT\n            id,\n            author_id,\n            title,\n            slug,\n            excerpt,\n            content_md,\n            content_html,\n            cover_media_id,\n            status as \"status: PostStatus\",\n            visibility as \"visibility: Visibility\",\n            category_id,\n            allow_comment as \"allow_comment: bool\",\n            pinned as \"pinned: bool\",\n            content_type as \"content_type: ContentType\",\n            custom_html_path,\n            page_render_mode,\n            published_at,\n            scheduled_at,\n            created_at,\n            updated_at,\n            deleted_at\n        FROM posts\n        WHERE id = ?\n        LIMIT 1\n        ",
   "describe": {
     "columns": [
       {
@@ -89,18 +89,23 @@
         "type_info": "Text"
       },
       {
-        "name": "created_at",
+        "name": "scheduled_at",
         "ordinal": 17,
         "type_info": "Text"
       },
       {
-        "name": "updated_at",
+        "name": "created_at",
         "ordinal": 18,
         "type_info": "Text"
       },
       {
-        "name": "deleted_at",
+        "name": "updated_at",
         "ordinal": 19,
+        "type_info": "Text"
+      },
+      {
+        "name": "deleted_at",
+        "ordinal": 20,
         "type_info": "Text"
       }
     ],
@@ -125,10 +130,11 @@
       true,
       false,
       true,
+      true,
       false,
       false,
       true
     ]
   },
-  "hash": "25242c8ebde85e5b00b6a1a61021f360774d0fbbb9c412b96daec9b1b2f38da4"
+  "hash": "23ce6f1ce4102b3119f244f3ab3df1c9344b0c7d180aa7e9cbe71ceb69827790"
 }

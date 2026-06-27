@@ -347,7 +347,9 @@ pub async fn render_custom_page(
     match page.page_render_mode.as_str() {
         "custom_html" => {
             // Serve custom HTML file
-            let custom_html_path = page.custom_html_path.ok_or(AppError::NotFound("自定义HTML路径未设置".to_string()))?;
+            let custom_html_path = page
+                .custom_html_path
+                .ok_or(AppError::NotFound("自定义HTML路径未设置".to_string()))?;
             let index_path = state.upload_dir.join(&custom_html_path).join("index.html");
             if !index_path.exists() {
                 return Err(AppError::NotFound("自定义HTML文件不存在".to_string()));

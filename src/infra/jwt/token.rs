@@ -176,7 +176,7 @@ mod tests {
     /// 期望修复后：仅允许 HS256
     #[test]
     fn security_fix_h2_rejects_hs384_algorithm_confusion() {
-        use jsonwebtoken::{Header, encode};
+        use jsonwebtoken::{encode, Header};
         // 构造一个使用 HS384 的恶意 token
         let mut header = Header::default();
         header.alg = jsonwebtoken::Algorithm::HS384;
@@ -202,7 +202,7 @@ mod tests {
     /// H-2: JWT 算法混淆攻击测试 — HS512
     #[test]
     fn security_fix_h2_rejects_hs512_algorithm_confusion() {
-        use jsonwebtoken::{Header, encode};
+        use jsonwebtoken::{encode, Header};
         let mut header = Header::default();
         header.alg = jsonwebtoken::Algorithm::HS512;
         let claims = Claims {
@@ -227,7 +227,7 @@ mod tests {
     /// 期望：decode_token 拒绝 iss="evil" 的 token
     #[test]
     fn security_fix_n1_decode_rejects_wrong_issuer() {
-        use jsonwebtoken::{Header, encode};
+        use jsonwebtoken::{encode, Header};
         // 构造 iss = "evil" 的恶意 token
         let header = Header::new(jsonwebtoken::Algorithm::HS256);
         #[derive(serde::Serialize)]
@@ -308,6 +308,9 @@ mod tests {
         .unwrap();
         // 期望：decode_token 应拒绝 issuer 不匹配的 token
         let result = decode_token(&malicious_token, TEST_SECRET);
-        assert!(result.is_err(), "token with wrong issuer should be rejected");
+        assert!(
+            result.is_err(),
+            "token with wrong issuer should be rejected"
+        );
     }
 }

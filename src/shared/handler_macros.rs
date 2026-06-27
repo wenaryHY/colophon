@@ -30,29 +30,39 @@ macro_rules! crud_handlers {
     ) => {
         #[allow(clippy::too_many_arguments)]
         pub async fn $list_fn(
-            axum::extract::State(state): axum::extract::State<std::sync::Arc<$crate::state::AppState>>,
+            axum::extract::State(state): axum::extract::State<
+                std::sync::Arc<$crate::state::AppState>,
+            >,
         ) -> $crate::shared::error::AppResult<
             axum::Json<$crate::shared::response::ApiResponse<Vec<$entity>>>,
         > {
             let data = $module::service::$list_fn(state).await?;
-            Ok(axum::Json($crate::shared::response::ApiResponse::success(data)))
+            Ok(axum::Json($crate::shared::response::ApiResponse::success(
+                data,
+            )))
         }
 
         #[allow(clippy::too_many_arguments)]
         pub async fn $create_fn(
-            axum::extract::State(state): axum::extract::State<std::sync::Arc<$crate::state::AppState>>,
+            axum::extract::State(state): axum::extract::State<
+                std::sync::Arc<$crate::state::AppState>,
+            >,
             _admin: $crate::shared::auth::AdminUser,
             axum::Json(body): axum::Json<$create_req>,
         ) -> $crate::shared::error::AppResult<
             axum::Json<$crate::shared::response::ApiResponse<$entity>>,
         > {
             let data = $module::service::$create_fn(state, body).await?;
-            Ok(axum::Json($crate::shared::response::ApiResponse::success(data)))
+            Ok(axum::Json($crate::shared::response::ApiResponse::success(
+                data,
+            )))
         }
 
         #[allow(clippy::too_many_arguments)]
         pub async fn $update_fn(
-            axum::extract::State(state): axum::extract::State<std::sync::Arc<$crate::state::AppState>>,
+            axum::extract::State(state): axum::extract::State<
+                std::sync::Arc<$crate::state::AppState>,
+            >,
             _admin: $crate::shared::auth::AdminUser,
             axum::extract::Path(id): axum::extract::Path<String>,
             axum::Json(body): axum::Json<$update_req>,
@@ -60,19 +70,25 @@ macro_rules! crud_handlers {
             axum::Json<$crate::shared::response::ApiResponse<$entity>>,
         > {
             let data = $module::service::$update_fn(state, &id, body).await?;
-            Ok(axum::Json($crate::shared::response::ApiResponse::success(data)))
+            Ok(axum::Json($crate::shared::response::ApiResponse::success(
+                data,
+            )))
         }
 
         #[allow(clippy::too_many_arguments)]
         pub async fn $delete_fn(
-            axum::extract::State(state): axum::extract::State<std::sync::Arc<$crate::state::AppState>>,
+            axum::extract::State(state): axum::extract::State<
+                std::sync::Arc<$crate::state::AppState>,
+            >,
             _admin: $crate::shared::auth::AdminUser,
             axum::extract::Path(id): axum::extract::Path<String>,
         ) -> $crate::shared::error::AppResult<
             axum::Json<$crate::shared::response::ApiResponse<serde_json::Value>>,
         > {
             let data = $module::service::$delete_fn(state, &id).await?;
-            Ok(axum::Json($crate::shared::response::ApiResponse::success(data)))
+            Ok(axum::Json($crate::shared::response::ApiResponse::success(
+                data,
+            )))
         }
     };
 }

@@ -67,6 +67,7 @@ mod archive_tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -90,6 +91,7 @@ mod archive_tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -140,6 +142,7 @@ mod archive_tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -147,9 +150,7 @@ mod archive_tests {
 
         replace_tags(&pool, &post_id, &[tag_id]).await.unwrap();
 
-        let posts = list_posts_by_tag_slug(&pool, "draft", 1, 10)
-            .await
-            .unwrap();
+        let posts = list_posts_by_tag_slug(&pool, "draft", 1, 10).await.unwrap();
         assert_eq!(posts.len(), 0);
 
         let count = count_posts_by_tag_slug(&pool, "draft").await.unwrap();
@@ -186,6 +187,7 @@ mod archive_tests {
                     content_type: crate::modules::post::post_types::ContentType::Post,
                     custom_html_path: None,
                     page_render_mode: "editor",
+                scheduled_at: None,
                 },
             )
             .await
@@ -218,10 +220,11 @@ mod archive_tests {
 
         let user_id = create_test_user(&pool, "author").await;
 
-        let cat_id =
-            crate::modules::category::repository::insert_category(&pool, "Tech", "tech", None, None, 0)
-                .await
-                .unwrap();
+        let cat_id = crate::modules::category::repository::insert_category(
+            &pool, "Tech", "tech", None, None, 0,
+        )
+        .await
+        .unwrap();
 
         let _post1_id = insert_post(
             &pool,
@@ -241,6 +244,7 @@ mod archive_tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -264,6 +268,7 @@ mod archive_tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -306,6 +311,7 @@ mod archive_tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -329,6 +335,7 @@ mod archive_tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -387,6 +394,7 @@ mod archive_tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -411,6 +419,7 @@ mod archive_tests {
                 content_type: crate::modules::post::post_types::ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -429,10 +438,11 @@ mod archive_tests {
 
         let user_id = create_test_user(&pool, "author").await;
 
-        let cat_id =
-            crate::modules::category::repository::insert_category(&pool, "Pages", "pages", None, None, 0)
-                .await
-                .unwrap();
+        let cat_id = crate::modules::category::repository::insert_category(
+            &pool, "Pages", "pages", None, None, 0,
+        )
+        .await
+        .unwrap();
 
         // 创建 page（不是 post）
         let _page_id = insert_post(
@@ -453,6 +463,7 @@ mod archive_tests {
                 content_type: crate::modules::post::post_types::ContentType::Page,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await

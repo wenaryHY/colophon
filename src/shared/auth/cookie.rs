@@ -26,7 +26,11 @@ pub fn build_clear_refresh_cookie(cookie_secure: bool) -> String {
 }
 
 /// 构建 session cookie（access_token），Path=/
-pub fn build_session_cookie(access_token: &str, max_age_seconds: u64, cookie_secure: bool) -> String {
+pub fn build_session_cookie(
+    access_token: &str,
+    max_age_seconds: u64,
+    cookie_secure: bool,
+) -> String {
     let secure = if cookie_secure { "; Secure" } else { "" };
     format!(
         "{name}={access_token}; Path=/; Max-Age={max_age_seconds}; HttpOnly; SameSite=Strict{secure}",

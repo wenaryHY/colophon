@@ -1,26 +1,21 @@
 use std::sync::Arc;
 
 use axum::{
-    Extension,
     extract::{Path, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{Html, IntoResponse, Redirect, Response},
+    Extension,
 };
 use serde::Deserialize;
 
 use crate::{
     modules::post::post_types::ContentType,
-    shared::{
-        error::{AppError, AppResult},
-    },
+    shared::error::{AppError, AppResult},
     state::AppState,
 };
 
-use crate::modules::theme::{
-    context::TemplateContext, engine,
-    dto::ArchivePageQuery,
-};
 use crate::modules::plugin::hook::{HookContext, HookData, PostBeforeRenderData};
+use crate::modules::theme::{context::TemplateContext, dto::ArchivePageQuery, engine};
 
 pub async fn render_home(
     State(state): State<Arc<AppState>>,
@@ -320,14 +315,10 @@ pub async fn render_search(
         )
         .await
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
-        let total = crate::modules::post::repository::count_search_posts(
-            &state.pool,
-            &keyword,
-            None,
-            None,
-        )
-        .await
-        .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
+        let total =
+            crate::modules::post::repository::count_search_posts(&state.pool, &keyword, None, None)
+                .await
+                .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Database error: {}", e)))?;
         (posts, total)
     } else {
         (Vec::new(), 0i64)
@@ -468,33 +459,31 @@ pub async fn render_author_archive(
     );
 
     // 1. 查询作者公开信息
-    let author = match crate::modules::user::repository::find_public_by_username(
-        &state.pool,
-        &username,
-    )
-    .await
-    {
-        Ok(Some(a)) => a,
-        Ok(None) => {
-            tracing::warn!(
-                module = "theme",
-                event = "render_author_archive_not_found",
-                username = %username,
-                "author not found"
-            );
-            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
-        }
-        Err(e) => {
-            tracing::error!(
-                module = "theme",
-                event = "author_query_error",
-                username = %username,
-                error = %e,
-                "database error when querying author"
-            );
-            return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
-        }
-    };
+    let author =
+        match crate::modules::user::repository::find_public_by_username(&state.pool, &username)
+            .await
+        {
+            Ok(Some(a)) => a,
+            Ok(None) => {
+                tracing::warn!(
+                    module = "theme",
+                    event = "render_author_archive_not_found",
+                    username = %username,
+                    "author not found"
+                );
+                return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
+            }
+            Err(e) => {
+                tracing::error!(
+                    module = "theme",
+                    event = "author_query_error",
+                    username = %username,
+                    error = %e,
+                    "database error when querying author"
+                );
+                return Ok(render_404_page(&state, &headers, &csp_nonce.0).await);
+            }
+        };
 
     // 2. 分页参数（默认第 1 页，每页 20 条）
     let page = query.page;
@@ -552,11 +541,8 @@ pub async fn render_author_archive(
         "",
         "",
     );
-    let json_ld = crate::modules::seo::meta::build_home_json_ld(
-        &page_title,
-        description,
-        effective_site_url,
-    );
+    let json_ld =
+        crate::modules::seo::meta::build_home_json_ld(&page_title, description, effective_site_url);
 
     // 8. 构建模板引擎
     let plugin_guard = state.plugin_manager.read().await;
@@ -844,13 +830,16 @@ pub async fn serve_upload_static(
         "ttf" => "font/ttf",
         "mp3" => "audio/mpeg",
         "ogg" => "audio/ogg",
-            "wav" => "audio/wav",
+        "wav" => "audio/wav",
         "m4a" => "audio/mp4",
         _ => "application/octet-stream",
     };
 
     // ── 内容协商：浏览器支持 WebP 且存在 .webp 版本 → 返回 WebP ──
-    let accept_header = headers.get(header::ACCEPT).and_then(|v| v.to_str().ok()).unwrap_or("");
+    let accept_header = headers
+        .get(header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
     let supports_webp = accept_header.contains("image/webp");
     let webp_path_str = format!("{}.webp", full_path.display());
     let webp_exists = supports_webp && tokio::fs::metadata(&webp_path_str).await.is_ok();
@@ -896,7 +885,8 @@ pub async fn serve_upload_static(
                     "upload static file missing, returning placeholder image"
                 );
                 let placeholder = r##"<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#f3f4f6"/><g fill="none" stroke="#d1d5db" stroke-width="2"><rect x="180" y="92" width="280" height="176" rx="12"/><path d="M210 236l72-74 52 52 44-40 52 62"/></g><circle cx="262" cy="150" r="16" fill="#d1d5db"/><text x="320" y="300" font-size="18" font-family="sans-serif" text-anchor="middle" fill="#6b7280">Media Not Found</text></svg>"##;
-                let mut resp = ([(header::CONTENT_TYPE, "image/svg+xml")], placeholder).into_response();
+                let mut resp =
+                    ([(header::CONTENT_TYPE, "image/svg+xml")], placeholder).into_response();
                 apply_svg_sandbox_csp_if_svg(&mut resp);
                 return resp;
             }
@@ -1179,7 +1169,8 @@ pub async fn render_category_archive(
     );
 
     // 1. 获取分类信息
-    let category = match crate::modules::category::repository::get_by_slug(&state.pool, &slug).await {
+    let category = match crate::modules::category::repository::get_by_slug(&state.pool, &slug).await
+    {
         Ok(Some(c)) => c,
         Ok(None) => {
             tracing::warn!(
@@ -1376,11 +1367,7 @@ pub async fn fallback_404(
 }
 
 /// 渲染 404 错误页面
-async fn render_404_page(
-    state: &Arc<AppState>,
-    headers: &HeaderMap,
-    csp_nonce: &str,
-) -> Response {
+async fn render_404_page(state: &Arc<AppState>, headers: &HeaderMap, csp_nonce: &str) -> Response {
     match try_render_error_template(state, headers, "404.html", csp_nonce).await {
         Ok(html) => {
             let mut response = (StatusCode::NOT_FOUND, Html(html)).into_response();
@@ -1422,15 +1409,15 @@ async fn try_render_error_template(
     )
     .await?;
     env.add_global("csp_nonce", minijinja::Value::from(csp_nonce));
-    
+
     let tmpl = env
         .get_template(template_name)
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Template error: {}", e)))?;
-    
+
     let rendered = tmpl
         .render(minijinja::context! {})
         .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Render error: {}", e)))?;
-    
+
     Ok(rendered)
 }
 
@@ -1452,7 +1439,10 @@ fn is_safe_static_path(path: &str) -> bool {
     }
 
     // 白名单：只允许安全字符
-    if !path.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/') {
+    if !path
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/')
+    {
         return false;
     }
 
@@ -1610,9 +1600,6 @@ mod tests {
             .and_then(|v| v.to_str().ok())
             .map(|v| v.contains("sandbox"))
             .unwrap_or(false);
-        assert!(
-            !has_sandbox,
-            "Non-SVG response should not have sandbox CSP"
-        );
+        assert!(!has_sandbox, "Non-SVG response should not have sandbox CSP");
     }
 }

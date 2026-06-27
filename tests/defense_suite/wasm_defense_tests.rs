@@ -3,9 +3,9 @@
 
 #[cfg(test)]
 mod wasm_defense_tests {
+    use colophon::modules::plugin::sandbox::WasmRuntime;
     use std::path::PathBuf;
     use std::time::Instant;
-    use colophon::modules::plugin::sandbox::WasmRuntime;
 
     const WASM_TIMEOUT_TOLERANCE_SECS: u64 = 6;
 
@@ -32,13 +32,13 @@ mod wasm_defense_tests {
 
         let start = Instant::now();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            extism::Plugin::new(&manifest, [], true)
-                .and_then(|mut plugin| {
-                    let output = plugin.call::<&str, &str>("handle_hook", "{}")
-                        .map(|s| s.to_string());
-                    drop(plugin);
-                    output
-                })
+            extism::Plugin::new(&manifest, [], true).and_then(|mut plugin| {
+                let output = plugin
+                    .call::<&str, &str>("handle_hook", "{}")
+                    .map(|s| s.to_string());
+                drop(plugin);
+                output
+            })
         }));
         let elapsed = start.elapsed();
 
@@ -83,13 +83,13 @@ mod wasm_defense_tests {
             .expect("manifest not found")
             .clone();
 
-        let plugin_result = extism::Plugin::new(&manifest, [], true)
-            .and_then(|mut plugin| {
-                let output = plugin.call::<&str, &str>("handle_hook", "{}")
-                    .map(|s| s.to_string());
-                drop(plugin);
-                output
-            });
+        let plugin_result = extism::Plugin::new(&manifest, [], true).and_then(|mut plugin| {
+            let output = plugin
+                .call::<&str, &str>("handle_hook", "{}")
+                .map(|s| s.to_string());
+            drop(plugin);
+            output
+        });
 
         match plugin_result {
             Err(e) => {
@@ -135,13 +135,13 @@ mod wasm_defense_tests {
             .expect("manifest not found")
             .clone();
 
-        let plugin_result = extism::Plugin::new(&manifest, [], true)
-            .and_then(|mut plugin| {
-                let output = plugin.call::<&str, &str>("handle_hook", "{}")
-                    .map(|s| s.to_string());
-                drop(plugin);
-                output
-            });
+        let plugin_result = extism::Plugin::new(&manifest, [], true).and_then(|mut plugin| {
+            let output = plugin
+                .call::<&str, &str>("handle_hook", "{}")
+                .map(|s| s.to_string());
+            drop(plugin);
+            output
+        });
 
         match plugin_result {
             Err(_e) => {

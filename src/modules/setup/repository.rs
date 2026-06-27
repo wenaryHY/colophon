@@ -2,10 +2,7 @@ use std::str::FromStr;
 
 use uuid::Uuid;
 
-use crate::modules::{
-    setting::repository as setting_repository,
-    setup::domain::SetupStage,
-};
+use crate::modules::{setting::repository as setting_repository, setup::domain::SetupStage};
 
 pub struct SetupSnapshot {
     pub stage: SetupStage,

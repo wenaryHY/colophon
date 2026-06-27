@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::Context;
-use chrono::{Datelike, Timelike, Utc, TimeZone};
+use chrono::{Datelike, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
 use sha2::{Digest, Sha256};
@@ -650,8 +650,7 @@ pub async fn restore_backup_from_bytes(
     fs::create_dir_all(&media_dir).await?;
 
     // 解析 media_dir 的绝对路径，用于目录穿越检测（canonicalize 要求文件已存在，改用 absolute）
-    let resolved_media_dir =
-        std::path::absolute(&media_dir).unwrap_or_else(|_| media_dir.clone());
+    let resolved_media_dir = std::path::absolute(&media_dir).unwrap_or_else(|_| media_dir.clone());
 
     const MAX_SINGLE_MEDIA_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100MB 单文件上限，防 Zip Bomb
 
@@ -663,18 +662,14 @@ pub async fn restore_backup_from_bytes(
 
         if file.name().starts_with("media/") && !file.is_dir() {
             let entry_name = file.name();
-            let relative_name = entry_name
-                .strip_prefix("media/")
-                .unwrap_or(entry_name);
+            let relative_name = entry_name.strip_prefix("media/").unwrap_or(entry_name);
 
             // 第1层防护：拒绝包含危险路径组件的条目名
             if relative_name.contains("..")
                 || relative_name.starts_with('/')
                 || relative_name.starts_with('\\')
             {
-                return Err(AppError::BadRequest(
-                    "检测到非法的 ZIP 条目路径".into(),
-                ));
+                return Err(AppError::BadRequest("检测到非法的 ZIP 条目路径".into()));
             }
 
             // 第2层防护：拼接目标路径后验证绝对路径仍在 media_dir 内
@@ -743,14 +738,35 @@ pub async fn get_schedule(state: Arc<AppState>) -> AppResult<BackupScheduleRespo
 /// 将用户选择的站点时区本地时间转换为 UTC 时间，用于 cron 表达式计算
 /// 例如用户选 Asia/Shanghai 的 02:00 → UTC 18:00（前一天）；默认 UTC
 pub fn local_time_to_utc_for_cron(hour: u32, minute: u32, tz: Tz) -> (u32, u32) {
+    // 使用本地时间的今天日期，而非 UTC 日期
     let now = Utc::now();
-    let local_result = tz.with_ymd_and_hms(now.year(), now.month(), now.day(), hour, minute, 0);
+    let local_now = now.with_timezone(&tz);
+    let local_result = tz.with_ymd_and_hms(
+        local_now.year(), local_now.month(), local_now.day(), hour, minute, 0,
+    );
     let utc_time = match local_result {
         chrono::LocalResult::Single(dt) => dt.with_timezone(&Utc),
-        _ => {
-            // DST 跳变导致时间不存在或歧义，fallback 到今天的 UTC 同时间点
-            Utc.with_ymd_and_hms(now.year(), now.month(), now.day(), hour, minute, 0)
-                .unwrap()
+        chrono::LocalResult::Ambiguous(dt1, _dt2) => {
+            // DST 结束时同一本地时间出现两次，选择较早的（夏令时版本）
+            dt1.with_timezone(&Utc)
+        }
+        chrono::LocalResult::None => {
+            // DST 开始时时间被跳过，尝试第二天同一时间
+            let next_day = local_now.date_naive() + chrono::Duration::days(1);
+            match tz.with_ymd_and_hms(
+                next_day.year(), next_day.month(), next_day.day(), hour, minute, 0,
+            ) {
+                chrono::LocalResult::Single(dt) => dt.with_timezone(&Utc),
+                _ => {
+                    // 仍然失败，使用 UTC 同时间
+                    tracing::warn!(
+                        hour = hour, minute = minute, tz = %tz,
+                        "DST fallback: unable to resolve local time, using UTC"
+                    );
+                    Utc.with_ymd_and_hms(now.year(), now.month(), now.day(), hour, minute, 0)
+                        .unwrap()
+                }
+            }
         }
     };
     (utc_time.hour(), utc_time.minute())
@@ -792,9 +808,10 @@ pub async fn update_schedule(
     // last_run_at is only updated when a backup actually executes).
     // 将用户选择的站点时区本地时间转为 UTC，确保 cron 在正确时刻触发
     if request.enabled {
-        let tz_str = crate::modules::setting::repository::get_string(&state.pool, "site_timezone", "UTC")
-            .await
-            .unwrap_or_else(|_| "UTC".into());
+        let tz_str =
+            crate::modules::setting::repository::get_string(&state.pool, "site_timezone", "UTC")
+                .await
+                .unwrap_or_else(|_| "UTC".into());
         let tz: Tz = tz_str.parse().unwrap_or(chrono_tz::UTC);
         let (utc_hour, utc_minute) = local_time_to_utc_for_cron(request.hour, request.minute, tz);
         let cron = frequency.cron_expression(utc_hour, utc_minute);

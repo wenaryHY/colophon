@@ -145,8 +145,8 @@ async fn process_one_job(
     let cpu_result = {
         let source_path = job.source_path.clone();
         tokio::task::spawn_blocking(move || -> Result<Vec<u8>, anyhow::Error> {
-            let input = std::fs::read(&source_path)
-                .map_err(|e| anyhow::anyhow!("读取原图失败: {}", e))?;
+            let input =
+                std::fs::read(&source_path).map_err(|e| anyhow::anyhow!("读取原图失败: {}", e))?;
 
             let webp_data = converter::convert_to_webp(&input, max_edge, quality)
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -225,7 +225,7 @@ async fn process_one_job(
     // Step 3: 更新 DB —— 标记已转换（保留原 mime_type/size_bytes，由 handler 按协商选择返回）
     if let Err(e) = sqlx::query(
         "UPDATE media SET conversion_status = 'converted', conversion_retries = 0, \
-         conversion_error = NULL, updated_at = datetime('now') WHERE id = ?"
+         conversion_error = NULL, updated_at = datetime('now') WHERE id = ?",
     )
     .bind(&job.media_id)
     .execute(pool)

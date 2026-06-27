@@ -1,23 +1,17 @@
 use std::sync::Arc;
 
 use axum::{
-    Extension,
     extract::{Form, State},
     response::{Html, IntoResponse, Response},
+    Extension,
 };
 
 use crate::{
-    shared::{
-        auth::AdminUser,
-        error::AppError,
-        role::Role,
-    },
+    shared::{auth::AdminUser, error::AppError, role::Role},
     state::AppState,
 };
 
-use crate::modules::theme::{
-    context::TemplateContext, engine, ThemeConfig,
-};
+use crate::modules::theme::{context::TemplateContext, engine, ThemeConfig};
 
 /// 在 HTML 中注入 CSP meta 标签，用于 iframe srcdoc 场景
 /// HTTP CSP 响应头在 srcdoc 中不生效，必须通过 meta 标签传递

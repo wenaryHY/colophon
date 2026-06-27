@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT c.id, c.name, c.slug, c.description,\n        COUNT(DISTINCT CASE\n            WHEN p.status = 'published'\n                 AND p.visibility = 'public'\n                 AND p.deleted_at IS NULL\n            THEN p.id\n            ELSE NULL\n        END) as post_count\n        FROM categories c\n        LEFT JOIN posts p ON p.category_id = c.id\n        WHERE c.deleted_at IS NULL\n        GROUP BY c.id, c.name, c.slug, c.description\n        HAVING post_count > 0\n        ORDER BY post_count DESC, c.name ASC",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "slug",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "description",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "post_count",
+        "ordinal": 4,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "398470dd2aa7e4f160f2d762d5c884161b6876fff2d0a356fce7e48fe241068d"
+}

@@ -45,13 +45,16 @@ pub async fn serve() -> anyhow::Result<()> {
     std::fs::create_dir_all(&config.storage.static_dir)?;
 
     let db_options = SqliteConnectOptions::from_str(&config.database.url)?
-        .journal_mode(SqliteJournalMode::Wal)           // WAL 模式
-        .busy_timeout(Duration::from_secs(5))           // 写锁自旋等待 5s
-        .pragma("synchronous", "NORMAL")                 // WAL 下安全 + 高性能
-        .pragma("foreign_keys", "ON")                    // 外键约束
-        .pragma("temp_store", "MEMORY")                  // 临时表放内存，加速 FTS5
-        .pragma("mmap_size", "268435456")                // 256MB 内存映射加速读
-        .log_slow_statements(tracing_log::log::LevelFilter::Warn, Duration::from_millis(100));
+        .journal_mode(SqliteJournalMode::Wal) // WAL 模式
+        .busy_timeout(Duration::from_secs(5)) // 写锁自旋等待 5s
+        .pragma("synchronous", "NORMAL") // WAL 下安全 + 高性能
+        .pragma("foreign_keys", "ON") // 外键约束
+        .pragma("temp_store", "MEMORY") // 临时表放内存，加速 FTS5
+        .pragma("mmap_size", "268435456") // 256MB 内存映射加速读
+        .log_slow_statements(
+            tracing_log::log::LevelFilter::Warn,
+            Duration::from_millis(100),
+        );
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
@@ -91,9 +94,7 @@ pub async fn serve() -> anyhow::Result<()> {
     state.plugin_manager.write().await.init_all(&state).await?;
     // 初始化 Webhook 分发器，注册到全局 HookRegistry
     {
-        let resolver = std::sync::Arc::new(
-            modules::webhook::dns::TokioDnsResolver,
-        );
+        let resolver = std::sync::Arc::new(modules::webhook::dns::TokioDnsResolver);
         let dispatcher = modules::webhook::dispatcher::WebhookDispatcher::new(
             state.pool.clone(),
             config.webhook.clone(),
@@ -110,6 +111,12 @@ pub async fn serve() -> anyhow::Result<()> {
     }
     modules::backup::scheduler::start_backup_scheduler(state.clone()).await?;
     modules::trash::scheduler::start_trash_scheduler(state.clone()).await?;
+
+    // 启动定时发布调度器
+    let post_scheduler_state = state.clone();
+    tokio::spawn(async move {
+        modules::post::scheduler::start_post_scheduler(post_scheduler_state).await;
+    });
 
     // ── 启动 WebP 转换 worker ──
     if state.config.media.webp_enabled {
@@ -161,7 +168,8 @@ pub async fn serve() -> anyhow::Result<()> {
 
     // 启动主题文件监听器（仅开发模式）。
     // 失败不阻止服务启动 —— 退化为"修改后手动重启"模式即可。
-    if let Err(e) = infra::file_watcher::spawn_theme_watcher(state.clone(), &state.theme_dir).await {
+    if let Err(e) = infra::file_watcher::spawn_theme_watcher(state.clone(), &state.theme_dir).await
+    {
         tracing::warn!(error = ?e, "failed to start theme file watcher; continuing without hot-reload");
     }
 
@@ -178,11 +186,14 @@ pub async fn serve() -> anyhow::Result<()> {
 
     // axum serve 放在 tokio task 中以获取 JoinHandle 实现超时控制
     let serve_task = tokio::spawn(async move {
-        axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
-            .with_graceful_shutdown(async {
-                let _ = shutdown_rx.await;
-            })
-            .await
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .with_graceful_shutdown(async {
+            let _ = shutdown_rx.await;
+        })
+        .await
     });
 
     // 等待 OS 信号

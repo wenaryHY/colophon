@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT\n            id,\n            name,\n            slug,\n            description,\n            parent_id,\n            sort_order,\n            created_at,\n            updated_at,\n            deleted_at\n        FROM categories\n        WHERE slug = ? AND deleted_at IS NULL\n        LIMIT 1\n        ",
+  "query": "SELECT id, name, slug, description, parent_id,\n        created_at, updated_at, deleted_at, sort_order\n        FROM categories WHERE id = ? AND deleted_at IS NULL LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -29,24 +29,24 @@
         "type_info": "Text"
       },
       {
-        "name": "sort_order",
-        "ordinal": 5,
-        "type_info": "Int64"
-      },
-      {
         "name": "created_at",
-        "ordinal": 6,
+        "ordinal": 5,
         "type_info": "Text"
       },
       {
         "name": "updated_at",
-        "ordinal": 7,
+        "ordinal": 6,
         "type_info": "Text"
       },
       {
         "name": "deleted_at",
-        "ordinal": 8,
+        "ordinal": 7,
         "type_info": "Text"
+      },
+      {
+        "name": "sort_order",
+        "ordinal": 8,
+        "type_info": "Int64"
       }
     ],
     "parameters": {
@@ -60,9 +60,9 @@
       true,
       false,
       false,
-      false,
-      true
+      true,
+      false
     ]
   },
-  "hash": "82ef48f6678c5ef2c5253b19e7c517048d00c8200af2076bef36af205927c817"
+  "hash": "b6d8d3bc2274247aca7fbb7d63470ad04e60d9ce247363b2b0ec63884526fd26"
 }

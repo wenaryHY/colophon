@@ -34,9 +34,7 @@ pub async fn verify_password(password: &str, password_hash: &str) -> Result<bool
         let parsed = PasswordHash::new(&password_hash)
             .map_err(|_| AppError::BadRequest("invalid password hash".into()))?;
         let argon2 = build_argon2();
-        Ok(argon2
-            .verify_password(password.as_bytes(), &parsed)
-            .is_ok())
+        Ok(argon2.verify_password(password.as_bytes(), &parsed).is_ok())
     })
     .await
     .map_err(|err| AppError::Anyhow(anyhow::anyhow!("task join error: {err}")))?
@@ -47,9 +45,8 @@ pub async fn verify_password(password: &str, password_hash: &str) -> Result<bool
 /// 参数：m=19456 KiB (19 MiB), t=2 iterations, p=1 parallelism
 /// 参考：OWASP Password Storage Cheat Sheet (2024)
 fn build_argon2<'a>() -> Argon2<'a> {
-    use argon2::{Algorithm, Version, Params};
-    let params = Params::new(19456, 2, 1, None)
-        .expect("static argon2 params are valid");
+    use argon2::{Algorithm, Params, Version};
+    let params = Params::new(19456, 2, 1, None).expect("static argon2 params are valid");
     Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
 }
 

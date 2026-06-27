@@ -21,12 +21,7 @@ use crate::{
     shared::error::AppResult,
 };
 
-use super::{
-    dns::DnsResolver,
-    domain::Webhook,
-    repository,
-    ssrf::is_private_ip,
-};
+use super::{dns::DnsResolver, domain::Webhook, repository, ssrf::is_private_ip};
 
 // ── 重试退避常量 ──
 const INITIAL_DELAY_SECONDS_FOR_WEBHOOK_RETRY: u64 = 5;
@@ -325,8 +320,8 @@ async fn try_send_webhook(
     payload: &str,
     resolver: &dyn DnsResolver,
 ) -> Result<(i64, String), String> {
-    let parsed = url::Url::parse(&webhook.url)
-        .map_err(|e| format!("invalid webhook URL: {}", e))?;
+    let parsed =
+        url::Url::parse(&webhook.url).map_err(|e| format!("invalid webhook URL: {}", e))?;
     let host_str = parsed
         .host_str()
         .ok_or_else(|| "webhook URL missing host".to_string())?;

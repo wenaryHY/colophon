@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
-    shared::error::AppResult,
+    shared::{
+        error::AppResult,
+        response::deleted_json,
+    },
     state::AppState,
 };
 
@@ -21,9 +24,13 @@ pub async fn create_{{ model_name | lower }}(
 ) -> AppResult<{{ model_name }}> {
     let id = repository::insert_{{ model_name | lower }}(
         &state.pool,
-{% for field in create_fields %}
-        {% if field.required %}&body.{{ field.name }}{% else %}body.{{ field.name }}.as_deref(){% endif %},
-{% endfor %}
+{%- for field in create_fields %}
+{%- if field.rust_type == "String" and field.required %}
+        &body.{{ field.name }},
+{%- else %}
+        body.{{ field.name }}.as_deref(),
+{%- endif %}
+{%- endfor %}
     ).await?;
     repository::get_{{ model_name | lower }}(&state.pool, &id)
         .await?
@@ -38,34 +45,38 @@ pub async fn update_{{ model_name | lower }}(
     let current = repository::get_{{ model_name | lower }}(&state.pool, id)
         .await?
         .ok_or(crate::shared::error::AppError::NotFound(format!("{{ display_name }} '{}' 未找到", id)))?;
-    
+
     repository::update_{{ model_name | lower }}(
         &state.pool,
         id,
-{% for field in update_fields %}
-        {% if field.required %}&{% endif %}body.{{ field.name }}.unwrap_or(current.{{ field.name }}{% if field.rust_type == "String" %}.clone(){% endif %}){% if not field.required %}.as_deref(){% endif %},
-{% endfor %}
+{%- for field in update_fields %}
+{%- if field.rust_type == "String" %}
+        body.{{ field.name }}.as_deref().or(current.{{ field.name }}.as_deref()),
+{%- else %}
+        body.{{ field.name }}.unwrap_or(current.{{ field.name }}),
+{%- endif %}
+{%- endfor %}
     ).await?;
-    
+
     repository::get_{{ model_name | lower }}(&state.pool, id)
         .await?
         .ok_or(crate::shared::error::AppError::NotFound("{{ display_name }}未找到".to_string()))
 }
 
 {% if features.soft_delete %}
-pub async fn delete_{{ model_name | lower }}(state: Arc<AppState>, id: &str) -> AppResult<()> {
+pub async fn delete_{{ model_name | lower }}(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     let deleted = repository::soft_delete_{{ model_name | lower }}(&state.pool, id).await?;
     if !deleted {
         return Err(crate::shared::error::AppError::NotFound(format!("{{ display_name }} '{}' 未找到", id)));
     }
-    Ok(())
+    deleted_json()
 }
 {% else %}
-pub async fn delete_{{ model_name | lower }}(state: Arc<AppState>, id: &str) -> AppResult<()> {
+pub async fn delete_{{ model_name | lower }}(state: Arc<AppState>, id: &str) -> AppResult<serde_json::Value> {
     let deleted = repository::delete_{{ model_name | lower }}(&state.pool, id).await?;
     if !deleted {
         return Err(crate::shared::error::AppError::NotFound(format!("{{ display_name }} '{}' 未找到", id)));
     }
-    Ok(())
+    deleted_json()
 }
 {% endif %}

@@ -109,21 +109,19 @@ impl HookHandler for WasmHookHandler {
 
         let blocking_task = tokio::task::spawn_blocking(move || {
             // 读取锁获取 Manifest 引用后立即克隆，释放锁
-            let manifest = {
-                let guard = runtime.blocking_read();
-                guard
-                    .manifests
-                    .get(&plugin_id)
-                    .cloned()
-                    .ok_or_else(|| PluginError::RuntimeError("plugin manifest not found".into()))?
-            };
+            let manifest =
+                {
+                    let guard = runtime.blocking_read();
+                    guard.manifests.get(&plugin_id).cloned().ok_or_else(|| {
+                        PluginError::RuntimeError("plugin manifest not found".into())
+                    })?
+                };
 
             let mut plugin = Plugin::new(&manifest, [], true)
                 .map_err(|e| PluginError::RuntimeError(e.to_string()))?;
 
             let start = std::time::Instant::now();
-            let result: Result<String, extism::Error> =
-                plugin.call("handle_hook", &json_input);
+            let result: Result<String, extism::Error> = plugin.call("handle_hook", &json_input);
             let took_ms = start.elapsed().as_millis();
 
             // RAII: 显式释放 Plugin，确保 Wasm 线性内存正确回收
@@ -145,11 +143,8 @@ impl HookHandler for WasmHookHandler {
         });
 
         // 3. 带超时的 await
-        let spawn_result = timeout(
-            Duration::from_secs(WASM_HOOK_TIMEOUT_SECS),
-            blocking_task,
-        )
-        .await;
+        let spawn_result =
+            timeout(Duration::from_secs(WASM_HOOK_TIMEOUT_SECS), blocking_task).await;
 
         let (json_output, took_ms) = match spawn_result {
             Ok(Ok(Ok(value))) => value,
@@ -171,9 +166,7 @@ impl HookHandler for WasmHookHandler {
                     error = %join_err,
                     "wasm spawn_blocking join error"
                 );
-                return Err(AppError::Internal(format!(
-                    "Wasm 调用线程异常: {join_err}"
-                )));
+                return Err(AppError::Internal(format!("Wasm 调用线程异常: {join_err}")));
             }
             Err(_elapsed) => {
                 tracing::warn!(
@@ -265,10 +258,11 @@ fn value_to_hook_data(hook_name: &str, value: serde_json::Value) -> Result<HookD
             serde_json::from_value(value)
                 .map_err(|e| AppError::Internal(format!("PostBeforeRenderData 反序列化: {e}")))?,
         ),
-        "comment.before_create" => HookData::CommentBeforeCreate(
-            serde_json::from_value(value)
-                .map_err(|e| AppError::Internal(format!("CommentBeforeCreateData 反序列化: {e}")))?,
-        ),
+        "comment.before_create" => {
+            HookData::CommentBeforeCreate(serde_json::from_value(value).map_err(|e| {
+                AppError::Internal(format!("CommentBeforeCreateData 反序列化: {e}"))
+            })?)
+        }
         _ => {
             return Err(AppError::Internal(format!(
                 "unknown hook for re-wrap: {hook_name}"

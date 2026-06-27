@@ -7,7 +7,7 @@ use std::{
 
 use axum::{
     extract::{ConnectInfo, Request, State},
-    http::{HeaderMap, HeaderValue, StatusCode, request::Parts},
+    http::{request::Parts, HeaderMap, HeaderValue, StatusCode},
     middleware::Next,
     response::Response,
 };
@@ -37,7 +37,10 @@ pub struct ForwardedIpExtractor {
 impl axum_governor::KeyExtractor for ForwardedIpExtractor {
     type Key = IpAddr;
 
-    fn extract(&self, parts: &Parts) -> Result<axum_governor::KeyOutcome<Self::Key>, axum_governor::ExtractionError> {
+    fn extract(
+        &self,
+        parts: &Parts,
+    ) -> Result<axum_governor::KeyOutcome<Self::Key>, axum_governor::ExtractionError> {
         // 获取真实 TCP 对端 IP
         let peer_ip = parts
             .extensions
@@ -50,7 +53,8 @@ impl axum_governor::KeyExtractor for ForwardedIpExtractor {
                 // 来源是可信代理，尝试从代理头提取真实客户端 IP
                 if let Some(client_ip) = forwarded_ip(&parts.headers)
                     .or_else(|| {
-                        parts.headers
+                        parts
+                            .headers
                             .get("x-real-ip")
                             .and_then(|v| v.to_str().ok())
                             .map(str::trim)
@@ -120,8 +124,7 @@ impl LoginRateLimiter {
         self.attempts.retain(|_, window| window.expires_at > now);
 
         // M-3: 容量上限保护：超过上限时拒绝新 IP（防止 OOM 攻击）
-        if self.attempts.len() >= MAX_LOGIN_RATE_LIMIT_ENTRIES
-            && !self.attempts.contains_key(&key)
+        if self.attempts.len() >= MAX_LOGIN_RATE_LIMIT_ENTRIES && !self.attempts.contains_key(&key)
         {
             tracing::warn!(
                 "login rate limiter at capacity ({MAX_LOGIN_RATE_LIMIT_ENTRIES} entries), rejecting new key"
@@ -290,10 +293,7 @@ pub async fn security_headers(mut request: Request, next: Next) -> Response {
 }
 
 /// 记录被限流拦截的请求信息（HTTP 429 响应）
-pub async fn log_rate_limited(
-    request: Request,
-    next: Next,
-) -> Response {
+pub async fn log_rate_limited(request: Request, next: Next) -> Response {
     let path = request.uri().path().to_string();
     let method = request.method().clone();
     let headers = request.headers().clone();
@@ -463,9 +463,10 @@ mod tests {
         request
             .headers_mut()
             .insert("x-forwarded-for", "1.2.3.4".parse().unwrap());
-        request
-            .extensions_mut()
-            .insert(ConnectInfo(SocketAddr::new("8.8.8.8".parse().unwrap(), 12345)));
+        request.extensions_mut().insert(ConnectInfo(SocketAddr::new(
+            "8.8.8.8".parse().unwrap(),
+            12345,
+        )));
 
         let (parts, _) = request.into_parts();
         let result = extractor.extract(&parts).unwrap();
@@ -488,9 +489,10 @@ mod tests {
         request
             .headers_mut()
             .insert("x-forwarded-for", "10.0.0.1".parse().unwrap());
-        request
-            .extensions_mut()
-            .insert(ConnectInfo(SocketAddr::new("127.0.0.1".parse().unwrap(), 8080)));
+        request.extensions_mut().insert(ConnectInfo(SocketAddr::new(
+            "127.0.0.1".parse().unwrap(),
+            8080,
+        )));
 
         let (parts, _) = request.into_parts();
         let result = extractor.extract(&parts).unwrap();
@@ -514,7 +516,10 @@ mod tests {
 
         // 新 IP 应被拒绝，而非降级放行
         let result = limiter.allow("new_ip_attacker".into(), now);
-        assert!(!result, "rate limiter should reject new IP when at capacity");
+        assert!(
+            !result,
+            "rate limiter should reject new IP when at capacity"
+        );
     }
 
     #[test]

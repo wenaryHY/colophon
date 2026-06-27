@@ -322,7 +322,11 @@ mod tests {
 
         // 验证 list_pending_conversions 只返回符合条件的一条记录
         let pending = list_pending_conversions(&pool).await.unwrap();
-        assert_eq!(pending.len(), 1, "only one pending record should be returned");
+        assert_eq!(
+            pending.len(),
+            1,
+            "only one pending record should be returned"
+        );
         assert_eq!(pending[0].id, id_pending);
         assert_eq!(pending[0].conversion_status, "pending");
     }

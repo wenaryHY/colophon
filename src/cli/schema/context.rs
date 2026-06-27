@@ -76,10 +76,7 @@ fn map_type(field_type: &str, required: bool) -> (&'static str, &'static str) {
                 ("i64", "INTEGER")
             }
         }
-        "timestamp" => (
-            "String",
-            "TEXT NOT NULL DEFAULT (datetime('now'))",
-        ),
+        "timestamp" => ("String", "TEXT NOT NULL DEFAULT (datetime('now'))"),
         "relation" => {
             // relation 始终是 Option，即使 required = true
             if required {
@@ -293,7 +290,7 @@ fn expand_features(features: &FeaturesDef, fields: &mut Vec<FieldDef>) {
     }
 }
 
-/// 将 FieldDef 转换为 TemplateField，并计算 create_type 和 update_type。
+/// 将 FieldDef 转换为 TemplateField，并计算 create_type / update_type / param_type。
 fn to_template_field(field: &FieldDef) -> TemplateField {
     let base_type = field.rust_type.clone();
 
@@ -316,10 +313,58 @@ fn to_template_field(field: &FieldDef) -> TemplateField {
         format!("Option<{}>", base_type)
     };
 
+    // param_type：Repository 函数参数类型，考虑字段的 required 属性
+    // required String → &str, required i64 → i64
+    // !required String → Option<&str>, !required i64 → Option<i64>
+    // relation (Option<String>) → Option<&str>
+    let param_type = compute_param_type(&base_type, field.required);
+    let opt_param_type = compute_param_type(&base_type, true); // update 参数始终 Option 包裹
+
     TemplateField {
         field: field.clone(),
         create_type,
         update_type,
+        param_type,
+        opt_param_type,
+    }
+}
+
+/// 根据 Rust 类型和字段的 required 属性计算 Repository 函数参数类型。
+///
+/// - `String` + required → `&str`
+/// - `String` + !required → `Option<&str>`
+/// - `i64` + required → `i64`
+/// - `i64` + !required → `Option<i64>`
+/// - `Option<String>` → 始终 `Option<&str>`（relation 类型）
+/// - `always_optional=true` → 始终 Option 包裹（用于 update 参数）
+fn compute_param_type(rust_type: &str, always_optional: bool) -> String {
+    let is_option = rust_type.starts_with("Option<");
+    let inner = if is_option {
+        rust_type
+            .strip_prefix("Option<")
+            .and_then(|s| s.strip_suffix('>'))
+            .unwrap_or(rust_type)
+    } else {
+        rust_type
+    };
+
+    let inner_param = match inner {
+        "String" => "&str",
+        "i64" => "i64",
+        "bool" => "bool",
+        _ => {
+            tracing::warn!(
+                rust_type = inner,
+                "未知的 rust_type，repo 参数类型默认使用 &str"
+            );
+            "&str"
+        }
+    };
+
+    if always_optional || is_option {
+        format!("Option<{}>", inner_param)
+    } else {
+        inner_param.to_string()
     }
 }
 
@@ -459,12 +504,13 @@ mod tests {
         let schema = minimal_schema(vec![raw_field("published_at", "timestamp")]);
         let ctx = build_context(schema).expect("构建失败");
 
-        let f = ctx.fields.iter().find(|f| f.name == "published_at").unwrap();
+        let f = ctx
+            .fields
+            .iter()
+            .find(|f| f.name == "published_at")
+            .unwrap();
         assert_eq!(f.rust_type, "String");
-        assert_eq!(
-            f.sqlite_type,
-            "TEXT NOT NULL DEFAULT (datetime('now'))"
-        );
+        assert_eq!(f.sqlite_type, "TEXT NOT NULL DEFAULT (datetime('now'))");
     }
 
     #[test]
@@ -604,10 +650,7 @@ mod tests {
 
     #[test]
     fn select_columns_contains_all_fields() {
-        let schema = minimal_schema(vec![
-            raw_field("name", "text"),
-            raw_field("slug", "text"),
-        ]);
+        let schema = minimal_schema(vec![raw_field("name", "text"), raw_field("slug", "text")]);
         let ctx = build_context(schema).expect("构建失败");
 
         assert_eq!(ctx.select_columns, "id, name, slug");
@@ -760,7 +803,11 @@ mod tests {
         let schema = minimal_schema(vec![field]);
         let ctx = build_context(schema).expect("构建失败");
 
-        let desc = ctx.create_fields.iter().find(|f| f.name == "description").unwrap();
+        let desc = ctx
+            .create_fields
+            .iter()
+            .find(|f| f.name == "description")
+            .unwrap();
         assert_eq!(desc.create_type, "Option<String>");
     }
 
@@ -771,7 +818,11 @@ mod tests {
         let schema = minimal_schema(vec![field]);
         let ctx = build_context(schema).expect("构建失败");
 
-        let parent = ctx.create_fields.iter().find(|f| f.name == "parent_id").unwrap();
+        let parent = ctx
+            .create_fields
+            .iter()
+            .find(|f| f.name == "parent_id")
+            .unwrap();
         assert_eq!(parent.create_type, "Option<String>");
     }
 
@@ -791,7 +842,11 @@ mod tests {
         let schema = minimal_schema(vec![field]);
         let ctx = build_context(schema).expect("构建失败");
 
-        let parent = ctx.update_fields.iter().find(|f| f.name == "parent_id").unwrap();
+        let parent = ctx
+            .update_fields
+            .iter()
+            .find(|f| f.name == "parent_id")
+            .unwrap();
         assert_eq!(parent.update_type, "Option<String>");
     }
 

@@ -63,6 +63,7 @@ mod fts5_search_tests {
                 content_type: ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -241,6 +242,7 @@ mod fts5_search_tests {
                 content_type: ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
         )
         .await
@@ -332,6 +334,7 @@ mod fts5_search_tests {
                 content_type: ContentType::Post,
                 custom_html_path: None,
                 page_render_mode: "editor",
+                scheduled_at: None,
             },
             None,
         )
@@ -423,10 +426,9 @@ mod fts5_search_tests {
             .unwrap();
         assert_eq!(results.len(), 0);
 
-        let count =
-            repository::count_search_posts(&pool, "nonexistent_keyword_xyz", None, None)
-                .await
-                .unwrap();
+        let count = repository::count_search_posts(&pool, "nonexistent_keyword_xyz", None, None)
+            .await
+            .unwrap();
         assert_eq!(count, 0);
     }
 

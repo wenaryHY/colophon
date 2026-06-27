@@ -9,9 +9,9 @@ use axum::{
     routing::{delete, get, patch, post},
     Router,
 };
-use axum_governor::{nz, Quota};
 use axum_governor::GovernorConfigBuilder as AxumGovernorConfigBuilder;
 use axum_governor::GovernorLayer as AxumGovernorLayer;
+use axum_governor::{nz, Quota};
 use tower::ServiceBuilder;
 use tower_http::{
     compression::CompressionLayer,
@@ -302,7 +302,9 @@ struct RateLimitLayers {
 fn configure_rate_limits(trusted_proxies: Vec<std::net::IpAddr>) -> RateLimitLayers {
     let register = AxumGovernorLayer::new(
         AxumGovernorConfigBuilder::default()
-            .with_extractor(ForwardedIpExtractor { trusted_proxies: trusted_proxies.clone() })
+            .with_extractor(ForwardedIpExtractor {
+                trusted_proxies: trusted_proxies.clone(),
+            })
             .quota_default(Quota::requests_per_second(nz!(1u32)).burst(nz!(3u32)))
             .finish()
             .expect("governor config with valid quota must succeed"),
@@ -310,7 +312,9 @@ fn configure_rate_limits(trusted_proxies: Vec<std::net::IpAddr>) -> RateLimitLay
 
     let login = AxumGovernorLayer::new(
         AxumGovernorConfigBuilder::default()
-            .with_extractor(ForwardedIpExtractor { trusted_proxies: trusted_proxies.clone() })
+            .with_extractor(ForwardedIpExtractor {
+                trusted_proxies: trusted_proxies.clone(),
+            })
             .quota_default(Quota::seconds_per_request(nz!(10u32)).burst(nz!(3u32)))
             .finish()
             .unwrap(),
@@ -324,7 +328,11 @@ fn configure_rate_limits(trusted_proxies: Vec<std::net::IpAddr>) -> RateLimitLay
             .unwrap(),
     );
 
-    RateLimitLayers { register, login, api }
+    RateLimitLayers {
+        register,
+        login,
+        api,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -341,8 +349,7 @@ fn auth_routes(
     Router::new()
         .route(
             "/api/v1/auth/register",
-            post(modules::auth::handler::register)
-                .route_layer(register_limit),
+            post(modules::auth::handler::register).route_layer(register_limit),
         )
         .route(
             "/api/v1/auth/login",
@@ -423,8 +430,7 @@ fn admin_category_routes() -> Router<Arc<AppState>> {
         )
         .route(
             "/api/v1/admin/tags/{id}",
-            patch(modules::tag::handler::update_tag)
-                .delete(modules::tag::handler::delete_tag),
+            patch(modules::tag::handler::update_tag).delete(modules::tag::handler::delete_tag),
         )
 }
 
@@ -442,8 +448,7 @@ fn admin_post_routes() -> Router<Arc<AppState>> {
         )
         .route(
             "/api/v1/admin/posts",
-            get(modules::post::handler::list_admin_posts)
-                .post(modules::post::handler::create_post),
+            get(modules::post::handler::list_admin_posts).post(modules::post::handler::create_post),
         )
         .route(
             "/api/v1/admin/posts/{id}",
@@ -491,8 +496,7 @@ fn admin_media_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route(
             "/api/v1/admin/media",
-            get(modules::media::handler::list_media)
-                .post(modules::media::handler::upload_media),
+            get(modules::media::handler::list_media).post(modules::media::handler::upload_media),
         )
         .route(
             "/api/v1/admin/media/{id}",
@@ -797,22 +801,10 @@ fn theme_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
                 ))
         })
         .route("/admin/", get(redirect_admin_with_trailing_slash))
-        .route(
-            "/sitemap.xml",
-            get(modules::seo::sitemap::serve_sitemap),
-        )
-        .route(
-            "/rss.xml",
-            get(modules::post::feed::render_atom_feed),
-        )
-        .route(
-            "/feed",
-            get(modules::post::feed::redirect_feed_to_rss),
-        )
-        .route(
-            "/robots.txt",
-            get(modules::seo::robots::serve_robots),
-        )
+        .route("/sitemap.xml", get(modules::seo::sitemap::serve_sitemap))
+        .route("/rss.xml", get(modules::post::feed::render_atom_feed))
+        .route("/feed", get(modules::post::feed::redirect_feed_to_rss))
+        .route("/robots.txt", get(modules::seo::robots::serve_robots))
         .route(
             "/favicon.ico",
             get(|| async { axum::http::StatusCode::NO_CONTENT }),
@@ -916,9 +908,9 @@ pub async fn build_router(state: Arc<AppState>) -> Router {
     if state.config.is_production() {
         router
     } else {
-        router.merge(
-            utoipa_swagger_ui::SwaggerUi::new("/api/docs")
-                .url("/api-docs/openapi.json", crate::bootstrap::openapi::ApiDoc::openapi()),
-        )
+        router.merge(utoipa_swagger_ui::SwaggerUi::new("/api/docs").url(
+            "/api-docs/openapi.json",
+            crate::bootstrap::openapi::ApiDoc::openapi(),
+        ))
     }
 }

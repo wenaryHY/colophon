@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     modules::{
-        auth::dto::RegisterRequest,
-        setting::repository as setting_repository,
+        auth::dto::RegisterRequest, setting::repository as setting_repository,
         user::service as user_service,
     },
     shared::{

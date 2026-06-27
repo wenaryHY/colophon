@@ -13,8 +13,8 @@ use sha2::{Digest, Sha256};
 use std::convert::Infallible;
 
 use super::constants as auth_constants;
-use crate::shared::error::AppError;
 use super::role::Role;
+use crate::shared::error::AppError;
 use crate::state::AppState;
 
 // Re-export hash and jwt functions for convenience
@@ -179,24 +179,23 @@ where
         };
 
         // ── token_version 自救校验：比对 JWT 中的 version 与 DB 当前值 ──
-        let current_version: i32 = sqlx::query_scalar(
-            "SELECT token_version FROM users WHERE id = ?",
-        )
-        .bind(&claims.sub)
-        .fetch_optional(&app_state.pool)
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                module = "shared_auth",
-                event = "auth_token_version_query_failed",
-                path = %parts.uri.path(),
-                user_id = %claims.sub,
-                error = ?e,
-                "token_version query failed"
-            );
-            AppError::Sqlx(e)
-        })?
-        .unwrap_or(1);
+        let current_version: i32 =
+            sqlx::query_scalar("SELECT token_version FROM users WHERE id = ?")
+                .bind(&claims.sub)
+                .fetch_optional(&app_state.pool)
+                .await
+                .map_err(|e| {
+                    tracing::error!(
+                        module = "shared_auth",
+                        event = "auth_token_version_query_failed",
+                        path = %parts.uri.path(),
+                        user_id = %claims.sub,
+                        error = ?e,
+                        "token_version query failed"
+                    );
+                    AppError::Sqlx(e)
+                })?
+                .unwrap_or(1);
 
         if current_version != claims.token_version {
             tracing::warn!(
@@ -299,8 +298,8 @@ pub fn validate_password_complexity(password: &str) -> Result<(), AppError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::Role;
+    use super::*;
 
     fn make_user(role: Role) -> AuthUser {
         AuthUser {

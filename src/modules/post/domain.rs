@@ -63,6 +63,7 @@ pub struct AdminPost {
     pub custom_html_path: Option<String>,
     pub page_render_mode: String,
     pub published_at: Option<String>,
+    pub scheduled_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub deleted_at: Option<String>,

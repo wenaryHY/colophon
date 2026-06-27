@@ -22,11 +22,13 @@ pub async fn start_trash_scheduler(state: Arc<AppState>) -> Result<(), AppError>
     let minute = minute_str.parse::<u32>().unwrap_or(0).clamp(0, 59);
 
     // 读取站点时区配置，转换为 UTC 时间用于 cron 表达式
-    let tz_str = crate::modules::setting::repository::get_string(&state.pool, "site_timezone", "UTC")
-        .await
-        .unwrap_or_else(|_| "UTC".into());
+    let tz_str =
+        crate::modules::setting::repository::get_string(&state.pool, "site_timezone", "UTC")
+            .await
+            .unwrap_or_else(|_| "UTC".into());
     let tz: Tz = tz_str.parse().unwrap_or(chrono_tz::UTC);
-    let (utc_hour, utc_minute) = crate::modules::backup::service::local_time_to_utc_for_cron(hour, minute, tz);
+    let (utc_hour, utc_minute) =
+        crate::modules::backup::service::local_time_to_utc_for_cron(hour, minute, tz);
     let cron = format!("0 {} {} * * * *", utc_minute, utc_hour);
     let mut scheduler = JobScheduler::new()
         .await

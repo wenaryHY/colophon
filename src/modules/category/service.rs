@@ -3,9 +3,9 @@ use std::sync::Arc;
 use crate::{
     shared::{
         error::{AppError, AppResult},
+        http::require_non_empty,
         response::deleted_json,
         slug::generate_slug,
-        http::require_non_empty,
     },
     state::AppState,
 };

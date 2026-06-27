@@ -178,9 +178,7 @@ where
 
 /// 获取所有标签及其文章数量（用于标签云）
 /// 只返回至少有一篇已发布文章的标签
-pub async fn get_all_tags_with_count<'e, E>(
-    executor: E,
-) -> Result<Vec<TagWithCount>, sqlx::Error>
+pub async fn get_all_tags_with_count<'e, E>(executor: E) -> Result<Vec<TagWithCount>, sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {

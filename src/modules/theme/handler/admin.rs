@@ -106,9 +106,7 @@ pub async fn upload_theme_archive(
         }
     }
 
-    let theme_data = theme_data.ok_or(AppError::BadRequest(
-        "No file uploaded".to_string(),
-    ))?;
+    let theme_data = theme_data.ok_or(AppError::BadRequest("No file uploaded".to_string()))?;
 
     // 解析 zip 包
     let cursor = std::io::Cursor::new(theme_data);
@@ -118,19 +116,16 @@ pub async fn upload_theme_archive(
     // 查找 theme.toml
     let mut manifest_content = String::new();
     {
-        let mut theme_toml = archive.by_name("theme.toml").map_err(|_| {
-            AppError::BadRequest(
-                "theme.toml not found in archive".to_string(),
-            )
-        })?;
+        let mut theme_toml = archive
+            .by_name("theme.toml")
+            .map_err(|_| AppError::BadRequest("theme.toml not found in archive".to_string()))?;
         std::io::Read::read_to_string(&mut theme_toml, &mut manifest_content)
             .map_err(|e| AppError::Io(e))?;
     }
 
     // 解析 manifest
-    let manifest: ThemeManifest = toml::from_str(&manifest_content).map_err(|e| {
-        AppError::BadRequest(format!("Failed to parse theme.toml: {}", e))
-    })?;
+    let manifest: ThemeManifest = toml::from_str(&manifest_content)
+        .map_err(|e| AppError::BadRequest(format!("Failed to parse theme.toml: {}", e)))?;
 
     // 提取主题到 themes 目录
     let theme_dir = state.theme_dir.join(&manifest.slug);
@@ -141,12 +136,9 @@ pub async fn upload_theme_archive(
 
     let extract_result = (|| -> AppResult<()> {
         for i in 0..archive.len() {
-            let mut file = archive.by_index(i).map_err(|e| {
-                AppError::Anyhow(anyhow::anyhow!(
-                    "Failed to read archive: {}",
-                    e
-                ))
-            })?;
+            let mut file = archive
+                .by_index(i)
+                .map_err(|e| AppError::Anyhow(anyhow::anyhow!("Failed to read archive: {}", e)))?;
             let entry_path = file
                 .enclosed_name()
                 .ok_or_else(|| AppError::BadRequest("ZIP contains invalid path entry".to_string()))?
@@ -160,8 +152,7 @@ pub async fn upload_theme_archive(
             if let Some(parent) = outpath.parent() {
                 std::fs::create_dir_all(parent).map_err(AppError::Io)?;
             }
-            let mut outfile =
-                std::fs::File::create(&outpath).map_err(AppError::Io)?;
+            let mut outfile = std::fs::File::create(&outpath).map_err(AppError::Io)?;
             std::io::copy(&mut file, &mut outfile).map_err(AppError::Io)?;
         }
         Ok(())
@@ -223,7 +214,9 @@ pub async fn delete_theme(
 
     let active_slug = crate::modules::theme::repository::get_active_theme(&state.pool).await?;
     if slug == active_slug {
-        return Err(AppError::BadRequest("不能删除当前激活的主题，请先切换到其他主题".into()));
+        return Err(AppError::BadRequest(
+            "不能删除当前激活的主题，请先切换到其他主题".into(),
+        ));
     }
 
     let theme_path = state.theme_dir.join(&slug);
@@ -252,7 +245,9 @@ pub async fn delete_theme(
         "theme and config deleted successfully"
     );
 
-    Ok(Json(ApiResponse::success(serde_json::json!({ "deleted": slug }))))
+    Ok(Json(ApiResponse::success(
+        serde_json::json!({ "deleted": slug }),
+    )))
 }
 
 #[cfg(test)]

@@ -104,10 +104,7 @@ where
 }
 
 /// 删除主题配置记录（如果存在）
-pub async fn delete_config<'e, E>(
-    executor: E,
-    slug: &str,
-) -> Result<(), sqlx::Error>
+pub async fn delete_config<'e, E>(executor: E, slug: &str) -> Result<(), sqlx::Error>
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {

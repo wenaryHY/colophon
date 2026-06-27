@@ -108,7 +108,10 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let storage = LocalStorage::new(tmp.path().to_path_buf(), "/uploads".into());
         let result = storage.save(b"evil", "../../../tmp/evil.txt").await;
-        assert!(result.is_err(), "path traversal with ../ should be rejected");
+        assert!(
+            result.is_err(),
+            "path traversal with ../ should be rejected"
+        );
     }
 
     /// H-3: 路径遍历攻击测试 — 尝试写入绝对路径 /etc/cron.d/evil
@@ -117,7 +120,10 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let storage = LocalStorage::new(tmp.path().to_path_buf(), "/uploads".into());
         let result = storage.save(b"evil", "/etc/cron.d/evil").await;
-        assert!(result.is_err(), "absolute path outside base should be rejected");
+        assert!(
+            result.is_err(),
+            "absolute path outside base should be rejected"
+        );
     }
 
     /// H-3: 正常路径应被允许
@@ -135,7 +141,10 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let storage = LocalStorage::new(tmp.path().to_path_buf(), "/uploads".into());
         let result = storage.delete("../../etc/hosts").await;
-        assert!(result.is_err(), "delete with path traversal should be rejected");
+        assert!(
+            result.is_err(),
+            "delete with path traversal should be rejected"
+        );
     }
 
     /// N-2: 路径遍历防护 — exists 应拒绝 ../../etc/passwd
@@ -144,6 +153,9 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let storage = LocalStorage::new(tmp.path().to_path_buf(), "/uploads".into());
         let result = storage.exists("../../etc/passwd").await;
-        assert!(result.is_err(), "exists with path traversal should be rejected");
+        assert!(
+            result.is_err(),
+            "exists with path traversal should be rejected"
+        );
     }
 }

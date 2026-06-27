@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use axum::{
-    Extension,
     extract::{Query, State},
     http::HeaderMap,
     response::{Html, IntoResponse, Redirect, Response},
+    Extension,
 };
 use serde::Deserialize;
 

@@ -60,7 +60,9 @@ pub struct SearchPageQuery {
     pub page: u32,
 }
 
-fn default_search_page() -> u32 { 1 }
+fn default_search_page() -> u32 {
+    1
+}
 
 /// 归档页查询参数（标签/分类/作者）
 #[derive(Debug, Deserialize)]

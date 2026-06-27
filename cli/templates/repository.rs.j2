@@ -1,3 +1,4 @@
+use uuid::Uuid;
 use sqlx::SqlitePool;
 use super::domain::{{ model_name }};
 
@@ -22,17 +23,17 @@ pub async fn get_{{ model_name | lower }}(pool: &SqlitePool, id: &str) -> Result
 
 pub async fn insert_{{ model_name | lower }}(
     pool: &SqlitePool,
-{% for field in insert_fields %}
-    {{ field.name }}: {% if field.required and not field.computed %}&str{% else %}Option<&str>{% endif %},
-{% endfor %}
+{%- for field in insert_fields %}
+    {{ field.name }}: {{ field.param_type }},
+{%- endfor %}
 ) -> Result<String, sqlx::Error> {
-    let id = uuid::Uuid::new_v4().to_string();
+    let id = Uuid::new_v4().to_string();
     sqlx::query(
         "INSERT INTO {{ table_name }} ({{ insert_columns }}) VALUES ({{ insert_placeholders }})"
     )
-{% for field in insert_fields %}
+{%- for field in insert_fields %}
     .bind({{ field.name }})
-{% endfor %}
+{%- endfor %}
     .execute(pool)
     .await?;
     Ok(id)
@@ -41,16 +42,16 @@ pub async fn insert_{{ model_name | lower }}(
 pub async fn update_{{ model_name | lower }}(
     pool: &SqlitePool,
     id: &str,
-{% for field in update_fields %}
-    {{ field.name }}: {% if field.required %}&str{% else %}Option<&str>{% endif %},
-{% endfor %}
+{%- for field in update_fields %}
+    {{ field.name }}: {{ field.opt_param_type }},
+{%- endfor %}
 ) -> Result<bool, sqlx::Error> {
     let result = sqlx::query(
         "UPDATE {{ table_name }} SET {{ update_set_clause }} WHERE id = ?"
     )
-{% for field in update_fields %}
+{%- for field in update_fields %}
     .bind({{ field.name }})
-{% endfor %}
+{%- endfor %}
     .bind(id)
     .execute(pool)
     .await?;

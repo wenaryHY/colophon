@@ -13,9 +13,9 @@
 //!     f. 关闭所有插件（逐个超时保护）
 //!     g. 关闭数据库连接池
 
+use crate::state::AppState;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::state::AppState;
 
 /// CancelToken 优雅退出等待时间
 const CANCEL_TOKEN_GRACE_PERIOD: Duration = Duration::from_secs(2);
@@ -30,12 +30,10 @@ const FINAL_DRAIN_MS: u64 = 100;
 pub async fn wait_for_shutdown_signal() {
     #[cfg(unix)]
     {
-        let mut sigterm = tokio::signal::unix::signal(
-            tokio::signal::unix::SignalKind::terminate()
-        ).expect("failed to register SIGTERM handler");
-        let mut sigint = tokio::signal::unix::signal(
-            tokio::signal::unix::SignalKind::interrupt()
-        ).expect("failed to register SIGINT handler");
+        let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to register SIGTERM handler");
+        let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+            .expect("failed to register SIGINT handler");
 
         tokio::select! {
             _ = sigterm.recv() => {
@@ -48,7 +46,9 @@ pub async fn wait_for_shutdown_signal() {
     }
     #[cfg(not(unix))]
     {
-        tokio::signal::ctrl_c().await.expect("failed to listen for Ctrl+C");
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to listen for Ctrl+C");
         tracing::info!(module = "shutdown", event = "ctrl_c", "received Ctrl+C");
     }
 
@@ -67,26 +67,47 @@ pub async fn run_shutdown_sequence(state: &Arc<AppState>) {
     tracing::info!(module = "shutdown", step = 1, "cancel_token triggered");
 
     // Step 2: 停止备份调度器
-    tracing::info!(module = "shutdown", step = 2, "stopping backup scheduler...");
+    tracing::info!(
+        module = "shutdown",
+        step = 2,
+        "stopping backup scheduler..."
+    );
     match tokio::time::timeout(
         step_timeout,
         crate::modules::backup::scheduler::stop_backup_scheduler(state),
-    ).await {
+    )
+    .await
+    {
         Ok(()) => tracing::info!(module = "shutdown", step = 2, "backup scheduler stopped"),
-        Err(_) => tracing::warn!(module = "shutdown", step = 2, "backup scheduler stop timed out"),
+        Err(_) => tracing::warn!(
+            module = "shutdown",
+            step = 2,
+            "backup scheduler stop timed out"
+        ),
     }
 
     // Step 2.5: 等待 WebP worker 排空（让当前正在转换的任务完成）
     {
         let mut guard = state.webp_worker_handle.lock().await;
         if let Some(handle) = guard.take() {
-            tracing::info!(module = "shutdown", step = 2.5, "waiting for webp worker to drain...");
+            tracing::info!(
+                module = "shutdown",
+                step = 2.5,
+                "waiting for webp worker to drain..."
+            );
             let abort_handle = handle.abort_handle();
             let drain_timeout = Duration::from_secs(60); // 给大图转换足够时间
             if tokio::time::timeout(drain_timeout, async {
                 let _ = handle.await;
-            }).await.is_err() {
-                tracing::warn!(module = "shutdown", step = 2.5, "webp worker drain timed out, aborting");
+            })
+            .await
+            .is_err()
+            {
+                tracing::warn!(
+                    module = "shutdown",
+                    step = 2.5,
+                    "webp worker drain timed out, aborting"
+                );
                 abort_handle.abort();
             } else {
                 tracing::info!(module = "shutdown", step = 2.5, "webp worker drained");
@@ -101,25 +122,51 @@ pub async fn run_shutdown_sequence(state: &Arc<AppState>) {
         let abort_handle = handle.abort_handle();
         if tokio::time::timeout(CANCEL_TOKEN_GRACE_PERIOD, async {
             let _ = handle.await;
-        }).await.is_err() {
-            tracing::warn!(module = "shutdown", step = 3, "trash scheduler did not exit gracefully, aborting");
+        })
+        .await
+        .is_err()
+        {
+            tracing::warn!(
+                module = "shutdown",
+                step = 3,
+                "trash scheduler did not exit gracefully, aborting"
+            );
             abort_handle.abort();
         } else {
-            tracing::info!(module = "shutdown", step = 3, "trash scheduler stopped gracefully");
+            tracing::info!(
+                module = "shutdown",
+                step = 3,
+                "trash scheduler stopped gracefully"
+            );
         }
     }
 
     // Step 4: 停止文件监听器
-    tracing::info!(module = "shutdown", step = 4, "stopping theme file watcher...");
+    tracing::info!(
+        module = "shutdown",
+        step = 4,
+        "stopping theme file watcher..."
+    );
     if let Some(handle) = state.theme_watcher_handle.lock().await.take() {
         let abort_handle = handle.abort_handle();
         if tokio::time::timeout(CANCEL_TOKEN_GRACE_PERIOD, async {
             let _ = handle.await;
-        }).await.is_err() {
-            tracing::warn!(module = "shutdown", step = 4, "theme file watcher did not exit gracefully, aborting");
+        })
+        .await
+        .is_err()
+        {
+            tracing::warn!(
+                module = "shutdown",
+                step = 4,
+                "theme file watcher did not exit gracefully, aborting"
+            );
             abort_handle.abort();
         } else {
-            tracing::info!(module = "shutdown", step = 4, "theme file watcher stopped gracefully");
+            tracing::info!(
+                module = "shutdown",
+                step = 4,
+                "theme file watcher stopped gracefully"
+            );
         }
     }
 
@@ -136,9 +183,15 @@ pub async fn run_shutdown_sequence(state: &Arc<AppState>) {
     tracing::info!(module = "shutdown", step = 6, "closing database pool...");
     match tokio::time::timeout(step_timeout, async {
         state.pool.close().await;
-    }).await {
+    })
+    .await
+    {
         Ok(()) => tracing::info!(module = "shutdown", step = 6, "database pool closed"),
-        Err(_) => tracing::warn!(module = "shutdown", step = 6, "database pool close timed out"),
+        Err(_) => tracing::warn!(
+            module = "shutdown",
+            step = 6,
+            "database pool close timed out"
+        ),
     }
 
     // 等待短暂清盘

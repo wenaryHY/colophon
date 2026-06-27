@@ -42,10 +42,8 @@ impl PluginManager {
 
     /// 从发现的插件列表创建 PluginManager，暂不编译 Wasm
     pub async fn load_with(discovered: Vec<DiscoveredPlugin>) -> Self {
-        let manifests: Vec<PluginManifest> = discovered
-            .iter()
-            .map(|d| d.manifest.clone())
-            .collect();
+        let manifests: Vec<PluginManifest> =
+            discovered.iter().map(|d| d.manifest.clone()).collect();
         let plugin_dirs: HashMap<String, PathBuf> = discovered
             .into_iter()
             .map(|d| (d.manifest.plugin.id.clone(), d.dir_path))
@@ -208,10 +206,7 @@ impl PluginManager {
 
     /// 返回所有已编译 Wasm 模块的插件 ID 列表
     pub fn plugin_names(&self) -> Vec<String> {
-        self.manifests
-            .iter()
-            .map(|m| m.plugin.id.clone())
-            .collect()
+        self.manifests.iter().map(|m| m.plugin.id.clone()).collect()
     }
 
     /// 检查 wasm_runtime 是否为空且无 manifest

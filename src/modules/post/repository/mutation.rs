@@ -20,8 +20,8 @@ where
         "INSERT INTO posts (
             id, author_id, title, slug, excerpt, content_md, content_html, cover_media_id,
             status, visibility, category_id, allow_comment, pinned, content_type,
-            custom_html_path, page_render_mode, published_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            custom_html_path, page_render_mode, published_at, scheduled_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(params.author_id)
@@ -40,6 +40,7 @@ where
     .bind(params.custom_html_path)
     .bind(params.page_render_mode)
     .bind(published_at)
+    .bind(params.scheduled_at)
     .execute(executor)
     .await?;
 
@@ -66,12 +67,21 @@ where
         None
     };
 
+    // scheduled_at 逻辑：
+    // - 如果状态是 Scheduled，保留传入的 scheduled_at
+    // - 如果状态不是 Scheduled（切回 Draft/Trashed），清空 scheduled_at
+    let scheduled_at: Option<&str> = if params.status == PostStatus::Scheduled {
+        params.scheduled_at
+    } else {
+        None
+    };
+
     sqlx::query(
         "UPDATE posts
          SET title = ?, slug = ?, excerpt = ?, content_md = ?, content_html = ?, cover_media_id = ?,
              status = ?, visibility = ?, category_id = ?, allow_comment = ?, pinned = ?,
              content_type = ?, custom_html_path = ?, page_render_mode = ?, published_at = ?,
-             updated_at = datetime('now')
+             scheduled_at = ?, updated_at = datetime('now')
          WHERE id = ?",
     )
     .bind(params.title)
@@ -89,6 +99,7 @@ where
     .bind(params.custom_html_path)
     .bind(params.page_render_mode)
     .bind(published_at)
+    .bind(scheduled_at)
     .bind(params.post_id)
     .execute(executor)
     .await?;
@@ -129,4 +140,23 @@ where
     .execute(executor)
     .await?;
     Ok(())
+}
+
+/// 原子发布所有到期的定时文章。
+/// 返回被发布的文章 ID 列表。
+pub async fn publish_scheduled_posts<'e, E>(
+    executor: E,
+) -> Result<Vec<String>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
+    let ids: Vec<String> = sqlx::query_scalar(
+        "UPDATE posts 
+         SET status = 'published', published_at = scheduled_at, updated_at = datetime('now')
+         WHERE status = 'scheduled' AND scheduled_at <= datetime('now') AND deleted_at IS NULL
+         RETURNING id",
+    )
+    .fetch_all(executor)
+    .await?;
+    Ok(ids)
 }
