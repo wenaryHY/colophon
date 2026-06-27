@@ -81,3 +81,4 @@ inkforge.db-wal
 test_backup_*.db
 test_backup_*.db.bak
 test_backups_*/
+*.db-journal

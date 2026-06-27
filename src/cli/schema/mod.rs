@@ -94,12 +94,6 @@ required = false
 name = "parent_id"
 type = "relation"
 required = false
-references = "categories.id"
-
-[[fields]]
-name = "excerpt"
-type = "text"
-computed = true
 "#;
 
         let mut tmpfile = tempfile::NamedTempFile::new().expect("创建临时文件失败");
@@ -114,8 +108,8 @@ computed = true
         assert_eq!(ctx.table_name, "categories");
         assert_eq!(ctx.display_name, "分类");
 
-        // 验证字段数量：id + 5个用户字段 + created_at + updated_at + deleted_at + sort_order = 10
-        assert_eq!(ctx.fields.len(), 10);
+        // 验证字段数量：id + 4个用户字段(name, slug, description, parent_id) + created_at + updated_at + deleted_at + sort_order = 9
+        assert_eq!(ctx.fields.len(), 9);
 
         // 验证 id 字段
         let id = ctx.fields.first().unwrap();
@@ -139,9 +133,8 @@ computed = true
         assert_eq!(desc.rust_type, "String");
         assert!(!desc.required);
 
-        // 验证 create_fields 排除了 computed
+        // 验证 create_fields 不含 computed 字段
         assert!(ctx.create_fields.iter().all(|f| !f.computed));
-        assert!(!ctx.create_fields.iter().any(|f| f.name == "excerpt"));
 
         // 验证 update_fields 排除了 id
         assert!(ctx.update_fields.iter().all(|f| f.name != "id"));

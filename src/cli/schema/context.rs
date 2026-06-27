@@ -48,10 +48,34 @@ fn to_pascal_case(s: &str) -> String {
 /// relation 类型的 rust_type 受 required 影响，需要在外层单独处理。
 fn map_type(field_type: &str, required: bool) -> (&'static str, &'static str) {
     match field_type {
-        "text" => ("String", "TEXT NOT NULL"),
-        "richtext" => ("String", "TEXT NOT NULL"),
-        "boolean" => ("bool", "INTEGER NOT NULL DEFAULT 0"),
-        "integer" => ("i64", "INTEGER NOT NULL DEFAULT 0"),
+        "text" => {
+            if required {
+                ("String", "TEXT NOT NULL")
+            } else {
+                ("String", "TEXT")
+            }
+        }
+        "richtext" => {
+            if required {
+                ("String", "TEXT NOT NULL")
+            } else {
+                ("String", "TEXT")
+            }
+        }
+        "boolean" => {
+            if required {
+                ("bool", "INTEGER NOT NULL DEFAULT 0")
+            } else {
+                ("bool", "INTEGER")
+            }
+        }
+        "integer" => {
+            if required {
+                ("i64", "INTEGER NOT NULL DEFAULT 0")
+            } else {
+                ("i64", "INTEGER")
+            }
+        }
         "timestamp" => (
             "String",
             "TEXT NOT NULL DEFAULT (datetime('now'))",
@@ -865,6 +889,56 @@ mod tests {
             "错误信息应说明 relation 不支持 required=true: {}",
             err_msg
         );
+    }
+
+    // ── required=false 类型映射测试 ──────────────────────────────────────────
+
+    #[test]
+    fn text_type_optional_when_not_required() {
+        let mut field = raw_field("description", "text");
+        field.required = false;
+        let schema = minimal_schema(vec![field]);
+        let ctx = build_context(schema).expect("构建失败");
+
+        let f = ctx.fields.iter().find(|f| f.name == "description").unwrap();
+        assert_eq!(f.rust_type, "String");
+        assert_eq!(f.sqlite_type, "TEXT");
+    }
+
+    #[test]
+    fn richtext_type_optional_when_not_required() {
+        let mut field = raw_field("body", "richtext");
+        field.required = false;
+        let schema = minimal_schema(vec![field]);
+        let ctx = build_context(schema).expect("构建失败");
+
+        let f = ctx.fields.iter().find(|f| f.name == "body").unwrap();
+        assert_eq!(f.rust_type, "String");
+        assert_eq!(f.sqlite_type, "TEXT");
+    }
+
+    #[test]
+    fn boolean_type_optional_when_not_required() {
+        let mut field = raw_field("featured", "boolean");
+        field.required = false;
+        let schema = minimal_schema(vec![field]);
+        let ctx = build_context(schema).expect("构建失败");
+
+        let f = ctx.fields.iter().find(|f| f.name == "featured").unwrap();
+        assert_eq!(f.rust_type, "bool");
+        assert_eq!(f.sqlite_type, "INTEGER");
+    }
+
+    #[test]
+    fn integer_type_optional_when_not_required() {
+        let mut field = raw_field("views", "integer");
+        field.required = false;
+        let schema = minimal_schema(vec![field]);
+        let ctx = build_context(schema).expect("构建失败");
+
+        let f = ctx.fields.iter().find(|f| f.name == "views").unwrap();
+        assert_eq!(f.rust_type, "i64");
+        assert_eq!(f.sqlite_type, "INTEGER");
     }
 
     #[test]
