@@ -107,7 +107,7 @@ curl "http://localhost:2000/api/v1/search?keyword=rust&category_id=tech&page=1&p
 ## 相关文件清单
 
 ```
-D:\codes\inkforge\
+D:\codes\colophon\
 ├── migrations/
 │   └── 018_trigram_fts5.sql          # FTS5 虚拟表 + 触发器
 ├── src/
