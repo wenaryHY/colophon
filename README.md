@@ -25,6 +25,15 @@ cargo run --release
 
 Requires Rust 1.75+, Node.js 22+, SQLite 3. The admin panel is fully embedded in the binary -- no separate frontend server.
 
+**Development:**
+
+Run the backend server and frontend Vite dev server concurrently:
+
+```bash
+npm install
+npm run dev
+```
+
 **Docker:**
 
 ```bash
@@ -59,10 +68,10 @@ Colophon competes in the headless CMS and blogging-platform space. The table bel
 | **Deployment** | Copy binary, run | npm install, configure, node server + DB | npm install, configure, node server + DB | Ghost CLI + Node + DB | LAMP/LEMP stack |
 | **Min VPS** | 512 MB ($4/mo) | 2 GB ($18/mo) | 2 GB ($18/mo) | 1 GB ($6/mo) | 1 GB ($6/mo) |
 | **Database** | SQLite (zero-config) | PostgreSQL / MySQL / SQLite | PostgreSQL / MySQL / SQLite | MySQL | MySQL |
-| **Plugin model** | Rust trait, static linking | JavaScript, runtime | JavaScript, runtime | JavaScript, runtime | PHP, runtime |
+| **Plugin model** | WebAssembly (Wasm) sandbox | JavaScript, runtime | JavaScript, runtime | JavaScript, runtime | PHP, runtime |
 | **License** | AGPLv3 | MIT | BSL / MIT | MIT | GPLv2 |
 
-Colophon's plugin system is Rust-native: plugins are compiled, statically linked, and verified by the type system before deployment. This is fundamentally different from PHP or JavaScript plugin models -- safer by construction, but with a higher bar for plugin authorship.
+Colophon's plugin system is WebAssembly-native: plugins are pre-compiled `.wasm` modules executed in an isolated Extism sandbox at runtime. This is fundamentally different from Node or PHP plugin models -- safer by construction with zero risk of crashing the core server.
 
 ## Architecture
 
@@ -170,29 +179,28 @@ Colophon offers two extension paths, designed for different levels of technical 
 
 Configure webhook URLs in the admin panel. Colophon fires an HTTP POST with a JSON payload on every post lifecycle event. Built-in retry logic, concurrency control, and delivery logging. See [Webhook Guide](docs/webhook-guide.md).
 
-### Plugins (Rust, full control)
+### Plugins (WebAssembly, dynamic sandboxing)
 
 ```
  ┌──────────┐
  │ Colophon │
- │          │   Plugin trait
+ │          │   Extism SDK
  │ ┌──────┐ │   ┌─────────────┐
- │ │ Core │◄┼───┤ Plugin A    │   api_routes()     -- custom REST endpoints
- │ └──────┘ │   │ Plugin B    │   extend_template() -- MiniJinja functions
- │          │   │ Plugin C    │   frontend_assets() -- CSS/JS injection
- │ Admin UI │   │ ...         │   hooks()           -- lifecycle filters/actions
- └──────────┘   └─────────────┘
+ │ │ Core │◄┼───┤ Plugin.wasm │   hooks()           -- lifecycle filters/actions
+ │ └──────┘ │   │ (sandboxed) │   settings()        -- custom runtime configuration
+ │          │   └─────────────┘
+ │ Admin UI │
+ └──────────┘
 ```
 
-Plugins are Rust crates discovered from the `plugins/` directory. They implement the `Plugin` trait and are compiled and statically linked into the binary at build time -- no runtime dynamic dispatch overhead. Each plugin can register:
+Plugins are pre-compiled WebAssembly (`.wasm`) modules discovered from the `plugins/` directory. They run dynamically inside a secure WebAssembly sandbox powered by **Extism**, requiring no recompilation of the main Rust binary.
 
-- **API routes** -- custom `axum::Router` handlers under `/api/v1/plugins/`
-- **Template functions** -- callable from any MiniJinja theme template
-- **Frontend assets** -- CSS/JS injected into the admin panel
-- **Hooks** -- Filter hooks (synchronous, can mutate data) and Action hooks (fire-and-forget, cannot block the response)
-- **Settings** -- user-configurable settings surfaced in the admin panel
+Each plugin is strictly isolated:
+- **Zero Network/FS Access** -- Network and file system calls are blocked by default.
+- **Resource Limits** -- Capped memory footprint (10 MB max) and runtime execution timeout (5s max).
+- **Webhooks & Hooks** -- Register Filter hooks (synchronous, mutate data) and Action hooks (fire-and-forget, non-blocking) to extend system logic dynamically.
 
-Enable or disable plugins from the admin panel without restarting. See [Plugin Guide](docs/plugin-guide.md).
+Enable or disable plugins instantly from the admin panel. See [Plugin Guide](docs/plugin-guide.md).
 
 ## Performance
 

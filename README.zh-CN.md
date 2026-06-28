@@ -25,6 +25,15 @@ cargo run --release
 
 需要 Rust 1.75+、Node.js 22+、SQLite 3。管理后台完全内嵌在二进制文件中 —— 不需要单独的前端服务器。
 
+**开发环境：**
+
+同时启动后端服务与前端 Vite 开发服务器：
+
+```bash
+npm install
+npm run dev
+```
+
 **Docker：**
 
 ```bash
@@ -59,10 +68,10 @@ Colophon 定位于 headless CMS 和博客平台领域。下表从对自托管部
 | **部署** | 复制二进制，运行 | npm install，配置，node server + DB | npm install，配置，node server + DB | Ghost CLI + Node + DB | LAMP/LEMP 技术栈 |
 | **最低 VPS** | 512 MB（$4/月） | 2 GB（$18/月） | 2 GB（$18/月） | 1 GB（$6/月） | 1 GB（$6/月） |
 | **数据库** | SQLite（零配置） | PostgreSQL / MySQL / SQLite | PostgreSQL / MySQL / SQLite | MySQL | MySQL |
-| **插件模型** | Rust trait，静态链接 | JavaScript，运行时 | JavaScript，运行时 | JavaScript，运行时 | PHP，运行时 |
+| **插件模型** | WebAssembly (Wasm) 沙箱 | JavaScript，运行时 | JavaScript，运行时 | JavaScript，运行时 | PHP，运行时 |
 | **许可证** | AGPLv3 | MIT | BSL / MIT | MIT | GPLv2 |
 
-Colophon 的插件系统是 Rust 原生的：插件被编译、静态链接，并在部署前由类型系统验证。这与 PHP 或 JavaScript 的插件模型有本质区别 —— 默认更安全，但插件编写的门槛更高。
+Colophon 的插件系统是 WebAssembly 原生的：插件是预编译的 `.wasm` 模块，在运行时通过独立的 Extism 沙箱中执行。这与 Node 或 PHP 的插件模型有本质区别 —— 默认更安全，且绝对不会因为插件异常而导致主服务端崩溃。
 
 ## 架构
 
@@ -170,29 +179,28 @@ Colophon 提供两条扩展路径，针对不同技术投入水平设计。
 
 在管理后台配置 Webhook URL。Colophon 在每次文章生命周期事件时发送带 JSON 载荷的 HTTP POST。内置重试逻辑、并发控制和投递日志。参见 [Webhook 指南](docs/webhook-guide.md)。
 
-### 插件（Rust，完全控制）
+### 插件（WebAssembly，动态沙箱）
 
 ```
  ┌──────────┐
  │ Colophon │
- │          │   Plugin trait
+ │          │    Extism SDK
  │ ┌──────┐ │   ┌─────────────┐
- │ │ Core │◄┼───┤ Plugin A    │   api_routes()     -- 自定义 REST 端点
- │ └──────┘ │   │ Plugin B    │   extend_template() -- MiniJinja 函数
- │          │   │ Plugin C    │   frontend_assets() -- CSS/JS 注入
- │ 管理后台 │   │ ...         │   hooks()           -- 生命周期过滤/操作钩子
- └──────────┘   └─────────────┘
+ │ │ 核心 │◄┼───┤ 插件.wasm   │   hooks()           -- 生命周期过滤/操作钩子
+ │ └──────┘ │   │ （沙箱隔离） │   settings()        -- 自定义运行时配置
+ │          │   └─────────────┘
+ │ 管理后台 │
+ └──────────┘
 ```
 
-插件是从 `plugins/` 目录发现的 Rust crate。它们实现 `Plugin` trait，在构建时编译并静态链接到二进制文件中 —— 无运行时动态分发开销。每个插件可以注册：
+插件是预编译的 WebAssembly (`.wasm`) 模块，从 `plugins/` 目录中自动发现。它们通过 **Extism** 引擎在安全的 WebAssembly 沙箱内动态运行，无需重新编译 Rust 二进制文件。
 
-- **API 路由** —— 位于 `/api/v1/plugins/` 下的自定义 `axum::Router` 处理器
-- **模板函数** —— 可在任何 MiniJinja 主题模板中调用
-- **前端资源** —— 注入管理后台的 CSS/JS
-- **钩子** —— 过滤钩子（同步，可修改数据）和操作钩子（即发即弃，不能阻塞响应）
-- **设置** —— 在管理后台展示的用户可配置设置
+每个插件都受到严格的隔离保护：
+- **零网络/文件系统访问** —— 默认禁用网络和文件系统访问。
+- **资源限制** —— 限制最大内存占用（最大 10 MB）和执行超时（最大 5 秒）。
+- **Hook 机制** —— 可以注册过滤钩子（Filter hooks，同步执行并修改数据）和操作钩子（Action hooks，即发即弃，非阻塞），在运行时动态扩展系统逻辑。
 
-可在管理后台启用或禁用插件，无需重启。参见 [插件指南](docs/plugin-guide.md)。
+可在管理后台中即时启用或禁用插件。参见 [插件指南](docs/plugin-guide.md)。
 
 ## 性能
 

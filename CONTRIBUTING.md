@@ -1,6 +1,6 @@
 # Contributing to Colophon
 
-**[English](#english)** | **[中文](#zh)**
+**[English](CONTRIBUTING.md)** | **[中文](CONTRIBUTING.zh-CN.md)**
 
 Thank you for your interest in Colophon! We welcome all forms of contributions.
 感谢你对 Colophon 的关注！我们欢迎各种形式的贡献。
