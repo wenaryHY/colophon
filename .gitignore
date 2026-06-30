@@ -39,10 +39,8 @@ src/admin/ui/colophon.db-shm
 Thumbs.db
 .vscode/
 .idea/
+.trae/
 
-# Kiro
-.workbuddy/
-.codebuddy/
 
 # AI Agent traces
 .kiro/
@@ -52,6 +50,8 @@ themes/default/static/css/TASK_*.md
 TASK_*.md
 analyze/
 target-codex*
+.workbuddy/
+.codebuddy/
 
 # Dev artifacts
 test-*.js
